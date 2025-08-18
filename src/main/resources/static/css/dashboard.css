@@ -1,0 +1,988 @@
+/* Стили для страницы личного кабинета */
+
+/* Основная раскладка */
+.dashboard-body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    min-height: 100vh;
+    display: flex;
+    overflow-x: hidden;
+}
+
+/* Боковое меню */
+.sidebar {
+    width: 280px;
+    background: linear-gradient(180deg, #1e293b, #334155);
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    z-index: 1000;
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+}
+
+.sidebar-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.sidebar-logo {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: white;
+}
+
+.logo-green {
+    background: linear-gradient(135deg, #a3e635, #84cc16);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.sidebar-toggle {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.25rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 8px;
+    transition: background 0.3s ease;
+    display: none;
+}
+
+.sidebar-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-content {
+    padding: 1rem 0;
+}
+
+/* Разделы меню */
+.sidebar-section {
+    margin-bottom: 1.5rem;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.5rem;
+    color: #94a3b8;
+    font-size: 0.3rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.section-icon {
+    font-size: 1rem;
+    color: #a3e635;
+}
+
+.section-title {
+    color: #e2e8f0;
+}
+
+.section-items {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Элементы меню */
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 2rem;
+    color: #cbd5e1;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    position: relative;
+    font-weight: 500;
+}
+
+.sidebar-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, #a3e635, #84cc16);
+    transform: scaleY(0);
+    transition: transform 0.3s ease;
+}
+
+.sidebar-item:hover,
+.sidebar-item.active {
+    background: rgba(163, 230, 53, 0.1);
+    color: white;
+    transform: translateX(4px);
+}
+
+.sidebar-item:hover::before,
+.sidebar-item.active::before {
+    transform: scaleY(1);
+}
+
+.sidebar-item i {
+    font-size: 1.125rem;
+    width: 20px;
+    text-align: center;
+}
+
+/* Основной контент */
+.main-content {
+    flex: 1;
+    margin-left: 280px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    transition: margin-left 0.3s ease;
+}
+
+/* Верхняя панель */
+.top-header {
+    background: white;
+    padding: 0.75rem 1.5rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-bottom: 1px solid #e2e8f0;
+    height: 60px;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.mobile-sidebar-toggle {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    color: #64748b;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 8px;
+    transition: background 0.3s ease;
+}
+
+.mobile-sidebar-toggle:hover {
+    background: #f1f5f9;
+}
+
+.page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.header-btn {
+    background: none;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    color: #64748b;
+}
+
+.header-btn:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+    transform: translateY(-2px);
+}
+
+.header-btn i {
+    font-size: 1.125rem;
+}
+
+.notification-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    font-size: 0.625rem;
+    font-weight: 700;
+    padding: 0.125rem 0.375rem;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+}
+
+.logout-btn:hover {
+    background: #fef2f2;
+    color: #ef4444;
+}
+
+/* Контентная область */
+.content-area {
+    flex: 1;
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+/* Новая раскладка строками */
+.dashboard-row {
+    display: grid;
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.first-row {
+    grid-template-columns: 1fr;
+}
+
+.second-row {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* Карточки дашборда */
+.dashboard-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid #f1f5f9;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+
+.card-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.card-header h2,
+.card-header h3 {
+    margin: 0;
+    color: #1e293b;
+    font-weight: 700;
+}
+
+.card-header h2 {
+    font-size: 1.5rem;
+}
+
+.card-header h3 {
+    font-size: 1.25rem;
+}
+
+.card-header i {
+    color: #a3e635;
+    font-size: 1.5rem;
+}
+
+.card-content {
+    padding: 1.25rem;
+}
+
+/* Приветственная карточка */
+.welcome-card {
+    grid-column: span 2;
+    background: linear-gradient(135deg, #a3e635, #84cc16);
+    color: white;
+}
+
+.welcome-card .card-header {
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.welcome-card .card-header h2,
+.welcome-card .card-content p {
+    color: white;
+}
+
+.welcome-card .card-header i {
+    color: white;
+}
+
+.user-avatar {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.welcome-stats {
+    display: flex;
+    gap: 2rem;
+    margin-top: 1.5rem;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: 800;
+    color: white;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.9);
+    margin-top: 0.25rem;
+}
+
+/* Уроки */
+.lesson-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.lesson-item:hover {
+    background: #f1f5f9;
+    transform: translateX(4px);
+}
+
+.lesson-time {
+    font-weight: 700;
+    color: #a3e635;
+    font-size: 1.125rem;
+    min-width: 60px;
+}
+
+.lesson-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.lesson-subject {
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.lesson-student {
+    font-size: 0.875rem;
+    color: #64748b;
+}
+
+/* Быстрые действия */
+.action-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1.5rem 1rem;
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.action-btn:hover {
+    background: linear-gradient(135deg, #a3e635, #84cc16);
+    color: white;
+    border-color: #84cc16;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(163, 230, 53, 0.3);
+}
+
+.action-btn i {
+    font-size: 1.5rem;
+}
+
+/* Уведомления */
+.notification-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.notification-item:hover {
+    background: #f1f5f9;
+}
+
+.notification-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #a3e635, #84cc16);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
+}
+
+.notification-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+}
+
+.notification-text span:first-child {
+    color: #1e293b;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.notification-time {
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+/* Адаптивность */
+@media (max-width: 1200px) {
+    .welcome-card {
+        grid-column: span 1;
+    }
+    
+    .dashboard-grid {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
+    }
+    
+    .sidebar.open {
+        transform: translateX(0);
+    }
+    
+    .main-content {
+        margin-left: 0;
+    }
+    
+    .mobile-sidebar-toggle {
+        display: flex;
+    }
+    
+    .sidebar-toggle {
+        display: flex;
+    }
+    
+    .content-area {
+        padding: 1rem;
+    }
+    
+    .top-header {
+        padding: 1rem;
+    }
+    
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .welcome-stats {
+        gap: 1rem;
+    }
+    
+    .action-buttons {
+        grid-template-columns: 1fr;
+    }
+    
+    .header-right {
+        gap: 0.5rem;
+    }
+    
+    .page-title {
+        font-size: 1.25rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .sidebar {
+        width: 100%;
+    }
+    
+    .content-area {
+        padding: 0.75rem;
+    }
+    
+    .card-header,
+    .card-content {
+        padding: 1rem;
+    }
+    
+    .welcome-stats {
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: center;
+    }
+}
+
+/* Новые стили для преподавательского дашборда */
+
+/* Статистика преподавателя */
+.teacher-stats-card .card-content {
+    padding: 0;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0;
+}
+
+.stat-block {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem;
+    border-bottom: 1px solid #e5e7eb;
+    border-right: 1px solid #e5e7eb;
+}
+
+.stat-block:nth-child(2n) {
+    border-right: none;
+}
+
+.stat-block:nth-child(3),
+.stat-block:nth-child(4) {
+    border-bottom: none;
+}
+
+.stat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #a7f3d0, #10b981);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.stat-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #065f46;
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+}
+
+/* Мои ученики */
+.students-card .card-content {
+    padding: 0;
+}
+
+.student-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem;
+    border-bottom: 1px solid #e5e7eb;
+    transition: background-color 0.2s ease;
+}
+
+.student-item:last-child {
+    border-bottom: none;
+}
+
+.student-item:hover {
+    background-color: #f9fafb;
+}
+
+.student-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #a7f3d0, #10b981);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.student-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.student-name {
+    font-weight: 600;
+    color: #065f46;
+    font-size: 0.875rem;
+}
+
+.student-subject {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.125rem;
+}
+
+.student-progress {
+    font-weight: 700;
+    color: #059669;
+    font-size: 0.875rem;
+    padding: 0.25rem 0.75rem;
+    background: #ecfdf5;
+    border-radius: 12px;
+}
+
+/* Секция уроков преподавателя */
+.lessons-section {
+    margin-top: 1.5rem;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid #d1fae5;
+}
+
+.section-header h2 {
+    color: #065f46;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.lessons-count {
+    color: #6b7280;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    background: #ecfdf5;
+    border-radius: 20px;
+    font-size: 0.875rem;
+}
+
+/* Сетка уроков */
+.lessons-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.lessons-grid.hidden {
+    display: none;
+}
+
+.lessons-grid.show {
+    display: grid;
+    animation: fadeInUp 0.5s ease;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Карточки уроков преподавателя */
+.lesson-card.teacher-lesson {
+    background: white;
+    border-radius: 12px;
+    padding: 1.25rem;
+    border: 1px solid #d1fae5;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.lesson-card.teacher-lesson:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(6, 95, 70, 0.15);
+}
+
+.lesson-status-badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.lesson-status-badge.completed {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+}
+
+.lesson-status-badge.upcoming {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+}
+
+.lesson-status-badge.scheduled {
+    background: linear-gradient(135deg, #059669, #047857);
+    color: white;
+}
+
+.lesson-info {
+    margin-bottom: 1rem;
+}
+
+.lesson-subject {
+    color: #065f46;
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem 0;
+}
+
+.lesson-topic {
+    color: #6b7280;
+    font-size: 1rem;
+    margin: 0 0 1rem 0;
+    line-height: 1.4;
+}
+
+.lesson-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.lesson-date,
+.lesson-time {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+
+.lesson-student {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #065f46;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.lesson-rating {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.rating-stars {
+    color: #fbbf24;
+    font-size: 0.875rem;
+}
+
+.rating-value {
+    font-weight: 700;
+    color: #065f46;
+    font-size: 0.875rem;
+}
+
+.lesson-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.lesson-btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.875rem;
+}
+
+.lesson-btn.primary {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+}
+
+.lesson-btn.primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+}
+
+.lesson-btn.secondary {
+    background: linear-gradient(135deg, #059669, #047857);
+    color: white;
+}
+
+.lesson-btn.secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(5, 150, 105, 0.4);
+}
+
+/* Кнопка "Показать ещё" */
+.load-more-container {
+    text-align: center;
+    margin-top: 1.5rem;
+}
+
+.load-more-btn {
+    background: linear-gradient(135deg, #059669, #047857);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1rem;
+}
+
+.load-more-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(5, 150, 105, 0.4);
+}
+
+.load-more-btn i {
+    transition: transform 0.3s ease;
+}
+
+.load-more-btn.rotated i {
+    transform: rotate(180deg);
+}
+
+/* Адаптивность для новой раскладки */
+@media (max-width: 1200px) {
+    .second-row {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .lessons-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .stat-block {
+        border-right: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .first-row,
+    .second-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .lessons-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+    
+    .lesson-card.teacher-lesson {
+        padding: 1rem;
+    }
+    
+    .lesson-meta {
+        flex-direction: row;
+        justify-content: space-between;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .stat-block {
+        border-right: none;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .stat-block:last-child {
+        border-bottom: none;
+    }
+} 

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} ?: 'Личный кабинет ученика - Brainify'">Личный кабинет ученика - Brainify</title>
+    
+    <!-- Подключение стилей -->
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/student-dashboard.css}">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="dashboard-body" th:data-student-id="${currentUser.id}">
+    <!-- Боковое меню -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">
+                <span class="logo-green">Brain</span>ify
+            </div>
+            <button class="sidebar-toggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        
+        <div class="sidebar-content">
+            <!-- Раздел: Главная -->
+            <div class="sidebar-section">
+                <div class="section-items">
+                    <a href="#" class="sidebar-item active">
+                        <i class="fas fa-home"></i>
+                        <span>Главная</span>
+                    </a>
+                    <a href="#" class="sidebar-item">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>Расписание</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Основной контент -->
+    <main class="main-content">
+        <!-- Верхняя панель -->
+        <header class="top-header">
+            <div class="header-left">
+                <button class="mobile-sidebar-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="page-title">Главная</h1>
+            </div>
+            
+            <div class="header-right">
+                <button class="header-btn" title="Сообщения">
+                    <i class="fas fa-envelope"></i>
+                    <span class="notification-badge">2</span>
+                </button>
+                <button class="header-btn" title="Профиль">
+                    <i class="fas fa-user"></i>
+                </button>
+                <button class="header-btn logout-btn" title="Выйти">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </header>
+        
+        <!-- Контентная область -->
+        <div class="content-area">
+            <!-- Первая строка: Добро пожаловать -->
+            <div class="dashboard-row first-row">
+                <!-- Приветственная карточка -->
+                <div class="dashboard-card welcome-card">
+                    <div class="card-header">
+                        <h2>Добро пожаловать!</h2>
+                        <div class="user-avatar">
+                            <i class="fas fa-graduation-cap"></i>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <p>Рады видеть вас в личном кабинете ученика Brainify</p>
+                        <div class="welcome-stats">
+                            <div class="stat-item">
+                                <span class="stat-number">28</span>
+                                <span class="stat-label">Уроков пройдено</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number">85%</span>
+                                <span class="stat-label">Средний балл</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Домашние задания - широкая карточка -->
+            <div class="dashboard-row homework-row">
+                <div class="dashboard-card homework-card wide-card">
+                    <div class="card-header">
+                        <h3>Домашние задания</h3>
+                        <i class="fas fa-book-open"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="homework-grid">
+                            <div class="homework-item">
+                                <div class="homework-subject">
+                                    <i class="fas fa-calculator"></i>
+                                    <span>Математика</span>
+                                </div>
+                                <div class="homework-title">Решение квадратных уравнений</div>
+                                <div class="homework-deadline">
+                                    <i class="fas fa-calendar"></i>
+                                    <span>до 15:00 завтра</span>
+                                </div>
+                            </div>
+                            <div class="homework-item">
+                                <div class="homework-subject">
+                                    <i class="fas fa-atom"></i>
+                                    <span>Физика</span>
+                                </div>
+                                <div class="homework-title">Законы Ньютона</div>
+                                <div class="homework-deadline">
+                                    <i class="fas fa-calendar"></i>
+                                    <span>до 18:00 завтра</span>
+                                </div>
+                            </div>
+                            <div class="homework-item">
+                                <div class="homework-subject">
+                                    <i class="fas fa-flask"></i>
+                                    <span>Химия</span>
+                                </div>
+                                <div class="homework-title">Химические реакции</div>
+                                <div class="homework-deadline">
+                                    <i class="fas fa-calendar"></i>
+                                    <span>до 12:00 послезавтра</span>
+                                </div>
+                            </div>
+                            <div class="homework-item">
+                                <div class="homework-subject">
+                                    <i class="fas fa-language"></i>
+                                    <span>Русский язык</span>
+                                </div>
+                                <div class="homework-title">Сочинение по литературе</div>
+                                <div class="homework-deadline">
+                                    <i class="fas fa-calendar"></i>
+                                    <span>до 20:00 сегодня</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Вторая строка: Прогресс, Достижения, Последние оценки -->
+            <div class="dashboard-row second-row">
+                <!-- Прогресс по предметам -->
+                <div class="dashboard-card progress-card">
+                    <div class="card-header">
+                        <h3>Прогресс</h3>
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="progress-item">
+                            <div class="progress-info">
+                                <span class="subject-name">Математика</span>
+                                <span class="progress-percent">92%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 92%"></div>
+                            </div>
+                        </div>
+                        <div class="progress-item">
+                            <div class="progress-info">
+                                <span class="subject-name">Физика</span>
+                                <span class="progress-percent">78%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 78%"></div>
+                            </div>
+                        </div>
+                        <div class="progress-item">
+                            <div class="progress-info">
+                                <span class="subject-name">Химия</span>
+                                <span class="progress-percent">85%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 85%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Достижения -->
+                <div class="dashboard-card achievements-card">
+                    <div class="card-header">
+                        <h3>Достижения</h3>
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="achievement-grid">
+                            <div class="achievement-item">
+                                <div class="achievement-icon">
+                                    <i class="fas fa-star"></i>
+                                </div>
+                                <span class="achievement-name">Отличник</span>
+                            </div>
+                            <div class="achievement-item">
+                                <div class="achievement-icon">
+                                    <i class="fas fa-fire"></i>
+                                </div>
+                                <span class="achievement-name">7 дней подряд</span>
+                            </div>
+                            <div class="achievement-item">
+                                <div class="achievement-icon">
+                                    <i class="fas fa-medal"></i>
+                                </div>
+                                <span class="achievement-name">Первые 10 уроков</span>
+                            </div>
+                            <div class="achievement-item locked">
+                                <div class="achievement-icon">
+                                    <i class="fas fa-lock"></i>
+                                </div>
+                                <span class="achievement-name">50 уроков</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Последние оценки -->
+                <div class="dashboard-card grades-card">
+                    <div class="card-header">
+                        <h3>Последние оценки</h3>
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="grade-item">
+                            <div class="grade-subject">Математика</div>
+                            <div class="grade-task">Контрольная работа</div>
+                            <div class="grade-value excellent">5</div>
+                        </div>
+                        <div class="grade-item">
+                            <div class="grade-subject">Физика</div>
+                            <div class="grade-task">Домашнее задание</div>
+                            <div class="grade-value good">4</div>
+                        </div>
+                        <div class="grade-item">
+                            <div class="grade-subject">Химия</div>
+                            <div class="grade-task">Лабораторная работа</div>
+                            <div class="grade-value excellent">5</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Третья секция: Все уроки ученика -->
+            <div class="lessons-section">
+                <div class="section-header">
+                    <h2>Мои уроки</h2>
+                    <span class="lessons-count">Загрузка уроков...</span>
+                </div>
+                
+                <div class="lessons-grid" id="lessonsGrid">
+                    <!-- Уроки будут загружены динамически через JavaScript -->
+                    <div class="loading-lessons">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Загрузка уроков...</p>
+                    </div>
+                </div>
+
+                <!-- Скрытые уроки (показываются по кнопке "Ещё") -->
+                <div class="lessons-grid hidden" id="hiddenLessons">
+                    <!-- Дополнительные уроки будут загружены динамически -->
+                </div>
+
+                <!-- Кнопка "Ещё" -->
+                <div class="load-more-container">
+                    <button class="load-more-btn" id="loadMoreBtn" style="display: none;">
+                        <span class="btn-text">Показать ещё уроки</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Подключение скриптов -->
+    <script th:src="@{/js/main.js}"></script>
+    <script th:src="@{/js/student-dashboard.js}"></script>
+</body>
+</html> 

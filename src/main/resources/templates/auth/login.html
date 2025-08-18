@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} ?: 'Вход - Brainify'">Вход - Brainify</title>
+    
+    <!-- Подключение стилей -->
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/auth.css}">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="auth-body login-page">
+    <!-- Фоновые элементы -->
+    <div class="auth-background">
+        <div class="auth-shape shape-1"></div>
+        <div class="auth-shape shape-2"></div>
+        <div class="auth-shape shape-3"></div>
+    </div>
+
+    <!-- Основной контейнер -->
+    <div class="auth-container">
+        <!-- Логотип и навигация назад -->
+        <div class="auth-header">
+            <a href="/" class="back-link">
+                <i class="fas fa-arrow-left"></i>
+                <span>На главную</span>
+            </a>
+            <div class="auth-logo">
+                <span class="logo-green">Brain</span>ify
+            </div>
+        </div>
+
+        <!-- Форма входа -->
+        <div class="auth-card login-card">
+            <div class="card-header">
+                <h1>Вход в аккаунт</h1>
+                <p>Добро пожаловать обратно!</p>
+            </div>
+
+            <form id="loginForm" class="auth-form">
+                <div class="form-group">
+                    <label for="email">Email адрес</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-envelope input-icon"></i>
+                        <input type="email" id="email" name="email" required 
+                               placeholder="Введите ваш email" class="form-input">
+                    </div>
+                    <span class="error-message" id="emailError"></span>
+                </div>
+
+                <button type="submit" class="auth-button login-button" id="loginBtn">
+                    <span class="btn-text">Войти</span>
+                    <span class="btn-loading" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        Отправка кода...
+                    </span>
+                </button>
+
+                <div class="form-footer">
+                    <p>Нет аккаунта? <a href="/auth/register" class="auth-link">Зарегистрироваться</a></p>
+                </div>
+            </form>
+
+            <!-- Информация о безопасности -->
+            <div class="security-info">
+                <div class="security-item">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Безопасный вход через email</span>
+                </div>
+                <div class="security-item">
+                    <i class="fas fa-clock"></i>
+                    <span>Код действует 10 минут</span>
+                </div>
+                <div class="security-item">
+                    <i class="fas fa-lock"></i>
+                    <span>Данные защищены шифрованием</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Быстрый доступ для ролей -->
+        <div class="auth-roles">
+            <h3>Быстрый доступ:</h3>
+            <div class="roles-list">
+                <div class="role-card">
+                    <div class="role-icon">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <h4>Ученикам</h4>
+                    <p>Доступ к урокам, домашним заданиям и прогрессу</p>
+                </div>
+                <div class="role-card">
+                    <div class="role-icon">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                    </div>
+                    <h4>Преподавателям</h4>
+                    <p>Управление занятиями и учебными материалами</p>
+                </div>
+                <div class="role-card">
+                    <div class="role-icon">
+                        <i class="fas fa-users-cog"></i>
+                    </div>
+                    <h4>Менеджерам</h4>
+                    <p>Координация учебного процесса</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для ввода кода -->
+    <div id="verificationModal" class="modal">
+        <div class="modal-content verification-modal login-modal">
+            <div class="modal-header">
+                <h2>Подтверждение входа</h2>
+                <button class="modal-close" id="closeModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="verification-info">
+                    <div class="verification-icon login-icon">
+                        <i class="fas fa-key"></i>
+                    </div>
+                    <p>Мы отправили код для входа на адрес:</p>
+                    <span class="email-display" id="emailDisplay"></span>
+                    <p class="code-timer">Код действителен в течение <span id="timeLeft">10:00</span></p>
+                </div>
+
+                <form id="verificationForm" class="verification-form">
+                    <div class="code-input-container">
+                        <label>Введите код из письма:</label>
+                        <div class="code-inputs">
+                            <input type="text" class="code-input" maxlength="1" data-index="0">
+                            <input type="text" class="code-input" maxlength="1" data-index="1">
+                            <input type="text" class="code-input" maxlength="1" data-index="2">
+                            <input type="text" class="code-input" maxlength="1" data-index="3">
+                            <input type="text" class="code-input" maxlength="1" data-index="4">
+                            <input type="text" class="code-input" maxlength="1" data-index="5">
+                        </div>
+                        <span class="error-message" id="codeError"></span>
+                    </div>
+
+                    <button type="submit" class="verify-button login-verify" id="verifyBtn">
+                        <span class="btn-text">Войти</span>
+                        <span class="btn-loading" style="display: none;">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            Вход...
+                        </span>
+                    </button>
+
+                    <div class="resend-section">
+                        <p>Не получили код?</p>
+                        <button type="button" class="resend-btn" id="resendBtn">
+                            Отправить повторно
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подключение скриптов -->
+    <script th:src="@{/js/auth.js}"></script>
+</body>
+</html> 

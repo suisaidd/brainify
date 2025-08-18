@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} ?: 'Управление расписанием - Brainify'">Управление расписанием - Brainify</title>
+    
+    <!-- Подключение стилей -->
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/admin.css}">
+    <link rel="stylesheet" th:href="@{/css/admin-lessons.css}">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="admin-body">
+    <!-- Заголовок админ панели -->
+    <header class="admin-header">
+        <div class="admin-header-content">
+            <div class="admin-header-left">
+                <h1 class="admin-title">
+                    <i class="fas fa-calendar-alt"></i>
+                    Управление расписанием
+                </h1>
+            </div>
+            <div class="admin-header-right">
+                <div class="admin-user-info">
+                    <span class="admin-user-name" th:text="${currentUser.name}">Администратор</span>
+                    <span class="admin-user-role" th:text="${currentUser.role.displayName}">Роль</span>
+                </div>
+                <a href="/admin-role" class="admin-btn admin-btn-secondary">
+                    <i class="fas fa-arrow-left"></i>
+                    Назад к панели
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Основной контент -->
+    <main class="admin-main">
+        <div class="admin-container">
+            <!-- Вкладки -->
+            <div class="tabs-container">
+                <div class="tabs-nav">
+                    <button class="tab-btn active" data-tab="students">
+                        <i class="fas fa-graduation-cap"></i>
+                        Ученики
+                    </button>
+                    <button class="tab-btn" data-tab="teachers">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                        Преподаватели
+                    </button>
+                </div>
+            </div>
+
+            <!-- Вкладка учеников -->
+            <div id="students-tab" class="tab-content active">
+                <div class="section-header">
+                    <h2>
+                        <i class="fas fa-graduation-cap"></i>
+                        Управление учениками
+                    </h2>
+                    <p class="section-description">
+                        Назначайте преподавателей ученикам и управляйте их расписанием
+                    </p>
+                </div>
+
+                <!-- Загрузчик для учеников -->
+                <div id="students-loading" class="loading-container">
+                    <div class="loading-spinner"></div>
+                    <p>Загрузка учеников...</p>
+                </div>
+
+                <!-- Контейнер для карточек учеников -->
+                <div id="students-container" class="cards-container" style="display: none;">
+                    <!-- Карточки учеников будут добавлены через JavaScript -->
+                </div>
+
+                <!-- Сообщение об отсутствии данных -->
+                <div id="students-empty" class="empty-state" style="display: none;">
+                    <i class="fas fa-user-graduate"></i>
+                    <h3>Ученики не найдены</h3>
+                    <p>В системе пока нет зарегистрированных учеников</p>
+                </div>
+            </div>
+
+            <!-- Вкладка преподавателей -->
+            <div id="teachers-tab" class="tab-content">
+                <div class="section-header">
+                    <h2>
+                        <i class="fas fa-chalkboard-teacher"></i>
+                        Управление преподавателями
+                    </h2>
+                    <p class="section-description">
+                        Управляйте расписанием преподавателей и их доступностью
+                    </p>
+                </div>
+
+                <!-- Загрузчик для преподавателей -->
+                <div id="teachers-loading" class="loading-container">
+                    <div class="loading-spinner"></div>
+                    <p>Загрузка преподавателей...</p>
+                </div>
+
+                <!-- Контейнер для карточек преподавателей -->
+                <div id="teachers-container" class="cards-container" style="display: none;">
+                    <!-- Карточки преподавателей будут добавлены через JavaScript -->
+                </div>
+
+                <!-- Сообщение об отсутствии данных -->
+                <div id="teachers-empty" class="empty-state" style="display: none;">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                    <h3>Преподаватели не найдены</h3>
+                    <p>В системе пока нет зарегистрированных преподавателей</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Модальное окно назначения преподавателя -->
+    <div id="assign-teacher-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>
+                    <i class="fas fa-user-plus"></i>
+                    Назначить преподавателя
+                </h3>
+                <button class="modal-close" data-modal="assign-teacher-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="assign-teacher-info">
+                    <p>Ученик: <span id="assign-student-name">-</span></p>
+                </div>
+                
+                <div id="teachers-list">
+                    <!-- Здесь будут отображены предметы ученика с возможностью назначения преподавателей -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-modal="assign-teacher-modal">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно расписания -->
+    <div id="schedule-modal" class="modal">
+        <div class="modal-content schedule-modal-content">
+            <div class="modal-header">
+                <h3>
+                    <i class="fas fa-calendar-alt"></i>
+                    <span id="schedule-modal-title">Расписание</span>
+                </h3>
+                <div class="schedule-controls">
+                    <div class="week-navigation">
+                        <button id="prev-week" class="btn btn-icon">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <span id="current-week-display">Неделя</span>
+                        <button id="next-week" class="btn btn-icon">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                    <button class="modal-close" data-modal="schedule-modal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <!-- Информация о расписании -->
+                <div id="schedule-info" class="schedule-info" style="display: none;">
+                    <div class="schedule-user-info">
+                        <h4 id="schedule-user-name">Расписание</h4>
+                        <p id="schedule-user-type">Тип пользователя</p>
+                    </div>
+                </div>
+
+                <!-- Настройки повторения -->
+                <div class="schedule-options">
+                    <div class="repeat-options">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="repeat-weekly">
+                            <span class="checkmark"></span>
+                            Назначить на несколько недель
+                        </label>
+                        <div id="weeks-input-container" class="weeks-input" style="display: none;">
+                            <label for="weeks-count">Количество недель:</label>
+                            <input type="number" id="weeks-count" min="1" max="52" value="4">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Таблица расписания -->
+                <div class="schedule-table-container">
+                    <table class="schedule-table">
+                        <thead>
+                            <tr>
+                                <th>Время</th>
+                                <th>Пн</th>
+                                <th>Вт</th>
+                                <th>Ср</th>
+                                <th>Чт</th>
+                                <th>Пт</th>
+                                <th>Сб</th>
+                                <th>Вс</th>
+                            </tr>
+                        </thead>
+                        <tbody id="schedule-table-body">
+                            <!-- Временные слоты будут добавлены через JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Легенда -->
+                <div class="schedule-legend">
+                    <div class="legend-item">
+                        <span class="legend-color available"></span>
+                        <span>Доступно для выбора</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color selected"></span>
+                        <span>Выбрано</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color working"></span>
+                        <span>Рабочее время</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color occupied-others"></span>
+                        <span>Занято другими</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color occupied-current"></span>
+                        <span>Мои занятия</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color to-delete"></span>
+                        <span>К удалению</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color lesson-booked"></span>
+                        <span>Уроки учеников (клик для удаления)</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="save-schedule" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    Сохранить
+                </button>
+                <button class="btn btn-secondary" data-modal="schedule-modal">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Уведомления -->
+    <div id="notification-container"></div>
+
+    <!-- Подключение скриптов -->
+    <script th:src="@{/js/main.js}"></script>
+    <script th:src="@{/js/admin-lessons.js}"></script>
+</body>
+</html> 

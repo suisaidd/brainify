@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle}">Частные занятия - Brainify</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/private-lessons.css}">
+    <link rel="stylesheet" th:href="@{/css/animations.css}">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-container">
+                <div class="nav-logo">
+                    <span class="nav-logo-green">Brain</span>ify
+                </div>
+                <div class="nav-menu">
+                    <a href="/" class="nav-link">Главная</a>
+                    <a href="#about" class="nav-link">О нас</a>
+                    <a href="#contact" class="nav-link">Контакты</a>
+                </div>
+                
+                <!-- Верхние кнопки -->
+                <div class="nav-buttons">
+                    <!-- Кнопки для неавторизованных пользователей -->
+                    <div th:if="${!isAuthenticated}">
+                        <button class="nav-btn nav-btn-login">ВОЙТИ</button>
+                        <button class="nav-btn nav-btn-register">РЕГИСТРАЦИЯ</button>
+                        <button class="nav-btn nav-btn-free free-lesson-btn">БЕСПЛАТНЫЙ УРОК</button>
+                    </div>
+                    
+                    <!-- Кнопки для авторизованных пользователей -->
+                    <div th:if="${isAuthenticated}">
+                        <span class="user-welcome" th:text="'Привет, ' + ${currentUser.name} + '!'">Привет, Пользователь!</span>
+                        <button class="nav-btn nav-btn-dashboard" th:data-role="${currentUser.role.name()}">КАБИНЕТ</button>
+                        <button class="nav-btn nav-btn-logout">ВЫЙТИ</button>
+                    </div>
+                </div>
+                
+                <button class="mobile-menu-btn">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="mobile-menu hidden">
+                <ul>
+                    <li><a href="/">Главная</a></li>
+                    <li><a href="#about">О нас</a></li>
+                    <li><a href="#contact">Контакты</a></li>
+                </ul>
+                <!-- Кнопки в мобильном меню -->
+                <div class="mobile-nav-buttons">
+                    <!-- Кнопки для неавторизованных пользователей -->
+                    <div th:if="${!isAuthenticated}">
+                        <button class="nav-btn nav-btn-login">ВОЙТИ</button>
+                        <button class="nav-btn nav-btn-register">РЕГИСТРАЦИЯ</button>
+                        <button class="nav-btn nav-btn-free free-lesson-btn">БЕСПЛАТНЫЙ УРОК</button>
+                    </div>
+                    
+                    <!-- Кнопки для авторизованных пользователей -->
+                    <div th:if="${isAuthenticated}">
+                        <span class="user-welcome mobile-welcome" th:text="'Привет, ' + ${currentUser.name} + '!'">Привет, Пользователь!</span>
+                        <button class="nav-btn nav-btn-dashboard" th:data-role="${currentUser.role.name()}">КАБИНЕТ</button>
+                        <button class="nav-btn nav-btn-logout">ВЫЙТИ</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-text">
+                    <h1 class="hero-title">
+                        Частные занятия с <span class="highlight">экспертами</span>
+                    </h1>
+                    <p class="hero-subtitle">
+                        Индивидуальный подход к каждому ученику. Персональные программы обучения под ваши цели и уровень подготовки.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+
+    <!-- About Private Lessons -->
+    <section id="about" class="section section-white">
+        <div class="container">
+            <div class="about-content">
+                <h2 class="section-title">О частных занятиях</h2>
+                
+                <!-- Спецпредложение 1 -->
+                <div class="special-offer-banner">
+                    <div class="offer-content">
+                        <div class="offer-badge">🎁 СПЕЦИАЛЬНОЕ ПРЕДЛОЖЕНИЕ</div>
+                        <h3 class="offer-title">Первое занятие БЕСПЛАТНО!</h3>
+                        <p class="offer-subtitle">Попробуйте наш подход к обучению без каких-либо обязательств</p>
+                    </div>
+                    <div class="offer-action">
+                        <button class="offer-button free-lesson-btn">Записаться на бесплатный урок</button>
+                    </div>
+                </div>
+                
+                <div class="about-grid">
+                    <div class="about-text">
+                        <p class="about-description">
+                            Частные занятия — это персональный подход к обучению, где преподаватель работает один на один с учеником. 
+                            Мы подбираем опытных педагогов под ваши цели и уровень подготовки.
+                        </p>
+                        <div class="benefits-list">
+                            <div class="benefit-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Индивидуальная программа обучения</span>
+                            </div>
+                            <div class="benefit-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Гибкое расписание занятий</span>
+                            </div>
+                            <div class="benefit-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Фокус на проблемных темах</span>
+                            </div>
+                            <div class="benefit-item">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Регулярный контроль прогресса</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="about-image">
+                        <div class="image-placeholder">
+                            <i class="fas fa-chalkboard-teacher"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Teachers Section -->
+    <section class="section section-light">
+        <div class="container">
+            <h2 class="section-title">Наши преподаватели</h2>
+            <div class="teachers-grid">
+                <div class="teacher-card">
+                    <div class="teacher-photo">
+                        <img src="https://images.unsplash.com/photo-1494790108755-2616b612b786?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&q=80" alt="Анна Петрова">
+                    </div>
+                    <div class="teacher-info">
+                        <h3>Анна Петрова</h3>
+                        <p class="teacher-subject">Математика</p>
+                        <p class="teacher-experience">10 лет опыта, эксперт ЕГЭ</p>
+                        <div class="teacher-description">
+                            <p>Опытный преподаватель математики с многолетним стажем подготовки к ЕГЭ и ОГЭ. 
+                            Специализируется на алгебре, геометрии и математическом анализе. 
+                            Разработала собственную методику объяснения сложных тем простым языком.</p>
+                        </div>
+                        <div class="teacher-stats">
+                            <div class="stat">
+                                <span class="stat-number">95%</span>
+                                <span class="stat-label">успешных учеников</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">150+</span>
+                                <span class="stat-label">учеников</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="teacher-card">
+                    <div class="teacher-photo">
+                        <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&q=80" alt="Михаил Сидоров">
+                    </div>
+                    <div class="teacher-info">
+                        <h3>Михаил Сидоров</h3>
+                        <p class="teacher-subject">Физика</p>
+                        <p class="teacher-experience">8 лет опыта, кандидат наук</p>
+                        <div class="teacher-description">
+                            <p>Кандидат физико-математических наук, автор научных статей и методических пособий. 
+                            Специализируется на подготовке к олимпиадам и ЕГЭ по физике. 
+                            Использует интерактивные методы обучения и современные технологии.</p>
+                        </div>
+                        <div class="teacher-stats">
+                            <div class="stat">
+                                <span class="stat-number">92%</span>
+                                <span class="stat-label">успешных учеников</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">120+</span>
+                                <span class="stat-label">учеников</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="teacher-card">
+                    <div class="teacher-photo">
+                        <img src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-1.2.1&auto=format&fit=crop&w=400&q=80" alt="Елена Козлова">
+                    </div>
+                    <div class="teacher-info">
+                        <h3>Елена Козлова</h3>
+                        <p class="teacher-subject">Русский язык</p>
+                        <p class="teacher-experience">12 лет опыта, филолог</p>
+                        <div class="teacher-description">
+                            <p>Филолог с высшим образованием, эксперт по русскому языку и литературе. 
+                            Специализируется на подготовке к ЕГЭ и ОГЭ, а также на развитии навыков письменной речи. 
+                            Автор методических пособий по подготовке к экзаменам.</p>
+                        </div>
+                        <div class="teacher-stats">
+                            <div class="stat">
+                                <span class="stat-number">98%</span>
+                                <span class="stat-label">успешных учеников</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-number">200+</span>
+                                <span class="stat-label">учеников</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Packages Section -->
+    <section class="section section-white">
+        <div class="container">
+            <h2 class="section-title">Пакеты занятий</h2>
+            <p class="section-subtitle">Финальная стоимость зависит от количества занятий в пакете, квалификации преподавателя, и направления подготовки</p>
+            
+            <div class="packages-grid">
+                <!-- Package 1: 8 занятий -->
+                <div class="package-card">
+                    <div class="package-header">
+                        <h3>Базовый</h3>
+                        <div class="package-icon">
+                            <i class="fas fa-graduation-cap"></i>
+                        </div>
+                    </div>
+                    <div class="package-info">
+                        <div class="lessons-count">8 занятий</div>
+                    </div>
+                    <div class="package-features">
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Домашние задания</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Базовые материалы</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Консультации в чате</span>
+                        </div>
+                    </div>
+                    <button class="package-btn">Подробнее</button>
+                </div>
+
+                <!-- Package 2: 16 занятий -->
+                <div class="package-card">
+                    <div class="package-header">
+                        <h3>Стандартный</h3>
+                        <div class="package-icon">
+                            <i class="fas fa-book-open"></i>
+                        </div>
+                    </div>
+                    <div class="package-info">
+                        <div class="lessons-count">16 занятий</div>
+                    </div>
+                    <div class="package-features">
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Расширенные материалы</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Пробные тесты</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Персональный план</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Поддержка 24/7</span>
+                        </div>
+                    </div>
+                    <button class="package-btn">Подробнее</button>
+                </div>
+
+                <!-- Package 3: 32 занятия -->
+                <div class="package-card featured">
+                    <div class="package-badge">Популярный</div>
+                    <div class="package-header">
+                        <h3>Расширенный</h3>
+                        <div class="package-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                    </div>
+                    <div class="package-info">
+                        <div class="lessons-count">32 занятия</div>
+                    </div>
+                    <div class="package-features">
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Премиум материалы</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Еженедельные тесты</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Индивидуальная стратегия</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Приоритетная поддержка</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Дополнительные консультации</span>
+                        </div>
+                    </div>
+                    <button class="package-btn featured">Подробнее</button>
+                </div>
+
+                <!-- Package 4: 48 занятий -->
+                <div class="package-card">
+                    <div class="package-header">
+                        <h3>Интенсивный</h3>
+                        <div class="package-icon">
+                            <i class="fas fa-lightbulb"></i>
+                        </div>
+                    </div>
+                    <div class="package-info">
+                        <div class="lessons-count">48 занятий</div>
+                    </div>
+                    <div class="package-features">
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Эксклюзивные материалы</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Персональный куратор</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Анализ прогресса</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Доступ к закрытым вебинарам</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Бесплатные консультации</span>
+                        </div>
+                    </div>
+                    <button class="package-btn">Подробнее</button>
+                </div>
+
+                <!-- Package 5: 64 занятия -->
+                <div class="package-card">
+                    <div class="package-header">
+                        <h3>Премиум</h3>
+                        <div class="package-icon">
+                            <i class="fas fa-trophy"></i>
+                        </div>
+                    </div>
+                    <div class="package-info">
+                        <div class="lessons-count">64 занятия</div>
+                    </div>
+                    <div class="package-features">
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>VIP поддержка</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Индивидуальные вебинары</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Психологическая поддержка</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Гарантия результата</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Бесплатные дополнительные занятия</span>
+                        </div>
+                    </div>
+                    <button class="package-btn">Подробнее</button>
+                </div>
+
+                <!-- Package 6: 96 занятий -->
+                <div class="package-card">
+                    <div class="package-header">
+                        <h3>Максимум</h3>
+                        <div class="package-icon">
+                            <i class="fas fa-medal"></i>
+                        </div>
+                    </div>
+                    <div class="package-info">
+                        <div class="lessons-count">96 занятий</div>
+                    </div>
+                    <div class="package-features">
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Все включено</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Персональный менеджер</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Неограниченные консультации</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Доступ ко всем курсам</span>
+                        </div>
+                        <div class="feature-item">
+                            <i class="fas fa-check"></i>
+                            <span>Пожизненная поддержка</span>
+                        </div>
+                    </div>
+                    <button class="package-btn">Подробнее</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Online Learning Benefits Section -->
+    <section class="section section-light">
+        <div class="container">
+            <h2 class="section-title">Онлайн занятия - это эффективно</h2>
+            <div class="benefits-grid">
+                <!-- Card 1: Photo -->
+                <div class="benefit-card benefit-photo">
+                    <img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Онлайн обучение">
+                </div>
+                
+                <!-- Card 2: Text -->
+                <div class="benefit-card benefit-text">
+                    <div class="benefit-content">
+                        <div class="benefit-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <h3>Экономия времени</h3>
+                        <p>Не нужно тратить время на дорогу до репетитора. Занимайтесь из дома в удобное время. Это позволяет сэкономить до 2-3 часов в неделю, которые можно потратить на дополнительную подготовку.</p>
+                    </div>
+                </div>
+
+                <!-- Card 3: Text -->
+                <div class="benefit-card benefit-text">
+                    <div class="benefit-content">
+                        <div class="benefit-icon">
+                            <i class="fas fa-wallet"></i>
+                        </div>
+                        <h3>Доступная стоимость</h3>
+                        <p>Стоимость занятий от <strong>710₽</strong> - это значительно дешевле, чем очные занятия в крупном городе. При этом качество обучения остается на высоком уровне благодаря современным технологиям.</p>
+                    </div>
+                </div>
+
+                <!-- Card 4: Photo -->
+                <div class="benefit-card benefit-photo">
+                    <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Интерактивное обучение">
+                </div>
+
+                <!-- Card 5: Photo -->
+                <div class="benefit-card benefit-photo">
+                    <img src="https://images.unsplash.com/photo-1552664730-d307ca884978?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80" alt="Персональный подход">
+                </div>
+
+                <!-- Card 6: Text -->
+                <div class="benefit-card benefit-text">
+                    <div class="benefit-content">
+                        <div class="benefit-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <h3>Лучшие результаты</h3>
+                        <p>Интерактивные технологии и персональный подход позволяют достигать результатов на 30% быстрее, чем при традиционном обучении. Наши ученики показывают стабильно высокие результаты на экзаменах.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Спецпредложение 2 -->
+    <section class="section special-offer-section">
+        <div class="container">
+            <div class="special-offer-banner special-offer-large">
+                <div class="offer-content">
+                    <div class="offer-badge">🎁 ОГРАНИЧЕННОЕ ПРЕДЛОЖЕНИЕ</div>
+                    <h3 class="offer-title">Первое занятие БЕСПЛАТНО!</h3>
+                    <p class="offer-subtitle">Начните обучение прямо сейчас и получите первый урок в подарок. Убедитесь в качестве нашего подхода на собственном опыте!</p>
+                </div>
+                <div class="offer-action">
+                    <button class="offer-button offer-button-large free-lesson-btn">Получить бесплатный урок</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="contact-section">
+        <div class="container">
+            <div class="contact-artboard">
+                <div class="contact-content-block">
+                    <h2 class="contact-main-title">Остались вопросы? Ответим на них на бесплатной консультации</h2>
+                    <p class="contact-main-subtitle">Оставьте заявку, и мы перезвоним вам в течение 15 минут</p>
+                    
+                    <!-- Форма заявки -->
+                    <div class="application-form">
+                        <form id="applicationForm" class="form-container">
+                            <div class="phone-input-container">
+                                <span class="phone-prefix">+7</span>
+                                <input type="tel" 
+                                       id="phoneNumber" 
+                                       name="phone" 
+                                       placeholder="(999) 123-45-67" 
+                                       class="phone-input"
+                                       maxlength="15"
+                                       required>
+                            </div>
+                            
+                            <button type="submit" class="submit-button">
+                                ОСТАВИТЬ ЗАЯВКУ
+                            </button>
+                            
+                            <p class="privacy-text">
+                                Отправляя форму, вы соглашаетесь с 
+                                <a href="#" class="privacy-link">офертой</a> и 
+                                <a href="#" class="privacy-link">политикой обработки персональных данных</a> 
+                                и даёте согласие на обработку данных
+                            </p>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <span class="footer-logo-green">Brain</span>ify
+                </div>
+                <p>© 2024 Brainify. Все права защищены.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Левитирующие фигуры с inline стилями -->
+    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1;">
+        <!-- Фигура 1 - Лайм -->
+        <div style="
+            position: absolute;
+            top: 10%;
+            left: 10%;
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #a3e635, #84cc16);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: floatShape1 4s ease-in-out infinite;
+        "></div>
+        
+        <!-- Фигура 2 - Синий -->
+        <div style="
+            position: absolute;
+            top: 20%;
+            right: 15%;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: floatShape2 5s ease-in-out infinite 1s;
+        "></div>
+        
+        <!-- Фигура 3 - Оранжевый -->
+        <div style="
+            position: absolute;
+            top: 60%;
+            left: 5%;
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: floatShape3 6s ease-in-out infinite 2s;
+        "></div>
+        
+        <!-- Фигура 4 - Фиолетовый -->
+        <div style="
+            position: absolute;
+            top: 30%;
+            right: 10%;
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: floatShape4 3s ease-in-out infinite 3s;
+        "></div>
+        
+        <!-- Фигура 5 - Розовый -->
+        <div style="
+            position: absolute;
+            top: 70%;
+            right: 25%;
+            width: 90px;
+            height: 90px;
+            background: linear-gradient(135deg, #ec4899, #be185d);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: floatShape5 4.5s ease-in-out infinite 4s;
+        "></div>
+        
+        <!-- Фигура 6 - Зеленый -->
+        <div style="
+            position: absolute;
+            top: 80%;
+            left: 70%;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: floatShape6 5.5s ease-in-out infinite 5s;
+        "></div>
+        
+        <!-- Фигура 7 - Красно-оранжевый -->
+        <div style="
+            position: absolute;
+            top: 15%;
+            left: 60%;
+            width: 75px;
+            height: 75px;
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: floatShape7 7s ease-in-out infinite 6s;
+        "></div>
+        
+        <!-- Фигура 8 - Голубой -->
+        <div style="
+            position: absolute;
+            top: 50%;
+            left: 80%;
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(135deg, #06b6d4, #0891b2);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: floatShape8 3.5s ease-in-out infinite 7s;
+        "></div>
+    </div>
+
+    <style>
+        @keyframes floatShape1 {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-30px) rotate(180deg); }
+        }
+        @keyframes floatShape2 {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-25px) rotate(180deg); }
+        }
+        @keyframes floatShape3 {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-35px) rotate(180deg); }
+        }
+        @keyframes floatShape4 {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+        @keyframes floatShape5 {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-28px) rotate(180deg); }
+        }
+        @keyframes floatShape6 {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-22px) rotate(180deg); }
+        }
+        @keyframes floatShape7 {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-32px) rotate(180deg); }
+        }
+        @keyframes floatShape8 {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-18px) rotate(180deg); }
+        }
+    </style>
+
+
+
+    <!-- Тестовый скрипт для проверки навигации -->
+    <script>
+        console.log('Private-lessons: Тестовый inline скрипт загружен');
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Private-lessons: DOM загружен через inline скрипт');
+            
+            // Проверяем, есть ли кнопки на странице
+            const logoutButtons = document.querySelectorAll('.nav-btn-logout');
+            const dashboardButtons = document.querySelectorAll('.nav-btn-dashboard');
+            
+            console.log('Private-lessons: Найдено кнопок выхода:', logoutButtons.length);
+            console.log('Private-lessons: Найдено кнопок кабинета:', dashboardButtons.length);
+            
+            // Добавляем обработчики
+            logoutButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    console.log('Private-lessons: Нажата кнопка выхода');
+                    if (confirm('Вы уверены, что хотите выйти из аккаунта?')) {
+                        fetch('/api/logout', { 
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        })
+                        .then(response => {
+                            console.log('Logout response status:', response.status);
+                            // Принудительная очистка кэша браузера
+                            if ('caches' in window) {
+                                caches.keys().then(names => {
+                                    names.forEach(name => caches.delete(name));
+                                });
+                            }
+                            // Очистка localStorage и sessionStorage
+                            localStorage.clear();
+                            sessionStorage.clear();
+                            // Перенаправление с принудительным обновлением
+                            window.location.replace('/');
+                        })
+                        .catch(error => {
+                            console.error('Logout error:', error);
+                            // Даже если запрос не удался, очищаем всё локально
+                            if ('caches' in window) {
+                                caches.keys().then(names => {
+                                    names.forEach(name => caches.delete(name));
+                                });
+                            }
+                            localStorage.clear();
+                            sessionStorage.clear();
+                            window.location.replace('/');
+                        });
+                    }
+                });
+            });
+            
+            dashboardButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const userRole = this.getAttribute('data-role');
+                    console.log('Private-lessons: Нажата кнопка кабинета. Роль:', userRole);
+                    
+                    switch(userRole) {
+                        case 'STUDENT':
+                            window.location.href = '/student-dashboard';
+                            break;
+                        case 'TEACHER':
+                            window.location.href = '/dashboard';
+                            break;
+                        case 'MANAGER':
+                        case 'ADMIN':
+                            window.location.href = '/admin-role';
+                            break;
+                        default:
+                            window.location.href = '/dashboard';
+                            break;
+                    }
+                });
+            });
+        });
+    </script>
+
+    <script th:src="@{/js/main.js(v=2)}"></script>
+    <script th:src="@{/js/private-lessons.js}"></script>
+</body>
+</html> 

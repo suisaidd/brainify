@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} ?: 'Личный кабинет - Brainify'">Личный кабинет - Brainify</title>
+    
+    <!-- Подключение стилей -->
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/dashboard.css}">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="dashboard-body">
+    <!-- Боковое меню -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">
+                <span class="logo-green">Brain</span>ify
+            </div>
+            <button class="sidebar-toggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        
+        <div class="sidebar-content">
+            <!-- Раздел: Главная -->
+            <div class="sidebar-section">
+                <div class="section-header">
+                    <i class="fas fa-home section-icon"></i>
+                    <span class="section-title">Главная</span>
+                </div>
+                <div class="section-items">
+                    <a href="#" class="sidebar-item active">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span>Главная</span>
+                    </a>
+                    <a href="#" class="sidebar-item">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>Расписание</span>
+                    </a>
+                    <a href="#" class="sidebar-item">
+                        <i class="fas fa-desktop"></i>
+                        <span>Проверка оборудования</span>
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Раздел: База знаний -->
+            <div class="sidebar-section">
+                <div class="section-header">
+                    <i class="fas fa-book section-icon"></i>
+                    <span class="section-title">База знаний</span>
+                </div>
+                <div class="section-items">
+                    <a href="#" class="sidebar-item">
+                        <i class="fas fa-file-alt"></i>
+                        <span>База знаний</span>
+                    </a>
+                    <a href="#" class="sidebar-item">
+                        <i class="fas fa-sticky-note"></i>
+                        <span>Конспекты</span>
+                    </a>
+                    <a href="#" class="sidebar-item">
+                        <i class="fas fa-users"></i>
+                        <span>Мои ученики</span>
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Раздел: Вознаграждение -->
+            <div class="sidebar-section">
+                <div class="section-header">
+                    <i class="fas fa-gift section-icon"></i>
+                    <span class="section-title">Вознаграждение</span>
+                </div>
+                <div class="section-items">
+                    <a href="#" class="sidebar-item">
+                        <i class="fas fa-coins"></i>
+                        <span>Вознаграждение</span>
+                    </a>
+                    <a href="#" class="sidebar-item">
+                        <i class="fas fa-trophy"></i>
+                        <span>Система вознаграждений</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Основной контент -->
+    <main class="main-content">
+        <!-- Верхняя панель -->
+        <header class="top-header">
+            <div class="header-left">
+                <button class="mobile-sidebar-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="page-title">Главная</h1>
+            </div>
+            
+            <div class="header-right">
+                <button class="header-btn" title="Сообщения">
+                    <i class="fas fa-envelope"></i>
+                    <span class="notification-badge">3</span>
+                </button>
+                <button class="header-btn" title="Профиль">
+                    <i class="fas fa-user"></i>
+                </button>
+                <button class="header-btn logout-btn" title="Выйти">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </header>
+        
+        <!-- Контентная область -->
+        <div class="content-area">
+            <!-- Первая строка: Добро пожаловать -->
+            <div class="dashboard-row first-row">
+                <!-- Приветственная карточка -->
+                <div class="dashboard-card welcome-card">
+                    <div class="card-header">
+                        <h2>Добро пожаловать!</h2>
+                        <div class="user-avatar">
+                            <i class="fas fa-chalkboard-teacher"></i>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <p>Рады видеть вас в личном кабинете преподавателя Brainify</p>
+                        <div class="welcome-stats">
+                            <div class="stat-item">
+                                <span class="stat-number">127</span>
+                                <span class="stat-label">Уроков проведено</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number">4.9</span>
+                                <span class="stat-label">Средняя оценка</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <!-- Третья секция: Все уроки преподавателя -->
+            <div class="lessons-section">
+                <div class="section-header">
+                    <h2>Мои уроки</h2>
+                    <span class="lessons-count">Всего уроков: 127</span>
+                </div>
+                
+                <div class="lessons-grid" id="lessonsGrid">
+                    <!-- Первые 4 урока -->
+                    <div class="lesson-card teacher-lesson">
+                        <div class="lesson-status-badge upcoming">Сегодня</div>
+                        <div class="lesson-info">
+                            <h4 class="lesson-subject">Математика</h4>
+                            <p class="lesson-topic">Квадратные уравнения</p>
+                            <div class="lesson-meta">
+                                <span class="lesson-date">
+                                    <i class="fas fa-calendar"></i>
+                                    Сегодня
+                                </span>
+                                <span class="lesson-time">
+                                    <i class="fas fa-clock"></i>
+                                    14:00 - 15:30
+                                </span>
+                            </div>
+                            <div class="lesson-student">
+                                <i class="fas fa-user"></i>
+                                Иван Петров
+                            </div>
+                        </div>
+                        <div class="lesson-actions">
+                            <button class="lesson-btn primary">Начать урок</button>
+                        </div>
+                    </div>
+
+                    <div class="lesson-card teacher-lesson">
+                        <div class="lesson-status-badge scheduled">Завтра</div>
+                        <div class="lesson-info">
+                            <h4 class="lesson-subject">Физика</h4>
+                            <p class="lesson-topic">Законы Ньютона</p>
+                            <div class="lesson-meta">
+                                <span class="lesson-date">
+                                    <i class="fas fa-calendar"></i>
+                                    17 января 2024
+                                </span>
+                                <span class="lesson-time">
+                                    <i class="fas fa-clock"></i>
+                                    16:00 - 17:30
+                                </span>
+                            </div>
+                            <div class="lesson-student">
+                                <i class="fas fa-user"></i>
+                                Мария Сидорова
+                            </div>
+                        </div>
+                        <div class="lesson-actions">
+                            <button class="lesson-btn secondary">Подготовиться</button>
+                        </div>
+                    </div>
+
+                    <div class="lesson-card teacher-lesson">
+                        <div class="lesson-status-badge completed">Завершен</div>
+                        <div class="lesson-info">
+                            <h4 class="lesson-subject">Химия</h4>
+                            <p class="lesson-topic">Химические реакции</p>
+                            <div class="lesson-meta">
+                                <span class="lesson-date">
+                                    <i class="fas fa-calendar"></i>
+                                    15 января 2024
+                                </span>
+                                <span class="lesson-time">
+                                    <i class="fas fa-clock"></i>
+                                    18:00 - 19:30
+                                </span>
+                            </div>
+                            <div class="lesson-student">
+                                <i class="fas fa-user"></i>
+                                Алексей Козлов
+                            </div>
+                        </div>
+                        <div class="lesson-rating">
+                            <span class="rating-stars">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                            </span>
+                            <span class="rating-value">5.0</span>
+                        </div>
+                    </div>
+
+                    <div class="lesson-card teacher-lesson">
+                        <div class="lesson-status-badge completed">Завершен</div>
+                        <div class="lesson-info">
+                            <h4 class="lesson-subject">Математика</h4>
+                            <p class="lesson-topic">Логарифмы</p>
+                            <div class="lesson-meta">
+                                <span class="lesson-date">
+                                    <i class="fas fa-calendar"></i>
+                                    12 января 2024
+                                </span>
+                                <span class="lesson-time">
+                                    <i class="fas fa-clock"></i>
+                                    14:00 - 15:30
+                                </span>
+                            </div>
+                            <div class="lesson-student">
+                                <i class="fas fa-user"></i>
+                                Анна Михайлова
+                            </div>
+                        </div>
+                        <div class="lesson-rating">
+                            <span class="rating-stars">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="far fa-star"></i>
+                            </span>
+                            <span class="rating-value">4.8</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Скрытые уроки (показываются по кнопке "Ещё") -->
+                <div class="lessons-grid hidden" id="hiddenLessons">
+                    <!-- Следующие 4 урока -->
+                    <div class="lesson-card teacher-lesson">
+                        <div class="lesson-status-badge completed">Завершен</div>
+                        <div class="lesson-info">
+                            <h4 class="lesson-subject">Физика</h4>
+                            <p class="lesson-topic">Электричество</p>
+                            <div class="lesson-meta">
+                                <span class="lesson-date">
+                                    <i class="fas fa-calendar"></i>
+                                    10 января 2024
+                                </span>
+                                <span class="lesson-time">
+                                    <i class="fas fa-clock"></i>
+                                    16:00 - 17:30
+                                </span>
+                            </div>
+                            <div class="lesson-student">
+                                <i class="fas fa-user"></i>
+                                Дмитрий Волков
+                            </div>
+                        </div>
+                        <div class="lesson-rating">
+                            <span class="rating-stars">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                            </span>
+                            <span class="rating-value">5.0</span>
+                        </div>
+                    </div>
+
+                    <div class="lesson-card teacher-lesson">
+                        <div class="lesson-status-badge completed">Завершен</div>
+                        <div class="lesson-info">
+                            <h4 class="lesson-subject">Химия</h4>
+                            <p class="lesson-topic">Периодическая таблица</p>
+                            <div class="lesson-meta">
+                                <span class="lesson-date">
+                                    <i class="fas fa-calendar"></i>
+                                    8 января 2024
+                                </span>
+                                <span class="lesson-time">
+                                    <i class="fas fa-clock"></i>
+                                    18:00 - 19:30
+                                </span>
+                            </div>
+                            <div class="lesson-student">
+                                <i class="fas fa-user"></i>
+                                Елена Смирнова
+                            </div>
+                        </div>
+                        <div class="lesson-rating">
+                            <span class="rating-stars">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="far fa-star"></i>
+                            </span>
+                            <span class="rating-value">4.7</span>
+                        </div>
+                    </div>
+
+                    <div class="lesson-card teacher-lesson">
+                        <div class="lesson-status-badge completed">Завершен</div>
+                        <div class="lesson-info">
+                            <h4 class="lesson-subject">Математика</h4>
+                            <p class="lesson-topic">Тригонометрия</p>
+                            <div class="lesson-meta">
+                                <span class="lesson-date">
+                                    <i class="fas fa-calendar"></i>
+                                    5 января 2024
+                                </span>
+                                <span class="lesson-time">
+                                    <i class="fas fa-clock"></i>
+                                    14:00 - 15:30
+                                </span>
+                            </div>
+                            <div class="lesson-student">
+                                <i class="fas fa-user"></i>
+                                Максим Орлов
+                            </div>
+                        </div>
+                        <div class="lesson-rating">
+                            <span class="rating-stars">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                            </span>
+                            <span class="rating-value">5.0</span>
+                        </div>
+                    </div>
+
+                    <div class="lesson-card teacher-lesson">
+                        <div class="lesson-status-badge completed">Завершен</div>
+                        <div class="lesson-info">
+                            <h4 class="lesson-subject">Физика</h4>
+                            <p class="lesson-topic">Механика</p>
+                            <div class="lesson-meta">
+                                <span class="lesson-date">
+                                    <i class="fas fa-calendar"></i>
+                                    3 января 2024
+                                </span>
+                                <span class="lesson-time">
+                                    <i class="fas fa-clock"></i>
+                                    16:00 - 17:30
+                                </span>
+                            </div>
+                            <div class="lesson-student">
+                                <i class="fas fa-user"></i>
+                                София Лебедева
+                            </div>
+                        </div>
+                        <div class="lesson-rating">
+                            <span class="rating-stars">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="far fa-star"></i>
+                            </span>
+                            <span class="rating-value">4.9</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Кнопка "Ещё" -->
+                <div class="load-more-container">
+                    <button class="load-more-btn" id="loadMoreBtn">
+                        <span class="btn-text">Показать ещё 4 урока</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Подключение скриптов -->
+    <script th:src="@{/js/main.js}"></script>
+    <script th:src="@{/js/dashboard.js}"></script>
+</body>
+</html> 

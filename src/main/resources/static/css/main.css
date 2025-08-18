@@ -1,0 +1,723 @@
+/* Основные стили для Brainify - Новая концепция */
+
+/* Импорт шрифтов */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Nunito:wght@300;400;600;700;800&display=swap');
+
+/* Базовые стили */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Nunito', sans-serif;
+    background: #ffffff;
+    line-height: 1.6;
+    color: #1e293b;
+}
+
+/* Плавные переходы для всех элементов */
+* {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Контейнеры */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+/* Навигация */
+.navbar {
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Убеждаемся, что контент поверх левитирующих фигур */
+.hero, .section {
+    position: relative;
+    z-index: 10;
+}
+
+.nav-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.nav-logo {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.nav-logo-green {
+    background: linear-gradient(135deg, #a3e635, #84cc16);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.nav-menu {
+    display: flex;
+    align-items: center;
+    gap: 2.5rem;
+}
+
+.nav-link {
+    color: #475569;
+    text-decoration: none;
+    font-weight: 600;
+    position: relative;
+    padding: 0.5rem 0;
+}
+
+.nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: linear-gradient(135deg, #a3e635, #84cc16);
+    transition: width 0.3s ease;
+}
+
+.nav-link:hover {
+    color: #84cc16;
+}
+
+.nav-link:hover::after {
+    width: 100%;
+}
+
+.mobile-menu-btn {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #475569;
+}
+
+.mobile-menu {
+    display: none;
+    padding: 1rem 0;
+}
+
+.mobile-menu ul {
+    list-style: none;
+}
+
+.mobile-menu li {
+    padding: 0.5rem 1rem;
+}
+
+.mobile-menu a {
+    color: #475569;
+    text-decoration: none;
+    display: block;
+    padding: 0.5rem;
+    transition: background-color 0.3s ease;
+}
+
+.mobile-menu a:hover {
+    background-color: #f8fafc;
+    color: #84cc16;
+}
+
+/* Hero секция */
+.hero {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    padding: 4rem 1rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="rgba(163,230,53,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    opacity: 0.5;
+}
+
+.hero-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3rem;
+    position: relative;
+    z-index: 1;
+}
+
+.hero-text {
+    text-align: center;
+    max-width: 600px;
+}
+
+.hero-title {
+    font-size: 3.5rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+}
+
+.highlight {
+    background: linear-gradient(135deg, #a3e635, #84cc16);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.hero-subtitle {
+    font-size: 1.25rem;
+    color: #64748b;
+    margin-bottom: 2rem;
+    font-weight: 400;
+}
+
+/* Главные кнопки */
+.main-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.main-btn {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 2rem;
+    border-radius: 20px;
+    text-decoration: none;
+    background: #ffffff;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.main-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(163, 230, 53, 0.1), transparent);
+    transition: left 0.5s;
+}
+
+.main-btn:hover::before {
+    left: 100%;
+}
+
+.main-btn:hover {
+    transform: translateX(10px) scale(1.02);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.main-btn-primary {
+    border-color: #a3e635;
+}
+
+.main-btn-primary:hover {
+    background: linear-gradient(135deg, #a3e635, #84cc16);
+    color: white;
+}
+
+.main-btn-primary:hover .btn-icon {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+.main-btn-secondary {
+    border-color: #84cc16;
+}
+
+.main-btn-secondary:hover {
+    background: linear-gradient(135deg, #84cc16, #65a30d);
+    color: white;
+}
+
+.main-btn-secondary:hover .btn-icon {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+.main-btn-accent {
+    border-color: #65a30d;
+}
+
+.main-btn-accent:hover {
+    background: linear-gradient(135deg, #65a30d, #4d7c0f);
+    color: white;
+}
+
+.main-btn-accent:hover .btn-icon {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+/* Дополнительные стили для органичности */
+.main-btn:nth-child(1) {
+    margin-left: 0;
+}
+
+.main-btn:nth-child(2) {
+    margin-left: 2rem;
+}
+
+.main-btn:nth-child(3) {
+    margin-left: 4rem;
+}
+
+@media (max-width: 768px) {
+    .main-btn:nth-child(2),
+    .main-btn:nth-child(3) {
+        margin-left: 0;
+    }
+}
+
+.btn-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    background: linear-gradient(135deg, #a3e635, #84cc16);
+    color: white;
+    flex-shrink: 0;
+}
+
+.btn-content h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: inherit;
+}
+
+.btn-content p {
+    font-size: 0.875rem;
+    color: inherit;
+    opacity: 0.8;
+    line-height: 1.4;
+}
+
+/* Секции */
+.section {
+    padding: 4rem 1rem;
+}
+
+.section-white {
+    background: #ffffff;
+}
+
+.section-light {
+    background: #f8fafc;
+}
+
+.section-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.section-subtitle {
+    font-size: 1.125rem;
+    color: #64748b;
+    text-align: center;
+    max-width: 800px;
+    margin: 0 auto 3rem;
+    line-height: 1.6;
+}
+
+/* О нас секция */
+.about-content {
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.about-description {
+    font-size: 1.125rem;
+    color: #64748b;
+    margin-bottom: 3rem;
+    line-height: 1.7;
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+    margin-top: 3rem;
+    max-width: 1000px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.feature {
+    padding: 2.5rem;
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(163, 230, 53, 0.1);
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.feature:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(163, 230, 53, 0.15);
+    border-color: #a3e635;
+}
+
+.feature i {
+    font-size: 2.5rem;
+    color: #a3e635;
+    margin-bottom: 1.5rem;
+}
+
+.feature h4 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 1rem;
+}
+
+.feature p {
+    color: #64748b;
+    font-size: 1rem;
+    line-height: 1.6;
+}
+
+/* Адаптивность для сетки */
+@media (max-width: 768px) {
+    .features-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+}
+
+/* Контактная секция */
+.contact-content {
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.contact-subtitle {
+    font-size: 1.125rem;
+    color: #64748b;
+    margin-bottom: 2rem;
+}
+
+.cta-button {
+    display: inline-block;
+    background: linear-gradient(135deg, #a3e635, #84cc16);
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1.125rem;
+    box-shadow: 0 10px 30px rgba(163, 230, 53, 0.3);
+    transition: all 0.3s ease;
+}
+
+.cta-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 40px rgba(163, 230, 53, 0.4);
+    background: linear-gradient(135deg, #84cc16, #65a30d);
+}
+
+/* Футер */
+.footer {
+    background: #1e293b;
+    color: #94a3b8;
+    padding: 2rem 1rem;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.footer-logo {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+}
+
+.footer-logo-green {
+    background: linear-gradient(135deg, #a3e635, #84cc16);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .nav-menu {
+        display: none;
+    }
+    
+    .mobile-menu-btn {
+        display: block;
+    }
+    
+    .hero-title {
+        font-size: 2.5rem;
+    }
+    
+    .main-buttons {
+        max-width: 100%;
+        padding: 0 1rem;
+    }
+    
+    .main-btn {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+        padding: 1.5rem;
+    }
+    
+    .features-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+    
+    .footer-content {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+}
+
+/* Навигационные кнопки */
+.nav-buttons {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.nav-buttons > div {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.user-welcome {
+    color: #2d3748;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 20px;
+    border: 2px solid #e2e8f0;
+    font-size: 0.875rem;
+}
+
+.mobile-welcome {
+    display: block;
+    text-align: center;
+    margin-bottom: 1rem;
+    background: rgba(255, 255, 255, 0.95);
+}
+
+.nav-btn {
+    padding: 0.75rem 1.5rem;
+    border: 2px solid;
+    border-radius: 25px;
+    font-size: 0.875rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.nav-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    transition: left 0.6s ease;
+}
+
+.nav-btn:hover::before {
+    left: 100%;
+}
+
+.nav-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+    transition: all 0.4s ease;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+}
+
+.nav-btn:hover::after {
+    width: 300px;
+    height: 300px;
+}
+
+.nav-btn-login {
+    border-color: #64748b;
+    color: #64748b;
+    background: linear-gradient(135deg, rgba(100, 116, 139, 0.1), rgba(71, 85, 105, 0.05));
+}
+
+.nav-btn-login:hover {
+    background: linear-gradient(135deg, #64748b, #475569);
+    color: white;
+    transform: translateY(-4px) scale(1.05);
+    box-shadow: 0 12px 40px rgba(100, 116, 139, 0.4);
+    border-color: #475569;
+}
+
+.nav-btn-register {
+    border-color: #3b82f6;
+    color: #3b82f6;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(37, 99, 235, 0.1));
+}
+
+.nav-btn-register:hover {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    transform: translateY(-4px) scale(1.05);
+    box-shadow: 0 12px 40px rgba(59, 130, 246, 0.5);
+    border-color: #2563eb;
+}
+
+.nav-btn-free {
+    border-color: #a3e635;
+    color: #84cc16;
+    background: linear-gradient(135deg, rgba(163, 230, 53, 0.2), rgba(132, 204, 22, 0.15));
+    animation: pulse-glow 2s infinite;
+    position: relative;
+}
+
+.nav-btn-free::before {
+    background: linear-gradient(90deg, transparent, rgba(163, 230, 53, 0.6), transparent);
+}
+
+.nav-btn-free:hover {
+    background: linear-gradient(135deg, #a3e635, #84cc16);
+    color: white;
+    transform: translateY(-4px) scale(1.1);
+    box-shadow: 0 15px 50px rgba(163, 230, 53, 0.6);
+    border-color: #84cc16;
+    animation: none;
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), 0 0 20px rgba(163, 230, 53, 0.3);
+    }
+    50% {
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), 0 0 30px rgba(163, 230, 53, 0.5);
+    }
+}
+
+/* Мобильные навигационные кнопки */
+.mobile-nav-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem;
+    border-top: 2px solid rgba(163, 230, 53, 0.3);
+    margin-top: 1rem;
+    background: linear-gradient(135deg, rgba(163, 230, 53, 0.05), rgba(132, 204, 22, 0.02));
+}
+
+.mobile-nav-buttons .nav-btn {
+    width: 100%;
+    padding: 1rem 1.5rem;
+    font-size: 0.875rem;
+    text-align: center;
+    border-radius: 20px;
+}
+
+.mobile-nav-buttons .nav-btn-free {
+    background: linear-gradient(135deg, rgba(163, 230, 53, 0.3), rgba(132, 204, 22, 0.2));
+    border-width: 3px;
+}
+
+/* Адаптивность для навигационных кнопок */
+@media (max-width: 1200px) {
+    .nav-buttons {
+        gap: 0.75rem;
+    }
+    
+    .nav-btn {
+        padding: 0.6rem 1.2rem;
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+    }
+}
+
+@media (max-width: 1024px) {
+    .nav-buttons {
+        gap: 0.5rem;
+    }
+    
+    .nav-btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+    }
+}
+
+@media (max-width: 768px) {
+    .nav-buttons {
+        display: none;
+    }
+    
+    .mobile-nav-buttons {
+        display: flex;
+    }
+}
+
+@media (min-width: 769px) {
+    .mobile-nav-buttons {
+        display: none;
+    }
+} 

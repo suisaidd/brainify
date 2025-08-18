@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle}">Админ панель - Brainify</title>
+    <link rel="stylesheet" href="/css/admin.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Хедер -->
+        <header class="admin-header">
+            <div class="header-left">
+                <h1>
+                    <i class="fas fa-users-cog"></i>
+                    Админ панель
+                </h1>
+            </div>
+            <div class="header-right">
+                <div class="user-info">
+                    <span class="user-name" th:text="${currentUser?.name}">Администратор</span>
+                    <span class="user-role" th:text="${currentUser?.role?.displayName}" th:data-role="${currentUser?.role}">Админ</span>
+                </div>
+                <a href="/" class="btn btn-outline">
+                    <i class="fas fa-home"></i>
+                    На главную
+                </a>
+                <button class="btn btn-danger" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Выйти
+                </button>
+            </div>
+        </header>
+
+        <!-- Основной контент -->
+        <main class="admin-main">
+            <!-- Статистические карточки -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon student">
+                        <i class="fas fa-user-graduate"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="studentsCount">0</span>
+                        <span class="stat-label">Учеников</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon teacher">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="teachersCount">0</span>
+                        <span class="stat-label">Преподавателей</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon manager">
+                        <i class="fas fa-user-tie"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="managersCount">0</span>
+                        <span class="stat-label">Менеджеров</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon admin">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="adminsCount">0</span>
+                        <span class="stat-label">Администраторов</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Управление пользователями -->
+            <div class="users-section">
+                <div class="section-header">
+                    <h2>
+                        <i class="fas fa-users"></i>
+                        Управление пользователями
+                    </h2>
+                    <div class="search-container">
+                        <div class="filter-group">
+                            <label for="roleFilter" class="filter-label">Фильтр по роли:</label>
+                            <select id="roleFilter" class="filter-select">
+                                <option value="">Все роли</option>
+                                <option value="STUDENT">Ученики</option>
+                                <option value="TEACHER">Преподаватели</option>
+                                <option value="MANAGER">Менеджеры</option>
+                                <option value="ADMIN">Администраторы</option>
+                            </select>
+                        </div>
+                        <div class="search-input-wrapper">
+                            <i class="fas fa-search"></i>
+                            <input 
+                                type="text" 
+                                id="phoneSearch" 
+                                placeholder="Поиск по номеру телефона (8XXXXXXXXXX)" 
+                                maxlength="11"
+                                class="search-input">
+                        </div>
+                        <button class="btn btn-primary" onclick="searchUsers()">
+                            <i class="fas fa-search"></i>
+                            Поиск
+                        </button>
+                        <button class="btn btn-secondary" onclick="clearSearch()">
+                            <i class="fas fa-times"></i>
+                            Очистить
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Таблица пользователей -->
+                <div class="table-container">
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Имя</th>
+                                <th>Email</th>
+                                <th>Номер телефона</th>
+                                <th>Роль</th>
+                                <th>Статус</th>
+                                <th>Дата регистрации</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <!-- Данные будут загружены через JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Пагинация -->
+                <div class="pagination-container">
+                    <div class="pagination-info">
+                        <span id="paginationInfo">Показано 0 из 0 пользователей</span>
+                    </div>
+                    <div class="pagination-controls" id="paginationControls">
+                        <!-- Кнопки пагинации будут созданы через JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Модальное окно для изменения роли -->
+    <div id="roleModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>
+                    <i class="fas fa-user-edit"></i>
+                    Изменить роль пользователя
+                </h3>
+                <button class="modal-close" onclick="closeRoleModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="user-info-modal">
+                    <p><strong>Имя:</strong> <span id="modalUserName"></span></p>
+                    <p><strong>Email:</strong> <span id="modalUserEmail"></span></p>
+                    <p><strong>Телефон:</strong> <span id="modalUserPhone"></span></p>
+                    <p><strong>Текущая роль:</strong> <span id="modalCurrentRole"></span></p>
+                </div>
+                <div class="role-selection">
+                    <label for="newRole">Новая роль:</label>
+                    <select id="newRole" class="role-select">
+                        <option value="STUDENT">Ученик</option>
+                        <option value="TEACHER">Учитель</option>
+                        <!-- Роль менеджера доступна только для администраторов -->
+                        <!-- Роль администратора назначается только через БД -->
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeRoleModal()">
+                    <i class="fas fa-times"></i>
+                    Отмена
+                </button>
+                <button class="btn btn-primary" onclick="saveUserRole()">
+                    <i class="fas fa-save"></i>
+                    Сохранить
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для назначения предметов преподавателю -->
+    <div id="subjectsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>
+                    <i class="fas fa-book"></i>
+                    Назначить предметы пользователю
+                </h3>
+                <button class="modal-close" onclick="closeSubjectsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="teacher-info-modal">
+                    <p><strong>Пользователь:</strong> <span id="modalTeacherName"></span></p>
+                    <p><strong>Email:</strong> <span id="modalTeacherEmail"></span></p>
+                </div>
+                <div class="subjects-selection">
+                    <label>Выберите предметы:</label>
+                    <div id="subjectsList" class="subjects-list">
+                        <!-- Список предметов будет загружен через JavaScript -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeSubjectsModal()">
+                    <i class="fas fa-times"></i>
+                    Отмена
+                </button>
+                <button class="btn btn-primary" onclick="saveTeacherSubjects()">
+                    <i class="fas fa-save"></i>
+                    Сохранить предметы
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Загрузка скриптов -->
+    <script src="/js/admin.js"></script>
+</body>
+</html> 
