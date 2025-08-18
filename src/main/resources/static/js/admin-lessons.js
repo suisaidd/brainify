@@ -91,6 +91,16 @@ function initModals() {
             closeModal(modalId);
         }
     });
+    
+    // Закрытие модальных окон по клавише Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const openModal = document.querySelector('.modal.show');
+            if (openModal) {
+                closeModal(openModal.id);
+            }
+        }
+    });
 }
 
 function initScheduleHandlers() {
@@ -289,7 +299,7 @@ function createStudentCard(student) {
                     <div class="subject-name">${subject.name}</div>
                     <div class="subject-description">${subject.description || ''}</div>
                 </div>
-                <button class="card-btn card-btn-primary" onclick="openTeacherScheduleForSubject(${student.id}, ${subject.id})">
+                <button class="card-btn-lessons" onclick="openTeacherScheduleForSubject(${student.id}, ${subject.id})">
                     <i class="fas fa-calendar-alt"></i>
                     Уроки
                 </button>
@@ -631,6 +641,9 @@ async function selectTeacher(studentId, teacherId, subjectId) {
             
             // Обновляем данные учеников
             await loadStudents();
+            
+            // Закрываем модальное окно назначения преподавателя
+            closeModal('assign-teacher-modal');
         } else {
             throw new Error(data.message || 'Ошибка назначения преподавателя');
         }
@@ -669,8 +682,8 @@ async function assignTeacher(studentId, teacherId, subjectId) {
             // Обновляем данные учеников
             await loadStudents();
             
-            // Обновляем содержимое модального окна
-            await openAssignTeacherModal(studentId);
+            // Закрываем модальное окно назначения преподавателя
+            closeModal('assign-teacher-modal');
         } else {
             throw new Error(data.message || 'Ошибка назначения преподавателя');
         }
@@ -715,8 +728,8 @@ async function removeTeacher(studentId, subjectId) {
             // Обновляем данные учеников
             await loadStudents();
             
-            // Обновляем содержимое модального окна
-            await openAssignTeacherModal(studentId);
+            // Закрываем модальное окно назначения преподавателя
+            closeModal('assign-teacher-modal');
         } else {
             throw new Error(data.message || 'Ошибка снятия назначения преподавателя');
         }
@@ -763,22 +776,7 @@ function openStudentScheduleModal(studentId, subjectId) {
     openModal('schedule-modal');
 }
 
-function openAssignTeacherModal(studentId, subjectId) {
-    const student = studentsData.find(s => s.id === studentId);
-    const subject = subjectsData.find(sub => sub.id === subjectId);
-    if (!student || !subject) return;
-    
-    // Загружаем преподавателей для данного предмета
-    loadTeachersForSubject(subjectId);
-    
-    // Показываем модальное окно назначения преподавателя
-    document.getElementById('assign-student-name').textContent = student.name;
-    document.getElementById('assign-subject-name').textContent = subject.name;
-    
-    openModal('assign-teacher-modal');
-}
-
-// Функция больше не нужна
+// Функция для открытия модального окна назначения преподавателя по предмету (удалена, так как дублирует основную функцию)
 
 async function loadTeachersForSubject(subjectId) {
     try {
@@ -1144,6 +1142,8 @@ async function saveSchedule() {
                 showNotification('Расписание успешно сохранено', 'success');
                 // Перезагружаем расписание для отображения желтых слотов
                 await loadScheduleData();
+                // Закрываем модальное окно после успешного сохранения
+                closeModal('schedule-modal');
             } else {
                 throw new Error(result.message || 'Ошибка сохранения');
             }
