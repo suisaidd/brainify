@@ -50,6 +50,10 @@ public class User {
     @Column(name = "remaining_lessons")
     private Integer remainingLessons = 0;
     
+    // Часовой пояс пользователя (например, "Europe/Moscow", "Asia/Yekaterinburg")
+    @Column(name = "timezone")
+    private String timezone = "Europe/Moscow"; // По умолчанию Москва
+    
     // Связь Many-to-Many с предметами (только для преподавателей)
     @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
@@ -71,6 +75,7 @@ public class User {
         this.isVerified = false;
         this.isActive = true;
         this.createdAt = LocalDateTime.now();
+        this.timezone = "Europe/Moscow";
     }
     
     // Геттеры и сеттеры
@@ -152,6 +157,14 @@ public class User {
     
     public void setRemainingLessons(Integer remainingLessons) {
         this.remainingLessons = remainingLessons;
+    }
+    
+    public String getTimezone() {
+        return timezone != null ? timezone : "Europe/Moscow";
+    }
+    
+    public void setTimezone(String timezone) {
+        this.timezone = timezone;
     }
     
     @Override

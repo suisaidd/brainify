@@ -124,7 +124,7 @@
                                 <th>Номер телефона</th>
                                 <th>Роль</th>
                                 <th>Статус</th>
-                                <th>Дата регистрации</th>
+                                <th>Количество занятий</th>
                                 <th>Действия</th>
                             </tr>
                         </thead>
@@ -221,6 +221,42 @@
                 <button class="btn btn-primary" onclick="saveTeacherSubjects()">
                     <i class="fas fa-save"></i>
                     Сохранить предметы
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для изменения количества занятий -->
+    <div id="lessonsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>
+                    <i class="fas fa-calendar-alt"></i>
+                    Изменить количество занятий
+                </h3>
+                <button class="modal-close" onclick="closeLessonsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="student-info-modal">
+                    <p><strong>Ученик:</strong> <span id="modalStudentName"></span></p>
+                    <p><strong>Email:</strong> <span id="modalStudentEmail"></span></p>
+                    <p><strong>Текущее количество занятий:</strong> <span id="modalCurrentLessons"></span></p>
+                </div>
+                <div class="lessons-input">
+                    <label for="newLessonsCount">Новое количество занятий:</label>
+                    <input type="number" id="newLessonsCount" min="0" max="999" class="lessons-input-field" placeholder="Введите количество занятий">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeLessonsModal()">
+                    <i class="fas fa-times"></i>
+                    Отмена
+                </button>
+                <button class="btn btn-primary" onclick="saveStudentLessons()">
+                    <i class="fas fa-save"></i>
+                    Сохранить
                 </button>
             </div>
         </div>

@@ -1,7 +1,9 @@
 package com.example.brainify.Config;
 
 import com.example.brainify.Model.Subject;
+import com.example.brainify.Model.User;
 import com.example.brainify.Repository.SubjectRepository;
+import com.example.brainify.Repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
@@ -14,6 +16,9 @@ public class DataInitializer implements CommandLineRunner {
 
     @Autowired
     private SubjectRepository subjectRepository;
+    
+    @Autowired
+    private UserRepository userRepository;
 
     @Override
     public void run(String... args) throws Exception {
@@ -64,5 +69,28 @@ public class DataInitializer implements CommandLineRunner {
 
         subjectRepository.saveAll(subjects);
         System.out.println("Инициализация предметов завершена. Добавлено: " + subjects.size() + " предметов.");
+        
+        // Инициализация часовых поясов для существующих пользователей
+        initializeTimezones();
+    }
+    
+    private void initializeTimezones() {
+        try {
+            List<User> usersWithoutTimezone = userRepository.findByTimezoneIsNull();
+            if (!usersWithoutTimezone.isEmpty()) {
+                System.out.println("Найдено пользователей без часового пояса: " + usersWithoutTimezone.size());
+                
+                for (User user : usersWithoutTimezone) {
+                    user.setTimezone("Europe/Moscow");
+                }
+                
+                userRepository.saveAll(usersWithoutTimezone);
+                System.out.println("Установлен часовой пояс по умолчанию для " + usersWithoutTimezone.size() + " пользователей");
+            } else {
+                System.out.println("Все пользователи уже имеют установленный часовой пояс");
+            }
+        } catch (Exception e) {
+            System.err.println("Ошибка при инициализации часовых поясов: " + e.getMessage());
+        }
     }
 } 

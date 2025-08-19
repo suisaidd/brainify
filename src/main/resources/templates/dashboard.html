@@ -32,11 +32,11 @@
                     <span class="section-title">Главная</span>
                 </div>
                 <div class="section-items">
-                    <a href="#" class="sidebar-item active">
+                    <a href="#" class="sidebar-item active" data-tab="main-tab">
                         <i class="fas fa-tachometer-alt"></i>
                         <span>Главная</span>
                     </a>
-                    <a href="#" class="sidebar-item">
+                    <a href="#" class="sidebar-item" data-tab="schedule-tab">
                         <i class="fas fa-calendar-alt"></i>
                         <span>Расписание</span>
                     </a>
@@ -103,7 +103,7 @@
             <div class="header-right">
                 <button class="header-btn" title="Сообщения">
                     <i class="fas fa-envelope"></i>
-                    <span class="notification-badge">3</span>
+                    <span class="notification-badge" id="notificationCount">0</span>
                 </button>
                 <button class="header-btn" title="Профиль">
                     <i class="fas fa-user"></i>
@@ -116,296 +116,198 @@
         
         <!-- Контентная область -->
         <div class="content-area">
-            <!-- Первая строка: Добро пожаловать -->
-            <div class="dashboard-row first-row">
-                <!-- Приветственная карточка -->
-                <div class="dashboard-card welcome-card">
-                    <div class="card-header">
-                        <h2>Добро пожаловать!</h2>
-                        <div class="user-avatar">
-                            <i class="fas fa-chalkboard-teacher"></i>
+            <!-- Главная вкладка -->
+            <div id="main-tab" class="dashboard-tab active">
+                <!-- Первая строка: Добро пожаловать -->
+                <div class="dashboard-row first-row">
+                    <!-- Приветственная карточка -->
+                    <div class="dashboard-card welcome-card">
+                        <div class="card-header">
+                            <h2>Добро пожаловать!</h2>
+                            <div class="user-avatar">
+                                <i class="fas fa-chalkboard-teacher"></i>
+                            </div>
+                        </div>
+                        <div class="card-content">
+                            <p>Рады видеть вас в личном кабинете преподавателя Brainify</p>
+                            <div class="welcome-stats">
+                                <div class="stat-item">
+                                    <span class="stat-number" id="totalLessons">0</span>
+                                    <span class="stat-label">Уроков проведено</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-number" id="averageRating">0.0</span>
+                                    <span class="stat-label">Средняя оценка</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="card-content">
-                        <p>Рады видеть вас в личном кабинете преподавателя Brainify</p>
-                        <div class="welcome-stats">
-                            <div class="stat-item">
-                                <span class="stat-number">127</span>
-                                <span class="stat-label">Уроков проведено</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-number">4.9</span>
-                                <span class="stat-label">Средняя оценка</span>
-                            </div>
+                </div>
+
+                <!-- Секция: Мои уроки -->
+                <div class="lessons-section">
+                    <div class="section-header">
+                        <h2>Мои уроки</h2>
+                        <span class="lessons-count" id="lessonsCount">Всего уроков: 0</span>
+                    </div>
+                    
+                    <!-- Контейнер для уроков -->
+                    <div class="lessons-grid" id="lessonsGrid">
+                        <!-- Уроки будут загружаться динамически из БД -->
+                    </div>
+
+                    <!-- Контейнер для скрытых уроков -->
+                    <div class="lessons-grid hidden" id="hiddenLessons">
+                        <!-- Дополнительные уроки будут загружаться динамически -->
+                    </div>
+
+                    <!-- Кнопка "Ещё" -->
+                    <div class="load-more-container" id="loadMoreContainer" style="display: none;">
+                        <button class="load-more-btn" id="loadMoreBtn">
+                            <span class="btn-text">Показать ещё уроки</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+
+                    <!-- Сообщение об отсутствии уроков -->
+                    <div class="no-lessons-message" id="noLessonsMessage" style="display: none;">
+                        <div class="empty-state">
+                            <i class="fas fa-calendar-times"></i>
+                            <h3>Уроков пока нет</h3>
+                            <p>Когда у вас появятся запланированные уроки, они отобразятся здесь</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-
-
-            <!-- Третья секция: Все уроки преподавателя -->
-            <div class="lessons-section">
-                <div class="section-header">
-                    <h2>Мои уроки</h2>
-                    <span class="lessons-count">Всего уроков: 127</span>
-                </div>
-                
-                <div class="lessons-grid" id="lessonsGrid">
-                    <!-- Первые 4 урока -->
-                    <div class="lesson-card teacher-lesson">
-                        <div class="lesson-status-badge upcoming">Сегодня</div>
-                        <div class="lesson-info">
-                            <h4 class="lesson-subject">Математика</h4>
-                            <p class="lesson-topic">Квадратные уравнения</p>
-                            <div class="lesson-meta">
-                                <span class="lesson-date">
-                                    <i class="fas fa-calendar"></i>
-                                    Сегодня
-                                </span>
-                                <span class="lesson-time">
-                                    <i class="fas fa-clock"></i>
-                                    14:00 - 15:30
-                                </span>
-                            </div>
-                            <div class="lesson-student">
-                                <i class="fas fa-user"></i>
-                                Иван Петров
-                            </div>
-                        </div>
-                        <div class="lesson-actions">
-                            <button class="lesson-btn primary">Начать урок</button>
-                        </div>
+            <!-- Вкладка расписания -->
+            <div id="schedule-tab" class="dashboard-tab">
+                <div class="schedule-header">
+                    <h2>Моё расписание</h2>
+                    <div class="schedule-controls">
+                        <button class="schedule-nav-btn" id="prevWeekBtn">
+                            <i class="fas fa-chevron-left"></i>
+                            Предыдущая неделя
+                        </button>
+                        <span class="current-week" id="currentWeek">Текущая неделя</span>
+                        <button class="schedule-nav-btn" id="nextWeekBtn">
+                            Следующая неделя
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
                     </div>
-
-                    <div class="lesson-card teacher-lesson">
-                        <div class="lesson-status-badge scheduled">Завтра</div>
-                        <div class="lesson-info">
-                            <h4 class="lesson-subject">Физика</h4>
-                            <p class="lesson-topic">Законы Ньютона</p>
-                            <div class="lesson-meta">
-                                <span class="lesson-date">
-                                    <i class="fas fa-calendar"></i>
-                                    17 января 2024
-                                </span>
-                                <span class="lesson-time">
-                                    <i class="fas fa-clock"></i>
-                                    16:00 - 17:30
-                                </span>
-                            </div>
-                            <div class="lesson-student">
-                                <i class="fas fa-user"></i>
-                                Мария Сидорова
-                            </div>
-                        </div>
-                        <div class="lesson-actions">
-                            <button class="lesson-btn secondary">Подготовиться</button>
-                        </div>
-                    </div>
-
-                    <div class="lesson-card teacher-lesson">
-                        <div class="lesson-status-badge completed">Завершен</div>
-                        <div class="lesson-info">
-                            <h4 class="lesson-subject">Химия</h4>
-                            <p class="lesson-topic">Химические реакции</p>
-                            <div class="lesson-meta">
-                                <span class="lesson-date">
-                                    <i class="fas fa-calendar"></i>
-                                    15 января 2024
-                                </span>
-                                <span class="lesson-time">
-                                    <i class="fas fa-clock"></i>
-                                    18:00 - 19:30
-                                </span>
-                            </div>
-                            <div class="lesson-student">
-                                <i class="fas fa-user"></i>
-                                Алексей Козлов
-                            </div>
-                        </div>
-                        <div class="lesson-rating">
-                            <span class="rating-stars">
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                            </span>
-                            <span class="rating-value">5.0</span>
-                        </div>
-                    </div>
-
-                    <div class="lesson-card teacher-lesson">
-                        <div class="lesson-status-badge completed">Завершен</div>
-                        <div class="lesson-info">
-                            <h4 class="lesson-subject">Математика</h4>
-                            <p class="lesson-topic">Логарифмы</p>
-                            <div class="lesson-meta">
-                                <span class="lesson-date">
-                                    <i class="fas fa-calendar"></i>
-                                    12 января 2024
-                                </span>
-                                <span class="lesson-time">
-                                    <i class="fas fa-clock"></i>
-                                    14:00 - 15:30
-                                </span>
-                            </div>
-                            <div class="lesson-student">
-                                <i class="fas fa-user"></i>
-                                Анна Михайлова
-                            </div>
-                        </div>
-                        <div class="lesson-rating">
-                            <span class="rating-stars">
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="far fa-star"></i>
-                            </span>
-                            <span class="rating-value">4.8</span>
-                        </div>
+                    <div id="timezone-info" class="timezone-info" style="display: none;">
+                        <i class="fas fa-clock"></i>
+                        <span>Время указано по Москве</span>
                     </div>
                 </div>
 
-                <!-- Скрытые уроки (показываются по кнопке "Ещё") -->
-                <div class="lessons-grid hidden" id="hiddenLessons">
-                    <!-- Следующие 4 урока -->
-                    <div class="lesson-card teacher-lesson">
-                        <div class="lesson-status-badge completed">Завершен</div>
-                        <div class="lesson-info">
-                            <h4 class="lesson-subject">Физика</h4>
-                            <p class="lesson-topic">Электричество</p>
-                            <div class="lesson-meta">
-                                <span class="lesson-date">
-                                    <i class="fas fa-calendar"></i>
-                                    10 января 2024
-                                </span>
-                                <span class="lesson-time">
-                                    <i class="fas fa-clock"></i>
-                                    16:00 - 17:30
-                                </span>
-                            </div>
-                            <div class="lesson-student">
-                                <i class="fas fa-user"></i>
-                                Дмитрий Волков
-                            </div>
-                        </div>
-                        <div class="lesson-rating">
-                            <span class="rating-stars">
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                            </span>
-                            <span class="rating-value">5.0</span>
-                        </div>
-                    </div>
+                <!-- Загрузчик расписания -->
+                <div id="schedule-loading" class="schedule-loading">
+                    <div class="loading-spinner"></div>
+                    <p>Загрузка расписания...</p>
+                </div>
 
-                    <div class="lesson-card teacher-lesson">
-                        <div class="lesson-status-badge completed">Завершен</div>
-                        <div class="lesson-info">
-                            <h4 class="lesson-subject">Химия</h4>
-                            <p class="lesson-topic">Периодическая таблица</p>
-                            <div class="lesson-meta">
-                                <span class="lesson-date">
-                                    <i class="fas fa-calendar"></i>
-                                    8 января 2024
-                                </span>
-                                <span class="lesson-time">
-                                    <i class="fas fa-clock"></i>
-                                    18:00 - 19:30
-                                </span>
-                            </div>
-                            <div class="lesson-student">
-                                <i class="fas fa-user"></i>
-                                Елена Смирнова
-                            </div>
-                        </div>
-                        <div class="lesson-rating">
-                            <span class="rating-stars">
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="far fa-star"></i>
-                            </span>
-                            <span class="rating-value">4.7</span>
-                        </div>
+                <!-- Таблица расписания -->
+                <div id="schedule-table-container" class="schedule-table-container" style="display: none;">
+                    <div class="schedule-table-wrapper">
+                        <table class="schedule-table" id="scheduleTable">
+                            <thead>
+                                <tr>
+                                    <th class="time-column">Время</th>
+                                    <th>
+                                        <div class="day-header">
+                                            <div class="day-name">Пн</div>
+                                            <div class="day-date" id="monday-date">-</div>
+                                        </div>
+                                    </th>
+                                    <th>
+                                        <div class="day-header">
+                                            <div class="day-name">Вт</div>
+                                            <div class="day-date" id="tuesday-date">-</div>
+                                        </div>
+                                    </th>
+                                    <th>
+                                        <div class="day-header">
+                                            <div class="day-name">Ср</div>
+                                            <div class="day-date" id="wednesday-date">-</div>
+                                        </div>
+                                    </th>
+                                    <th>
+                                        <div class="day-header">
+                                            <div class="day-name">Чт</div>
+                                            <div class="day-date" id="thursday-date">-</div>
+                                        </div>
+                                    </th>
+                                    <th>
+                                        <div class="day-header">
+                                            <div class="day-name">Пт</div>
+                                            <div class="day-date" id="friday-date">-</div>
+                                        </div>
+                                    </th>
+                                    <th>
+                                        <div class="day-header">
+                                            <div class="day-name">Сб</div>
+                                            <div class="day-date" id="saturday-date">-</div>
+                                        </div>
+                                    </th>
+                                    <th>
+                                        <div class="day-header">
+                                            <div class="day-name">Вс</div>
+                                            <div class="day-date" id="sunday-date">-</div>
+                                        </div>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="scheduleTableBody">
+                                <!-- Строки времени будут добавлены через JavaScript -->
+                            </tbody>
+                        </table>
                     </div>
-
-                    <div class="lesson-card teacher-lesson">
-                        <div class="lesson-status-badge completed">Завершен</div>
-                        <div class="lesson-info">
-                            <h4 class="lesson-subject">Математика</h4>
-                            <p class="lesson-topic">Тригонометрия</p>
-                            <div class="lesson-meta">
-                                <span class="lesson-date">
-                                    <i class="fas fa-calendar"></i>
-                                    5 января 2024
-                                </span>
-                                <span class="lesson-time">
-                                    <i class="fas fa-clock"></i>
-                                    14:00 - 15:30
-                                </span>
-                            </div>
-                            <div class="lesson-student">
-                                <i class="fas fa-user"></i>
-                                Максим Орлов
-                            </div>
-                        </div>
-                        <div class="lesson-rating">
-                            <span class="rating-stars">
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                            </span>
-                            <span class="rating-value">5.0</span>
-                        </div>
-                    </div>
-
-                    <div class="lesson-card teacher-lesson">
-                        <div class="lesson-status-badge completed">Завершен</div>
-                        <div class="lesson-info">
-                            <h4 class="lesson-subject">Физика</h4>
-                            <p class="lesson-topic">Механика</p>
-                            <div class="lesson-meta">
-                                <span class="lesson-date">
-                                    <i class="fas fa-calendar"></i>
-                                    3 января 2024
-                                </span>
-                                <span class="lesson-time">
-                                    <i class="fas fa-clock"></i>
-                                    16:00 - 17:30
-                                </span>
-                            </div>
-                            <div class="lesson-student">
-                                <i class="fas fa-user"></i>
-                                София Лебедева
-                            </div>
-                        </div>
-                        <div class="lesson-rating">
-                            <span class="rating-stars">
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="far fa-star"></i>
-                            </span>
-                            <span class="rating-value">4.9</span>
-                        </div>
+                    
+                    <!-- Кнопки управления расписанием -->
+                    <div class="schedule-actions">
+                        <button id="save-schedule-btn" class="schedule-action-btn primary">
+                            <i class="fas fa-save"></i>
+                            Сохранить изменения
+                        </button>
+                        <button id="reset-schedule-btn" class="schedule-action-btn secondary">
+                            <i class="fas fa-undo"></i>
+                            Отменить изменения
+                        </button>
                     </div>
                 </div>
 
-                <!-- Кнопка "Ещё" -->
-                <div class="load-more-container">
-                    <button class="load-more-btn" id="loadMoreBtn">
-                        <span class="btn-text">Показать ещё 4 урока</span>
-                        <i class="fas fa-chevron-down"></i>
-                    </button>
+                <!-- Сообщение об отсутствии расписания -->
+                <div id="schedule-empty" class="schedule-empty" style="display: none;">
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-times"></i>
+                        <h3>Расписание пусто</h3>
+                        <p>На выбранную неделю уроки не запланированы</p>
+                    </div>
+                </div>
+
+                <!-- Легенда расписания -->
+                <div class="schedule-legend">
+                    <div class="legend-item">
+                        <span class="legend-color empty"></span>
+                        <span>Пустое время (кликните для добавления)</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color selected"></span>
+                        <span><i class="fas fa-plus"></i> Выбрано для добавления</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color available"></span>
+                        <span>Доступное время (кликните для удаления)</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color to-delete"></span>
+                        <span><i class="fas fa-trash"></i> Помечено к удалению</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color booked"></span>
+                        <span><i class="fas fa-lock"></i> Занято учениками (неизменяемо)</span>
+                    </div>
                 </div>
             </div>
         </div>

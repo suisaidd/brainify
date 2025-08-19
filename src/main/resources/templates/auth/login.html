@@ -37,10 +37,24 @@
         <div class="auth-card login-card">
             <div class="card-header">
                 <h1>Вход в аккаунт</h1>
-                <p>Добро пожаловать обратно!</p>
+                <p th:if="${selectedRole == 'student'}">Добро пожаловать в панель ученика!</p>
+                <p th:if="${selectedRole == 'teacher'}">Добро пожаловать в панель преподавателя!</p>
+                <p th:if="${selectedRole == null}">Добро пожаловать обратно!</p>
             </div>
 
             <form id="loginForm" class="auth-form">
+                <!-- Индикатор выбранной роли -->
+                <div th:if="${selectedRole != null}" class="role-indicator">
+                    <div th:if="${selectedRole == 'student'}" class="role-badge student-badge">
+                        <i class="fas fa-graduation-cap"></i>
+                        <span>Панель ученика</span>
+                    </div>
+                    <div th:if="${selectedRole == 'teacher'}" class="role-badge teacher-badge">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                        <span>Панель преподавателя</span>
+                    </div>
+                </div>
+                
                 <div class="form-group">
                     <label for="email">Email адрес</label>
                     <div class="input-wrapper">
@@ -50,6 +64,9 @@
                     </div>
                     <span class="error-message" id="emailError"></span>
                 </div>
+                
+                <!-- Скрытое поле для передачи выбранной роли -->
+                <input type="hidden" id="selectedRole" th:value="${selectedRole}">
 
                 <button type="submit" class="auth-button login-button" id="loginBtn">
                     <span class="btn-text">Войти</span>

@@ -118,6 +118,12 @@ async function handleLogin(e) {
         email: document.getElementById('email').value.trim()
     };
     
+    // Получаем выбранную роль, если есть
+    const selectedRoleElement = document.getElementById('selectedRole');
+    if (selectedRoleElement && selectedRoleElement.value) {
+        formData.selectedRole = selectedRoleElement.value;
+    }
+    
     // Валидация на клиенте
     if (!validateLoginForm(formData)) {
         return;
@@ -143,6 +149,11 @@ async function handleLogin(e) {
             currentType = 'LOGIN';
             sessionStorage.setItem('currentEmail', currentEmail);
             sessionStorage.setItem('currentType', currentType);
+            
+            // Сохраняем выбранную роль, если есть
+            if (formData.selectedRole) {
+                sessionStorage.setItem('selectedRole', formData.selectedRole);
+            }
             
             console.log('DEBUG: Сохранение после входа:');
             console.log('DEBUG: formData.email =', formData.email);
@@ -249,6 +260,7 @@ async function handleVerification(e) {
             // Очищаем данные верификации
             sessionStorage.removeItem('currentEmail');
             sessionStorage.removeItem('currentType');
+            sessionStorage.removeItem('selectedRole');
             currentEmail = '';
             currentType = '';
             

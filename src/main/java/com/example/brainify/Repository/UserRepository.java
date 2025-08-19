@@ -71,4 +71,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     
     // Количество пользователей по роли
     long countByRole(UserRole role);
+    
+    // Поиск пользователей без установленного часового пояса
+    List<User> findByTimezoneIsNull();
 } 

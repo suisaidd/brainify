@@ -42,8 +42,9 @@ public class AuthController {
 
     // Страница входа
     @GetMapping("/login")
-    public String showLoginPage(Model model) {
+    public String showLoginPage(Model model, @RequestParam(value = "role", required = false) String role) {
         model.addAttribute("pageTitle", "Вход - Brainify");
+        model.addAttribute("selectedRole", role);
         return "auth/login";
     }
 
@@ -148,7 +149,7 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    // API: Автоматический вход для разработчика
+    // API: Автоматический вход для разработки
     @PostMapping("/api/dev-login")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> devLogin(@RequestBody Map<String, String> request, HttpSession session) {
@@ -157,19 +158,32 @@ public class AuthController {
             String email = request.get("email");
             String password = request.get("password");
             
-            // Проверяем, что это аккаунт разработчика
-            if (!"9873262692@mail.ru".equals(email)) {
+            // Разрешенные email для автоматического входа в режиме разработки
+            String[] allowedEmails = {
+                "9873262692@mail.ru",    // Админ
+                "hristovamarina51@gmail.com", // Ученик
+                "89873262692@mail.ru"   // Преподаватель
+            };
+            
+            boolean isAllowedEmail = false;
+            for (String allowedEmail : allowedEmails) {
+                if (allowedEmail.equals(email)) {
+                    isAllowedEmail = true;
+                    break;
+                }
+            }
+            
+            if (!isAllowedEmail) {
                 response.put("success", false);
-                response.put("message", "Неверный email для разработчика");
+                response.put("message", "Неверный email для автоматического входа");
                 return ResponseEntity.badRequest().body(response);
             }
             
-            // Здесь можно добавить проверку пароля, если нужно
-            // Пока что просто находим пользователя по email
+            // Находим пользователя по email
             User user = authService.findUserByEmail(email);
             if (user == null) {
                 response.put("success", false);
-                response.put("message", "Пользователь разработчика не найден");
+                response.put("message", "Пользователь не найден");
                 return ResponseEntity.badRequest().body(response);
             }
             
@@ -184,11 +198,11 @@ public class AuthController {
             response.put("redirectUrl", redirectUrl);
             response.put("user", Map.of("id", user.getId(), "name", user.getName(), "role", user.getRole().name()));
             
-            logger.info("Автоматический вход разработчика: email={}, role={}", email, user.getRole());
+            logger.info("Автоматический вход: email={}, role={}", email, user.getRole());
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Ошибка автоматического входа разработчика", e);
+            logger.error("Ошибка автоматического входа", e);
             response.put("success", false);
             response.put("message", "Ошибка автоматического входа: " + e.getMessage());
             return ResponseEntity.badRequest().body(response);

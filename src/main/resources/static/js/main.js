@@ -111,6 +111,26 @@ function initMobileNavButtons() {
             devLogin();
         });
     });
+
+    // Мобильные кнопки для автоматического входа ученика
+    const mobileDevStudentButtons = document.querySelectorAll('.mobile-nav-buttons .nav-btn-dev-student');
+    console.log('Найдено мобильных кнопок автоматического входа ученика:', mobileDevStudentButtons.length);
+    mobileDevStudentButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            console.log('Нажата мобильная кнопка автоматического входа ученика');
+            devStudentLogin();
+        });
+    });
+
+    // Мобильные кнопки для автоматического входа преподавателя
+    const mobileDevTeacherButtons = document.querySelectorAll('.mobile-nav-buttons .nav-btn-dev-teacher');
+    console.log('Найдено мобильных кнопок автоматического входа преподавателя:', mobileDevTeacherButtons.length);
+    mobileDevTeacherButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            console.log('Нажата мобильная кнопка автоматического входа преподавателя');
+            devTeacherLogin();
+        });
+    });
 }
 
 // Плавная прокрутка для якорных ссылок
@@ -748,6 +768,26 @@ function initNavButtons() {
             devLogin();
         });
     });
+
+    // Кнопки для автоматического входа ученика
+    const devStudentButtons = document.querySelectorAll('.nav-btn-dev-student');
+    console.log('Найдено кнопок автоматического входа ученика:', devStudentButtons.length);
+    devStudentButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            console.log('Нажата кнопка автоматического входа ученика');
+            devStudentLogin();
+        });
+    });
+
+    // Кнопки для автоматического входа преподавателя
+    const devTeacherButtons = document.querySelectorAll('.nav-btn-dev-teacher');
+    console.log('Найдено кнопок автоматического входа преподавателя:', devTeacherButtons.length);
+    devTeacherButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            console.log('Нажата кнопка автоматического входа преподавателя');
+            devTeacherLogin();
+        });
+    });
 }
 
 // Функция выхода из аккаунта
@@ -1043,5 +1083,77 @@ function devLogin() {
         console.error('Ошибка автоматического входа:', error);
         // Показываем уведомление об ошибке
         showToast('Ошибка автоматического входа. Проверьте данные аккаунта разработчика.', 'error');
+    });
+}
+
+// Функция автоматического входа для ученика
+function devStudentLogin() {
+    console.log('Выполняется автоматический вход для ученика');
+    
+    const loginData = {
+        email: 'hristovamarina51@gmail.com',
+        password: 'dev123456' // Предполагаемый пароль
+    };
+    
+    fetch('/auth/api/dev-login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(loginData)
+    })
+    .then(response => {
+        console.log('Ответ от сервера на student dev login:', response.status);
+        if (response.ok) {
+            return response.json();
+        } else {
+            throw new Error('Ошибка входа');
+        }
+    })
+    .then(data => {
+        console.log('Успешный вход ученика:', data);
+        // Перенаправляем на главную страницу для обновления состояния
+        window.location.href = '/';
+    })
+    .catch(error => {
+        console.error('Ошибка автоматического входа ученика:', error);
+        // Показываем уведомление об ошибке
+        showToast('Ошибка автоматического входа ученика. Проверьте данные аккаунта.', 'error');
+    });
+}
+
+// Функция автоматического входа для преподавателя
+function devTeacherLogin() {
+    console.log('Выполняется автоматический вход для преподавателя');
+    
+    const loginData = {
+        email: '89873262692@mail.ru',
+        password: 'dev123456' // Предполагаемый пароль
+    };
+    
+    fetch('/auth/api/dev-login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(loginData)
+    })
+    .then(response => {
+        console.log('Ответ от сервера на teacher dev login:', response.status);
+        if (response.ok) {
+            return response.json();
+        } else {
+            throw new Error('Ошибка входа');
+        }
+    })
+    .then(data => {
+        console.log('Успешный вход преподавателя:', data);
+        // Перенаправляем на главную страницу для обновления состояния
+        window.location.href = '/';
+    })
+    .catch(error => {
+        console.error('Ошибка автоматического входа преподавателя:', error);
+        // Показываем уведомление об ошибке
+        showToast('Ошибка автоматического входа преподавателя. Проверьте данные аккаунта.', 'error');
     });
 } 

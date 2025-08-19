@@ -135,4 +135,23 @@ public class UserService {
         Page<User> page = userRepository.findByRole(role, org.springframework.data.domain.PageRequest.of(0, Integer.MAX_VALUE));
         return page.getContent();
     }
+    
+    // Обновить количество занятий у ученика
+    @Transactional
+    public void updateStudentLessons(Long userId, Integer remainingLessons) throws Exception {
+        User user = getUserById(userId);
+        
+        // Проверяем, что это ученик
+        if (!user.getRole().equals(UserRole.STUDENT)) {
+            throw new Exception("Количество занятий можно изменять только у учеников");
+        }
+        
+        // Проверяем, что количество занятий не отрицательное
+        if (remainingLessons < 0) {
+            throw new Exception("Количество занятий не может быть отрицательным");
+        }
+        
+        user.setRemainingLessons(remainingLessons);
+        userRepository.save(user);
+    }
 } 

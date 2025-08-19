@@ -225,4 +225,38 @@ public class AdminController {
             return ResponseEntity.status(500).body(response);
         }
     }
+    
+    // API для обновления количества занятий у ученика
+    @PostMapping("/api/users/{userId}/lessons")
+    @ResponseBody
+    public ResponseEntity<Map<String, String>> updateStudentLessons(
+            @PathVariable Long userId,
+            @RequestParam Integer remainingLessons,
+            HttpSession session) {
+        
+        // Проверяем роль пользователя - только администратор может изменять количество занятий
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null || !currentUser.getRole().equals(UserRole.ADMIN)) {
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Только администратор может изменять количество занятий");
+            response.put("status", "error");
+            return ResponseEntity.status(403).body(response);
+        }
+        
+        Map<String, String> response = new HashMap<>();
+        
+        try {
+            userService.updateStudentLessons(userId, remainingLessons);
+            
+            response.put("message", "Количество занятий успешно обновлено");
+            response.put("status", "success");
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("message", "Ошибка при обновлении количества занятий: " + e.getMessage());
+            response.put("status", "error");
+            
+            return ResponseEntity.status(500).body(response);
+        }
+    }
 } 

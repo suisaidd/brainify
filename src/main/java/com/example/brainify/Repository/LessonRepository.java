@@ -20,6 +20,9 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     // Найти уроки преподавателя
     List<Lesson> findByTeacherOrderByLessonDateAsc(User teacher);
     
+    // Найти уроки преподавателя (сортировка по убыванию даты)
+    List<Lesson> findByTeacherOrderByLessonDateDesc(User teacher);
+    
     // Найти уроки по предмету
     List<Lesson> findBySubjectOrderByLessonDateAsc(Subject subject);
     
@@ -39,7 +42,7 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     
     // Найти уроки преподавателя в указанном временном интервале
     @Query("SELECT l FROM Lesson l WHERE l.teacher = :teacher AND " +
-           "l.lessonDate BETWEEN :startDate AND :endDate")
+           "l.lessonDate BETWEEN :startDate AND :endDate ORDER BY l.lessonDate ASC")
     List<Lesson> findByTeacherAndLessonDateBetween(@Param("teacher") User teacher, 
                                                  @Param("startDate") LocalDateTime startDate, 
                                                  @Param("endDate") LocalDateTime endDate);

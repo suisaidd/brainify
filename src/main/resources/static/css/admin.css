@@ -812,4 +812,60 @@ body {
         transform: translateX(0);
         opacity: 1;
     }
+}
+
+/* Стили для модального окна количества занятий */
+.student-info-modal {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: #f7fafc;
+    border-radius: 8px;
+    border-left: 4px solid #f6ad55;
+}
+
+.student-info-modal p {
+    margin-bottom: 0.5rem;
+    color: #4a5568;
+}
+
+.student-info-modal p:last-child {
+    margin-bottom: 0;
+}
+
+.lessons-input {
+    margin-top: 1rem;
+}
+
+.lessons-input label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.lessons-input-field {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 1rem;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.lessons-input-field:focus {
+    outline: none;
+    border-color: #f6ad55;
+    box-shadow: 0 0 0 3px rgba(246, 173, 85, 0.1);
+}
+
+/* Стили для кнопки предупреждения */
+.btn-warning {
+    background: linear-gradient(135deg, #f6ad55, #ed8936);
+    color: white;
+}
+
+.btn-warning:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(246, 173, 85, 0.4);
 } 

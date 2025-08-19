@@ -882,7 +882,15 @@ function updateWeekDisplay() {
     currentDate.setDate(currentDate.getDate() + (currentWeekOffset * 7));
     
     const weekStart = new Date(currentDate);
-    weekStart.setDate(currentDate.getDate() - currentDate.getDay() + 1); // Понедельник
+    // Исправляем логику для правильного вычисления понедельника
+    const dayOfWeek = currentDate.getDay();
+    let daysToMonday;
+    if (dayOfWeek === 0) { // Воскресенье
+        daysToMonday = 6; // До понедельника этой недели (6 дней назад)
+    } else {
+        daysToMonday = dayOfWeek - 1; // До понедельника этой недели
+    }
+    weekStart.setDate(currentDate.getDate() - daysToMonday);
     
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6); // Воскресенье

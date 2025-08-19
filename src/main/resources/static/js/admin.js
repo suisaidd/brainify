@@ -42,6 +42,13 @@ function initEventListeners() {
             closeRoleModal();
         }
     });
+    
+    // Закрытие модального окна количества занятий по клику вне его
+    document.getElementById('lessonsModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeLessonsModal();
+        }
+    });
 }
 
 // Форматирование ввода телефона
@@ -136,7 +143,7 @@ function createUserRow(user) {
     
     const statusBadge = getStatusBadge(user);
     const roleBadge = getRoleBadge(user.role);
-    const formattedDate = formatDate(user.createdAt);
+    const lessonsDisplay = formatLessonsDisplay(user);
     
     tr.innerHTML = `
         <td>${user.id}</td>
@@ -160,13 +167,19 @@ function createUserRow(user) {
         </td>
         <td>${roleBadge}</td>
         <td>${statusBadge}</td>
-        <td>${formattedDate}</td>
+        <td>${lessonsDisplay}</td>
         <td>
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                 <button class="btn btn-primary" onclick="openRoleModal(${user.id}, '${user.name}', '${user.email}', '${user.phone}', '${user.role}')" style="padding: 0.5rem 1rem; font-size: 0.75rem;">
                     <i class="fas fa-edit"></i>
                     Изменить роль
                 </button>
+                ${user.role === 'STUDENT' ? `
+                    <button class="btn btn-warning" onclick="openLessonsModal(${user.id}, '${user.name}', '${user.email}', ${user.remainingLessons || 0})" style="padding: 0.5rem 1rem; font-size: 0.75rem;">
+                        <i class="fas fa-calendar-alt"></i>
+                        Занятия
+                    </button>
+                ` : ''}
                 ${(user.role === 'TEACHER' || user.role === 'STUDENT') ? `
                     <button class="btn btn-secondary" onclick="openSubjectsModal(${user.id}, '${user.name}', '${user.email}', '${user.role}')" style="padding: 0.5rem 1rem; font-size: 0.75rem;">
                         <i class="fas fa-book"></i>
@@ -227,6 +240,34 @@ function formatPhoneDisplay(phone) {
     }
     
     return phone;
+}
+
+// Форматирование отображения количества занятий
+function formatLessonsDisplay(user) {
+    if (user.role !== 'STUDENT') {
+        return '<span style="color: #999;">—</span>';
+    }
+    
+    const lessons = user.remainingLessons || 0;
+    
+    if (lessons === 0) {
+        return '<span style="color: #e53e3e; font-weight: 600;">0 занятий</span>';
+    } else if (lessons < 5) {
+        return `<span style="color: #d69e2e; font-weight: 600;">${lessons} ${getLessonsWord(lessons)}</span>`;
+    } else {
+        return `<span style="color: #38a169; font-weight: 600;">${lessons} ${getLessonsWord(lessons)}</span>`;
+    }
+}
+
+// Получение правильного склонения слова "занятие"
+function getLessonsWord(count) {
+    if (count % 10 === 1 && count % 100 !== 11) {
+        return 'занятие';
+    } else if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
+        return 'занятия';
+    } else {
+        return 'занятий';
+    }
 }
 
 // Форматирование даты
@@ -778,5 +819,101 @@ async function saveTeacherSubjects() {
     } catch (error) {
         console.error('Ошибка сохранения предметов:', error);
         showToast('Ошибка сохранения предметов: ' + error.message, 'error');
+    }
+}
+
+// ==================== ФУНКЦИИ ДЛЯ РАБОТЫ С КОЛИЧЕСТВОМ ЗАНЯТИЙ ====================
+
+let currentStudent = null;
+
+// Открытие модального окна для изменения количества занятий
+function openLessonsModal(userId, userName, userEmail, currentLessons) {
+    currentStudent = {
+        id: userId,
+        name: userName,
+        email: userEmail,
+        currentLessons: currentLessons
+    };
+    
+    // Заполняем информацию о ученике
+    document.getElementById('modalStudentName').textContent = userName;
+    document.getElementById('modalStudentEmail').textContent = userEmail;
+    document.getElementById('modalCurrentLessons').textContent = `${currentLessons} ${getLessonsWord(currentLessons)}`;
+    
+    // Устанавливаем текущее значение в поле ввода
+    document.getElementById('newLessonsCount').value = currentLessons;
+    
+    // Показываем модальное окно
+    document.getElementById('lessonsModal').style.display = 'flex';
+}
+
+// Закрытие модального окна количества занятий
+function closeLessonsModal() {
+    const modal = document.getElementById('lessonsModal');
+    modal.style.display = 'none';
+    
+    // Очищаем данные
+    currentStudent = null;
+    
+    // Очищаем поле ввода
+    document.getElementById('newLessonsCount').value = '';
+    
+    // Очищаем информацию о ученике
+    document.getElementById('modalStudentName').textContent = '';
+    document.getElementById('modalStudentEmail').textContent = '';
+    document.getElementById('modalCurrentLessons').textContent = '';
+}
+
+// Сохранение количества занятий ученика
+async function saveStudentLessons() {
+    if (!currentStudent) {
+        showToast('Ошибка: ученик не выбран', 'error');
+        return;
+    }
+    
+    const newLessonsCount = parseInt(document.getElementById('newLessonsCount').value);
+    
+    if (isNaN(newLessonsCount) || newLessonsCount < 0) {
+        showToast('Введите корректное количество занятий (0 или больше)', 'error');
+        return;
+    }
+    
+    if (newLessonsCount === currentStudent.currentLessons) {
+        showToast('Количество занятий не изменилось', 'info');
+        closeLessonsModal();
+        return;
+    }
+    
+    try {
+        const saveBtn = document.querySelector('#lessonsModal .btn-primary');
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<span class="loading"></span> Сохранение...';
+        saveBtn.disabled = true;
+        
+        const response = await fetch(`/admin-role/api/users/${currentStudent.id}/lessons`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `remainingLessons=${newLessonsCount}`
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showToast(result.message, 'success');
+            closeLessonsModal();
+            loadUsers(currentPage, currentSearch); // Перезагружаем текущую страницу
+        } else {
+            showToast(result.message || 'Ошибка при обновлении количества занятий', 'error');
+        }
+        
+    } catch (error) {
+        showToast('Ошибка сети: ' + error.message, 'error');
+        console.error('Error updating student lessons:', error);
+    } finally {
+        const saveBtn = document.querySelector('#lessonsModal .btn-primary');
+        saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
+        saveBtn.disabled = false;
     }
 } 
