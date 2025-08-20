@@ -59,7 +59,9 @@ public class AuthController {
                 response.put("message", bindingResult.getAllErrors().get(0).getDefaultMessage());
                 return ResponseEntity.badRequest().body(response);
             }
-            authService.registerUser(request.getName(), request.getEmail(), request.getPhone());
+            // Нормализуем email к нижнему регистру
+            String normalizedEmail = request.getEmail().toLowerCase().trim();
+            authService.registerUser(request.getName(), normalizedEmail, request.getPhone());
             response.put("success", true);
             response.put("message", "Код подтверждения отправлен на указанный email");
             return ResponseEntity.ok(response);
@@ -81,7 +83,9 @@ public class AuthController {
                 response.put("message", bindingResult.getAllErrors().get(0).getDefaultMessage());
                 return ResponseEntity.badRequest().body(response);
             }
-            authService.loginUser(request.getEmail());
+            // Нормализуем email к нижнему регистру
+            String normalizedEmail = request.getEmail().toLowerCase().trim();
+            authService.loginUser(normalizedEmail);
             response.put("success", true);
             response.put("message", "Код подтверждения отправлен на указанный email");
             return ResponseEntity.ok(response);
@@ -107,6 +111,7 @@ public class AuthController {
                 response.put("message", bindingResult.getAllErrors().get(0).getDefaultMessage());
                 return ResponseEntity.badRequest().body(response);
             }
+            
             // Преобразуем String в CodeType
             VerificationCode.CodeType codeType;
             try {
@@ -116,18 +121,69 @@ public class AuthController {
                 response.put("message", "Неверный тип кода");
                 return ResponseEntity.badRequest().body(response);
             }
-            User user = authService.verifyCode(request.getEmail(), request.getCode(), codeType);
+            
+            // Нормализуем email к нижнему регистру
+            String normalizedEmail = request.getEmail().toLowerCase().trim();
+            
+            // Верифицируем код и получаем пользователя
+            User user = authService.verifyCode(normalizedEmail, request.getCode(), codeType);
+            
             // Создаем сессию через SessionManager
-            sessionManager.createSession(session, user);
+            if (session != null) {
+                sessionManager.createSession(session, user);
+                logger.info("Сессия создана для пользователя: {}", user.getEmail());
+            } else {
+                logger.error("Не удалось создать сессию: session is null");
+                response.put("success", false);
+                response.put("message", "Ошибка создания сессии");
+                return ResponseEntity.badRequest().body(response);
+            }
+            
             // Определяем URL для перенаправления
             String redirectUrl = authService.getRedirectUrlByRole(user.getRole());
+            
             response.put("success", true);
             response.put("message", codeType == VerificationCode.CodeType.REGISTRATION ? "Регистрация завершена успешно!" : "Вход выполнен успешно!");
             response.put("redirectUrl", redirectUrl);
             response.put("user", Map.of("id", user.getId(), "name", user.getName(), "role", user.getRole().name()));
+            
+            logger.info("Верификация успешна для пользователя: {} (роль: {})", user.getEmail(), user.getRole());
+            
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Verification failed for email: {}", request.getEmail(), e);
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    // API: Повторная отправка кода
+    @PostMapping("/api/resend")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> resendCode(@RequestParam String email, @RequestParam String type) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            logger.info("Получен запрос повторной отправки кода: email={}, type={}", email, type);
+            
+            // Преобразуем String в CodeType
+            VerificationCode.CodeType codeType;
+            try {
+                codeType = VerificationCode.CodeType.valueOf(type);
+            } catch (IllegalArgumentException e) {
+                response.put("success", false);
+                response.put("message", "Неверный тип кода");
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+            // Нормализуем email к нижнему регистру
+            String normalizedEmail = email.toLowerCase().trim();
+            String result = authService.resendCode(normalizedEmail, codeType);
+            response.put("success", true);
+            response.put("message", result);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Resend code failed for email: {}", email, e);
             response.put("success", false);
             response.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(response);
@@ -141,12 +197,36 @@ public class AuthController {
     @ResponseBody
     public ResponseEntity<Map<String, Object>> getAuthStatus(HttpSession session) {
         Map<String, Object> response = new HashMap<>();
-        User user = sessionManager.getCurrentUser(session);
-        response.put("authenticated", user != null);
-        if (user != null) {
-            response.put("user", Map.of("id", user.getId(), "name", user.getName(), "role", user.getRole().name()));
+        
+        try {
+            User user = sessionManager.getCurrentUser(session);
+            boolean authenticated = user != null;
+            
+            response.put("authenticated", authenticated);
+            response.put("sessionId", session != null ? session.getId() : null);
+            response.put("activeSessionsCount", sessionManager.getActiveSessionsCount());
+            
+            if (user != null) {
+                response.put("user", Map.of(
+                    "id", user.getId(), 
+                    "name", user.getName(), 
+                    "email", user.getEmail(),
+                    "role", user.getRole().name(),
+                    "isVerified", user.getIsVerified(),
+                    "isActive", user.getIsActive()
+                ));
+                logger.info("Проверка статуса: пользователь аутентифицирован - {}", user.getEmail());
+            } else {
+                logger.info("Проверка статуса: пользователь не аутентифицирован");
+            }
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Ошибка при проверке статуса аутентификации", e);
+            response.put("authenticated", false);
+            response.put("error", "Ошибка проверки статуса");
+            return ResponseEntity.ok(response);
         }
-        return ResponseEntity.ok(response);
     }
 
     // API: Автоматический вход для разработки
@@ -205,6 +285,30 @@ public class AuthController {
             logger.error("Ошибка автоматического входа", e);
             response.put("success", false);
             response.put("message", "Ошибка автоматического входа: " + e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    // API: Выход из системы
+    @PostMapping("/api/logout")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> logout(HttpSession session) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            if (session != null) {
+                User user = sessionManager.getCurrentUser(session);
+                sessionManager.invalidateSession(session);
+                logger.info("Пользователь вышел из системы: {}", user != null ? user.getEmail() : "неизвестный");
+            }
+            
+            response.put("success", true);
+            response.put("message", "Выход выполнен успешно");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Ошибка при выходе из системы", e);
+            response.put("success", false);
+            response.put("message", "Ошибка при выходе из системы");
             return ResponseEntity.badRequest().body(response);
         }
     }

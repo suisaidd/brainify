@@ -50,7 +50,7 @@ public class VerificationCode {
     public VerificationCode() {}
     
     public VerificationCode(String email, String code, CodeType type) {
-        this.email = email;
+        this.email = email.toLowerCase().trim();
         this.code = code;
         this.type = type;
         this.createdAt = LocalDateTime.now();
@@ -86,7 +86,7 @@ public class VerificationCode {
     }
     
     public void setEmail(String email) {
-        this.email = email;
+        this.email = email.toLowerCase().trim();
     }
     
     public String getCode() {

@@ -720,4 +720,33 @@ body {
     .mobile-nav-buttons {
         display: none;
     }
+}
+
+/* Стили для управления видимостью кнопок в зависимости от состояния аутентификации */
+
+/* По умолчанию показываем кнопки для неавторизованных пользователей */
+.unauthorized-buttons {
+    display: flex !important;
+}
+
+.authorized-buttons {
+    display: none !important;
+}
+
+/* Когда пользователь аутентифицирован */
+body.user-authenticated .unauthorized-buttons {
+    display: none !important;
+}
+
+body.user-authenticated .authorized-buttons {
+    display: flex !important;
+}
+
+/* Когда пользователь не аутентифицирован */
+body.user-unauthenticated .unauthorized-buttons {
+    display: flex !important;
+}
+
+body.user-unauthenticated .authorized-buttons {
+    display: none !important;
 } 

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест базы данных - Brainify</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="email"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background: #10b981;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #059669;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+        .info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #3b82f6;
+        }
+        .debug {
+            background: #f3f4f6;
+            color: #374151;
+            border: 1px solid #d1d5db;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Тест базы данных Brainify</h1>
+        <p>Этот тест поможет проверить состояние базы данных и пользователей.</p>
+        
+        <div class="test-section">
+            <h3>1. Проверка статуса аутентификации</h3>
+            <button onclick="checkAuthStatus()">Проверить статус аутентификации</button>
+            <div id="authResult" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>2. Тест входа в систему</h3>
+            <div class="form-group">
+                <label for="testEmail">Email для тестирования:</label>
+                <input type="email" id="testEmail" placeholder="Введите email для тестирования">
+            </div>
+            <button onclick="testLogin()">Тест входа</button>
+            <button onclick="testDevLogin()">DEV LOGIN (Автоматический вход)</button>
+            <div id="loginResult" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>3. Проверка существующих пользователей</h3>
+            <p>Известные тестовые email:</p>
+            <ul>
+                <li><strong>Админ:</strong> 9873262692@mail.ru</li>
+                <li><strong>Ученик:</strong> hristovamarina51@gmail.com</li>
+                <li><strong>Преподаватель:</strong> 89873262692@mail.ru</li>
+            </ul>
+            <button onclick="testKnownUsers()">Проверить известных пользователей</button>
+            <div id="usersResult" class="result"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>4. Очистка данных сессии</h3>
+            <button onclick="clearSessionData()">Очистить данные сессии</button>
+            <div id="clearResult" class="result"></div>
+        </div>
+        
+        <div id="debug" class="result debug"></div>
+    </div>
+
+    <script>
+        function showResult(elementId, message, type) {
+            const resultDiv = document.getElementById(elementId);
+            resultDiv.className = 'result ' + type;
+            resultDiv.textContent = message;
+            resultDiv.style.display = 'block';
+        }
+        
+        function showDebug(message) {
+            const debugDiv = document.getElementById('debug');
+            debugDiv.textContent = message;
+            debugDiv.style.display = 'block';
+        }
+        
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/auth/api/status');
+                const data = await response.json();
+                
+                showResult('authResult', 
+                    `Аутентифицирован: ${data.authenticated}\nПользователь: ${data.user ? JSON.stringify(data.user, null, 2) : 'Нет'}`, 
+                    data.authenticated ? 'success' : 'info'
+                );
+                
+                showDebug(`Статус аутентификации: ${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                showResult('authResult', 'Ошибка проверки статуса: ' + error.message, 'error');
+                showDebug(`Ошибка: ${error.message}`);
+            }
+        }
+        
+        async function testLogin() {
+            const email = document.getElementById('testEmail').value.trim();
+            if (!email) {
+                showResult('loginResult', 'Введите email для тестирования', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/auth/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email: email })
+                });
+                
+                const data = await response.json();
+                
+                showResult('loginResult', 
+                    `Успех: ${data.success}\nСообщение: ${data.message}`, 
+                    data.success ? 'success' : 'error'
+                );
+                
+                showDebug(`Тест входа для ${email}: ${JSON.stringify(data, null, 2)}`);
+            } catch (error) {
+                showResult('loginResult', 'Ошибка тестирования входа: ' + error.message, 'error');
+                showDebug(`Ошибка: ${error.message}`);
+            }
+        }
+        
+        async function testDevLogin() {
+            const testEmails = [
+                '9873262692@mail.ru',
+                'hristovamarina51@gmail.com',
+                '89873262692@mail.ru'
+            ];
+            
+            let results = [];
+            
+            for (const email of testEmails) {
+                try {
+                    const response = await fetch('/auth/api/dev-login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                            email: email,
+                            password: 'test123'
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    results.push(`${email}: ${data.success ? 'OK' : 'FAIL'} - ${data.message}`);
+                } catch (error) {
+                    results.push(`${email}: ERROR - ${error.message}`);
+                }
+            }
+            
+            showResult('loginResult', results.join('\n'), 'info');
+            showDebug(`DEV LOGIN результаты:\n${results.join('\n')}`);
+        }
+        
+        async function testKnownUsers() {
+            const testEmails = [
+                '9873262692@mail.ru',
+                'hristovamarina51@gmail.com',
+                '89873262692@mail.ru'
+            ];
+            
+            let results = [];
+            
+            for (const email of testEmails) {
+                try {
+                    const response = await fetch('/auth/api/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ email: email })
+                    });
+                    
+                    const data = await response.json();
+                    results.push(`${email}: ${data.success ? 'OK' : 'FAIL'} - ${data.message}`);
+                } catch (error) {
+                    results.push(`${email}: ERROR - ${error.message}`);
+                }
+            }
+            
+            showResult('usersResult', results.join('\n'), 'info');
+            showDebug(`Проверка пользователей:\n${results.join('\n')}`);
+        }
+        
+        function clearSessionData() {
+            try {
+                sessionStorage.clear();
+                localStorage.clear();
+                showResult('clearResult', 'Данные сессии очищены', 'success');
+                showDebug('Данные сессии очищены');
+            } catch (error) {
+                showResult('clearResult', 'Ошибка очистки: ' + error.message, 'error');
+                showDebug(`Ошибка очистки: ${error.message}`);
+            }
+        }
+        
+        // Проверяем данные в sessionStorage при загрузке
+        window.addEventListener('load', function() {
+            const sessionData = {
+                currentEmail: sessionStorage.getItem('currentEmail'),
+                currentType: sessionStorage.getItem('currentType'),
+                selectedRole: sessionStorage.getItem('selectedRole'),
+                authTimestamp: sessionStorage.getItem('authTimestamp')
+            };
+            
+            showDebug(`Данные sessionStorage при загрузке:\n${JSON.stringify(sessionData, null, 2)}`);
+        });
+    </script>
+</body>
+</html>

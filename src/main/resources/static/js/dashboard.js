@@ -4,9 +4,10 @@ document.addEventListener('DOMContentLoaded', function() {
     initSidebar();
     initHeaderButtons();
     initSidebarItems();
-    initLoadMore();
+    initLessonTabs();
     initTabSwitching();
     initScheduleControls();
+
     
     // Инициализируем даты при загрузке страницы
     updateCurrentWeekDisplay();
@@ -18,6 +19,215 @@ document.addEventListener('DOMContentLoaded', function() {
     loadTeacherData();
     loadTeacherLessons();
 });
+// Инициализация проверки оборудования
+let activeMediaStream = null;
+
+function initEquipmentCheck() {
+    updateTimeStatus();
+    // Автоматически запускаем проверки
+    setTimeout(() => {
+        startMediaChecks();
+        testNetworkSpeed();
+    }, 500);
+}
+
+async function startMediaChecks() {
+    const videoFrame = document.getElementById('videoFrame');
+    const overlay = document.getElementById('videoOverlay');
+    const videoEl = document.getElementById('cameraPreview');
+    const camBox = document.getElementById('cameraStatus');
+    const micBox = document.getElementById('micStatus');
+    
+    try {
+        // Останавливаем предыдущий стрим, если был
+        stopActiveStream();
+        
+        // Сначала запрашиваем только камеру
+        const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        
+        // Камера ок
+        if (videoEl) {
+            videoEl.srcObject = videoStream;
+        }
+        if (overlay) overlay.style.display = 'none';
+        if (videoFrame) {
+            videoFrame.classList.remove('red');
+            videoFrame.classList.add('green');
+        }
+        if (camBox) setStatusBox(camBox, true, 'Камера работает успешно');
+
+        // Теперь запрашиваем микрофон отдельно с явным запросом разрешения
+        try {
+            console.log('Запрашиваем доступ к микрофону...');
+            const audioStream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                } 
+            });
+            
+            console.log('Доступ к микрофону получен:', audioStream.getAudioTracks().length, 'треков');
+            
+            // Объединяем потоки
+            const combinedStream = new MediaStream([
+                ...videoStream.getVideoTracks(),
+                ...audioStream.getAudioTracks()
+            ]);
+            
+            activeMediaStream = combinedStream;
+            
+            // Проверяем микрофон
+            const hasAudio = combinedStream.getAudioTracks && combinedStream.getAudioTracks().length > 0;
+            if (hasAudio) {
+                console.log('Аудио треки найдены, начинаем проверку активности...');
+                // Инициализируем проверку микрофона
+                setStatusBox(micBox, false, 'Скажите что-нибудь');
+                checkMicrophoneActivity(combinedStream);
+            } else {
+                console.log('Аудио треки не найдены');
+                setStatusBox(micBox, false, 'Микрофон не найден');
+            }
+        } catch (audioErr) {
+            console.error('Ошибка доступа к микрофону:', audioErr);
+            setStatusBox(micBox, false, 'Нет доступа к микрофону');
+            // Камера работает, но микрофон недоступен
+            activeMediaStream = videoStream;
+        }
+    } catch (err) {
+        console.error('Ошибка доступа к камере:', err);
+        if (videoFrame) {
+            videoFrame.classList.remove('green');
+            videoFrame.classList.add('red');
+        }
+        if (overlay) {
+            overlay.style.display = 'flex';
+            overlay.textContent = 'Нет доступа к камере';
+        }
+        if (camBox) setStatusBox(camBox, false, 'Нет доступа к камере');
+        if (micBox) setStatusBox(micBox, false, 'Нет доступа к микрофону');
+        showToast('Предоставьте доступ к камере и микрофону в браузере', 'warning');
+    }
+}
+
+function checkMicrophoneActivity(stream) {
+    const micBox = document.getElementById('micStatus');
+    if (!micBox) return;
+    
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(stream);
+        const analyser = audioContext.createAnalyser();
+        
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.8;
+        source.connect(analyser);
+        
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        let activityDetected = false;
+        let checkCount = 0;
+        const maxChecks = 200; // Максимум 20 секунд проверки
+        
+        const checkActivity = () => {
+            if (activityDetected || checkCount >= maxChecks) {
+                audioContext.close();
+                return;
+            }
+            
+            analyser.getByteTimeDomainData(dataArray);
+            const variance = dataArray.reduce((acc, v) => acc + Math.abs(v - 128), 0) / dataArray.length;
+            
+            console.log('Уровень звука:', variance.toFixed(2));
+            
+            if (variance > 3) { // Сниженный порог для более чувствительного обнаружения
+                activityDetected = true;
+                console.log('Звук обнаружен! Мгновенно переключаем на зелёный');
+                setStatusBox(micBox, true, 'Микрофон работает успешно');
+                audioContext.close();
+                return;
+            }
+            
+            checkCount++;
+            // Обновляем текст каждые 2 секунды для привлечения внимания
+            if (checkCount % 20 === 0) {
+                setStatusBox(micBox, false, 'Скажите что-нибудь');
+            }
+            
+            setTimeout(checkActivity, 100);
+        };
+        
+        console.log('Начинаем мониторинг микрофона...');
+        checkActivity();
+        
+        // Если через 20 секунд звук не обнаружен
+        setTimeout(() => {
+            if (!activityDetected) {
+                console.log('Звук не обнаружен за 20 секунд');
+                setStatusBox(micBox, false, 'Микрофон не работает');
+                audioContext.close();
+            }
+        }, 20000);
+        
+    } catch (error) {
+        console.error('Ошибка проверки микрофона:', error);
+        setStatusBox(micBox, false, 'Ошибка проверки микрофона');
+    }
+}
+
+function stopActiveStream() {
+    if (activeMediaStream) {
+        activeMediaStream.getTracks().forEach(t => t.stop());
+        activeMediaStream = null;
+    }
+}
+
+function setStatusBox(box, ok, text) {
+    if (!box) return;
+    box.classList.remove('red', 'green');
+    box.classList.add(ok ? 'green' : 'red');
+    const textEl = box.querySelector('.status-text');
+    if (textEl) {
+        textEl.innerHTML = `${ok ? '<i class="fas fa-check"></i>' : '<i class="fas fa-times"></i>'} ${text}`;
+    }
+}
+
+async function testNetworkSpeed() {
+    const statusBox = document.getElementById('networkStatus');
+    const testUrl = 'https://speed.cloudflare.com/__down?bytes=2000000';
+    try {
+        const start = performance.now();
+        const res = await fetch(testUrl, { cache: 'no-store' });
+        const reader = res.body.getReader();
+        let received = 0;
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            received += value.length;
+        }
+        const ms = performance.now() - start;
+        const mbits = (received * 8) / (ms / 1000) / 1e6;
+        const ok = mbits >= 5; // порог 5 Мбит/с
+        setStatusBox(statusBox, ok, ok ? `Скорость интернета нормальная (${mbits.toFixed(1)} Мбит/с)` : `Низкая скорость (${mbits.toFixed(1)} Мбит/с)`);
+    } catch (e) {
+        console.error('Network test error:', e);
+        setStatusBox(statusBox, false, 'Ошибка проверки интернета');
+    }
+}
+
+function updateTimeStatus() {
+    const box = document.getElementById('timeStatus');
+    const now = new Date();
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const timeStr = now.toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setStatusBox(box, true, `${timeStr}, часовой пояс: ${tz}`);
+}
+
+setInterval(() => {
+    if (document.getElementById('equipment-tab')?.classList.contains('active')) {
+        updateTimeStatus();
+    }
+}, 1000);
+
 
 // Инициализация бокового меню
 function initSidebar() {
@@ -92,6 +302,9 @@ function initSidebar() {
                 overlay.remove();
             }
         }
+        
+        // Обновляем индикатор текущего времени при изменении размера окна
+        setTimeout(updateCurrentTimeIndicator, 100);
     });
 
     // Закрытие сайдбара при клике вне его на мобильных устройствах
@@ -368,6 +581,30 @@ function updateTime() {
 setInterval(updateTime, 60000);
 updateTime();
 
+// Автоматическое обновление расписания каждую минуту для обновления прошедших слотов
+setInterval(() => {
+    // Проверяем, открыта ли вкладка расписания
+    const scheduleTab = document.getElementById('schedule-tab');
+    if (scheduleTab && scheduleTab.classList.contains('active')) {
+        // Обновляем только отображение, не перезагружая данные с сервера
+        updateScheduleDisplay();
+        // Обновляем индикатор текущего времени
+        updateCurrentTimeIndicator();
+    }
+    
+    // Обновляем кнопки уроков каждую минуту для появления кнопки "Подключиться к уроку"
+    updateLessonButtons();
+}, 60000);
+
+// Обновляем индикатор текущего времени каждые 30 секунд для более плавного движения
+setInterval(() => {
+    // Проверяем, открыта ли вкладка расписания
+    const scheduleTab = document.getElementById('schedule-tab');
+    if (scheduleTab && scheduleTab.classList.contains('active')) {
+        updateCurrentTimeIndicator();
+    }
+}, 30000);
+
 // Инициализация анимаций при загрузке
 function initLoadAnimations() {
     const cards = document.querySelectorAll('.dashboard-card');
@@ -384,51 +621,31 @@ function initLoadAnimations() {
     });
 }
 
-// Инициализация кнопки "Показать ещё"
-function initLoadMore() {
-    const loadMoreBtn = document.getElementById('loadMoreBtn');
-    const hiddenLessons = document.getElementById('hiddenLessons');
+// Инициализация вкладок уроков
+function initLessonTabs() {
+    const lessonTabs = document.querySelectorAll('.lesson-tab');
+    const lessonTabContents = document.querySelectorAll('.lessons-tab-content');
     
-    if (loadMoreBtn && hiddenLessons) {
-        loadMoreBtn.addEventListener('click', function() {
-            if (hiddenLessons.classList.contains('hidden')) {
-                // Показываем скрытые уроки
-                hiddenLessons.classList.remove('hidden');
-                hiddenLessons.classList.add('show');
-                
-                // Обновляем кнопку
-                loadMoreBtn.querySelector('.btn-text').textContent = 'Скрыть дополнительные уроки';
-                loadMoreBtn.classList.add('rotated');
-                
-                // Плавный скролл к новым урокам
-                setTimeout(() => {
-                    hiddenLessons.scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'start' 
-                    });
-                }, 100);
-                
-                showToast('Показаны дополнительные уроки', 'success');
-                
-            } else {
-                // Скрываем уроки
-                hiddenLessons.classList.remove('show');
-                hiddenLessons.classList.add('hidden');
-                
-                // Обновляем кнопку
-                loadMoreBtn.querySelector('.btn-text').textContent = 'Показать ещё 4 урока';
-                loadMoreBtn.classList.remove('rotated');
-                
-                // Скролл обратно к основным урокам
-                document.getElementById('lessonsGrid').scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'start' 
-                });
-                
-                showToast('Дополнительные уроки скрыты', 'info');
+    lessonTabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const targetTab = this.getAttribute('data-tab');
+            
+            // Убираем активный класс со всех вкладок
+            lessonTabs.forEach(otherTab => {
+                otherTab.classList.remove('active');
+            });
+            lessonTabContents.forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Добавляем активный класс к выбранной вкладке
+            this.classList.add('active');
+            const targetContent = document.getElementById(targetTab);
+            if (targetContent) {
+                targetContent.classList.add('active');
             }
         });
-    }
+    });
 }
 
 // Запускаем анимации при загрузке
@@ -438,6 +655,7 @@ setTimeout(initLoadAnimations, 100);
 function loadTeacherData() {
     console.log('Загрузка данных преподавателя...');
     
+    // Загружаем данные статистики
     fetch('/api/teacher/dashboard-data', {
         method: 'GET',
         headers: {
@@ -453,15 +671,81 @@ function loadTeacherData() {
     })
     .then(data => {
         console.log('Данные преподавателя загружены:', data);
-        updateDashboardStats(data);
+        
+        // Загружаем статистику отмен
+        return fetch('/api/teacher/cancellation-stats', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                throw new Error('Ошибка загрузки статистики отмен');
+            }
+        })
+        .then(cancellationStats => {
+            // Добавляем статистику отмен к данным
+            data.cancellationStats = cancellationStats;
+            
+            // Загружаем уроки для определения ближайшего
+            return fetch('/api/teacher/all-lessons', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error('Ошибка загрузки уроков');
+                }
+            })
+            .then(lessons => {
+                // Находим ближайший урок (уроки уже отсортированы по возрастанию даты)
+                const now = new Date();
+                let nextLesson = null;
+                
+                for (let i = 0; i < lessons.length; i++) {
+                    const lesson = lessons[i];
+                    const lessonDate = createDateFromInput(lesson.lessonDate);
+                    if (lessonDate && lessonDate > now) {
+                        nextLesson = lesson;
+                        break; // Первый урок в будущем - ближайший
+                    }
+                }
+                
+                // Обновляем данные с информацией о ближайшем уроке
+                if (nextLesson) {
+                    const nextLessonDate = createDateFromInput(nextLesson.lessonDate);
+                    data.nextLessonTime = nextLessonDate.toLocaleTimeString('ru-RU', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                } else {
+                    data.nextLessonTime = '--:--';
+                }
+                
+                updateDashboardStats(data);
+            });
+        });
     })
     .catch(error => {
         console.error('Ошибка загрузки данных преподавателя:', error);
         // Показываем пустые значения при ошибке
         updateDashboardStats({
             totalLessons: 0,
-            averageRating: 0.0,
-            notificationCount: 0
+            nextLessonTime: '--:--',
+            notificationCount: 0,
+            cancellationStats: {
+                cancellationsThisMonth: 0,
+                freeCancellationsLeft: 5,
+                totalUnpaidPenalty: 0,
+                unpaidPenaltiesCount: 0
+            }
         });
     });
 }
@@ -469,7 +753,7 @@ function loadTeacherData() {
 function loadTeacherLessons() {
     console.log('Загрузка уроков преподавателя...');
     
-    fetch('/api/teacher/lessons', {
+    fetch('/api/teacher/all-lessons', {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json'
@@ -488,113 +772,270 @@ function loadTeacherLessons() {
     })
     .catch(error => {
         console.error('Ошибка загрузки уроков преподавателя:', error);
-        showNoLessonsMessage();
+        showNoCurrentLessonsMessage();
+        showNoPastLessonsMessage();
     });
 }
 
 function updateDashboardStats(data) {
     // Обновляем статистику
     const totalLessonsElement = document.getElementById('totalLessons');
-    const averageRatingElement = document.getElementById('averageRating');
+    const nextLessonTimeElement = document.getElementById('nextLessonTime');
     const notificationCountElement = document.getElementById('notificationCount');
-    const lessonsCountElement = document.getElementById('lessonsCount');
     
     if (totalLessonsElement) {
         totalLessonsElement.textContent = data.totalLessons || 0;
     }
     
-    if (averageRatingElement) {
-        averageRatingElement.textContent = (data.averageRating || 0.0).toFixed(1);
+    if (nextLessonTimeElement) {
+        nextLessonTimeElement.textContent = data.nextLessonTime || '--:--';
     }
     
     if (notificationCountElement) {
         notificationCountElement.textContent = data.notificationCount || 0;
     }
     
-    if (lessonsCountElement) {
-        lessonsCountElement.textContent = `Всего уроков: ${data.totalLessons || 0}`;
+    // Обновляем статистику отмен, если есть
+    if (data.cancellationStats) {
+        const stats = data.cancellationStats;
+        
+        // Можно добавить отображение статистики отмен в дашборд
+        console.log('Статистика отмен:', {
+            отменВМесяце: stats.cancellationsThisMonth,
+            бесплатныхОсталось: stats.freeCancellationsLeft,
+            неоплаченныхШтрафов: stats.unpaidPenaltiesCount,
+            суммаШтрафов: stats.totalUnpaidPenalty
+        });
+        
+        // Если есть неоплаченные штрафы, показываем уведомление
+        if (stats.unpaidPenaltiesCount > 0) {
+            setTimeout(() => {
+                showToast(`У вас есть ${stats.unpaidPenaltiesCount} неоплаченных штрафов на сумму ${stats.totalUnpaidPenalty}₽`, 'warning');
+            }, 2000);
+        }
     }
 }
 
 function displayTeacherLessons(lessons) {
-    const lessonsGrid = document.getElementById('lessonsGrid');
-    const noLessonsMessage = document.getElementById('noLessonsMessage');
-    const loadMoreContainer = document.getElementById('loadMoreContainer');
+    if (!lessons || lessons.length === 0) {
+        showNoCurrentLessonsMessage();
+        showNoPastLessonsMessage();
+        return;
+    }
     
-    if (!lessonsGrid) return;
+    // Разделяем уроки на текущие, прошедшие и отмененные
+    const now = new Date();
+    const currentLessons = [];
+    const pastLessons = [];
+    const cancelledLessons = [];
+    
+    lessons.forEach(lesson => {
+        const lessonDate = createDateFromInput(lesson.lessonDate);
+        const oneHourAfter = new Date(lessonDate.getTime() + (60 * 60 * 1000)); // 1 час после урока
+        
+        // Отмененные уроки идут в архив независимо от даты
+        if (lesson.status === 'CANCELLED') {
+            cancelledLessons.push(lesson);
+        } else if (lessonDate && now <= oneHourAfter) {
+            // Урок считается текущим, если он еще не прошел 1 час после начала
+            currentLessons.push(lesson);
+        } else {
+            // Урок уходит в архив через 1 час после начала
+            pastLessons.push(lesson);
+        }
+    });
+    
+    // Сортируем текущие уроки по дате (ближайшие сначала)
+    currentLessons.sort((a, b) => {
+        const dateA = createDateFromInput(a.lessonDate);
+        const dateB = createDateFromInput(b.lessonDate);
+        return dateA - dateB;
+    });
+    
+    // Сортируем прошедшие уроки по дате (новые сначала)
+    pastLessons.sort((a, b) => {
+        const dateA = createDateFromInput(a.lessonDate);
+        const dateB = createDateFromInput(b.lessonDate);
+        return dateA - dateB;
+    });
+    
+    // Сортируем отмененные уроки по дате (новые сначала)
+    cancelledLessons.sort((a, b) => {
+        const dateA = createDateFromInput(a.lessonDate);
+        const dateB = createDateFromInput(b.lessonDate);
+        return dateA - dateB;
+    });
+    
+    // Отображаем текущие уроки
+    displayCurrentLessons(currentLessons);
+    
+    // Отображаем прошедшие уроки (включая отмененные)
+    displayPastLessons([...pastLessons, ...cancelledLessons]);
+}
+
+function displayCurrentLessons(lessons) {
+    const currentLessonsList = document.getElementById('currentLessonsList');
+    const noCurrentLessonsMessage = document.getElementById('noCurrentLessonsMessage');
+    
+    if (!currentLessonsList) return;
     
     // Очищаем контейнер
-    lessonsGrid.innerHTML = '';
+    currentLessonsList.innerHTML = '';
     
     if (!lessons || lessons.length === 0) {
-        showNoLessonsMessage();
+        showNoCurrentLessonsMessage();
         return;
     }
     
     // Скрываем сообщение об отсутствии уроков
-    if (noLessonsMessage) {
-        noLessonsMessage.style.display = 'none';
+    if (noCurrentLessonsMessage) {
+        noCurrentLessonsMessage.style.display = 'none';
     }
     
     // Отображаем уроки
-    lessons.forEach((lesson, index) => {
-        const lessonCard = createLessonCard(lesson);
-        lessonsGrid.appendChild(lessonCard);
-        
-        // Показываем кнопку "Ещё" если уроков больше 4
-        if (lessons.length > 4 && index === 3) {
-            if (loadMoreContainer) {
-                loadMoreContainer.style.display = 'block';
-            }
-        }
+    lessons.forEach(lesson => {
+        const lessonCard = createNewLessonCard(lesson, 'current');
+        currentLessonsList.appendChild(lessonCard);
     });
-    
-    // Если уроков меньше или равно 4, скрываем кнопку "Ещё"
-    if (lessons.length <= 4) {
-        if (loadMoreContainer) {
-            loadMoreContainer.style.display = 'none';
-        }
-    }
 }
 
-function createLessonCard(lesson) {
+function displayPastLessons(lessons) {
+    const pastLessonsList = document.getElementById('pastLessonsList');
+    const noPastLessonsMessage = document.getElementById('noPastLessonsMessage');
+    
+    if (!pastLessonsList) return;
+    
+    // Очищаем контейнер
+    pastLessonsList.innerHTML = '';
+    
+    if (!lessons || lessons.length === 0) {
+        showNoPastLessonsMessage();
+        return;
+    }
+    
+    // Скрываем сообщение об отсутствии уроков
+    if (noPastLessonsMessage) {
+        noPastLessonsMessage.style.display = 'none';
+    }
+    
+    // Отображаем уроки
+    lessons.forEach(lesson => {
+        const lessonCard = createNewLessonCard(lesson, 'past');
+        pastLessonsList.appendChild(lessonCard);
+    });
+}
+
+function createNewLessonCard(lesson, type) {
     const card = document.createElement('div');
-    card.className = 'lesson-card teacher-lesson';
+    card.className = 'lesson-card';
     
     // Определяем статус урока
     const status = getLessonStatus(lesson);
     const statusClass = getStatusClass(status);
     const statusText = getStatusText(status);
     
+    // Форматируем дату и время
+    const formattedDate = formatLessonDate(lesson.lessonDate);
+    const formattedTime = formatLessonTime(lesson.lessonDate);
+    
     card.innerHTML = `
-        <div class="lesson-status-badge ${statusClass}">${statusText}</div>
+        <div class="lesson-duration">55 мин.</div>
         <div class="lesson-info">
-            <h4 class="lesson-subject">${lesson.subjectName || 'Предмет не указан'}</h4>
-            <p class="lesson-topic">${lesson.description || 'Тема не указана'}</p>
-            <div class="lesson-meta">
-                <span class="lesson-date">
-                    <i class="fas fa-calendar"></i>
-                    ${formatLessonDate(lesson.lessonDate)}
-                </span>
-                <span class="lesson-time">
-                    <i class="fas fa-clock"></i>
-                    ${formatLessonTime(lesson.lessonDate)}
-                </span>
-            </div>
-            <div class="lesson-student">
-                <i class="fas fa-user"></i>
-                ${lesson.studentName || 'Ученик не указан'}
-            </div>
+            <h3 class="lesson-subject">${lesson.subjectName || 'Предмет не указан'}</h3>
+            <p class="lesson-student">${lesson.studentName || 'Ученик не указан'}</p>
+            <p class="lesson-date">${formattedDate}</p>
+            <p class="lesson-time">${formattedTime}</p>
         </div>
-        ${createLessonActions(lesson, status)}
+        <div class="lesson-actions">
+            ${type === 'current' ? createCurrentLessonActions(lesson, status) : createPastLessonActions(lesson, status)}
+        </div>
     `;
     
     return card;
 }
 
+function createCurrentLessonActions(lesson, status) {
+    const lessonDate = createDateFromInput(lesson.lessonDate);
+    const now = new Date();
+    const twoHoursBefore = new Date(lessonDate.getTime() - (2 * 60 * 60 * 1000)); // 2 часа до урока
+    const oneHourAfter = new Date(lessonDate.getTime() + (60 * 60 * 1000)); // 1 час после урока
+    const canJoin = now >= twoHoursBefore && now <= oneHourAfter; // 3 часа активности (2 часа до + 1 час во время)
+    
+    if (status === 'today') {
+        let buttons = `
+            <button class="lesson-btn secondary" onclick="rescheduleLesson(${lesson.id})">
+                <i class="fas fa-calendar-alt"></i>
+                Перенести
+            </button>
+            <button class="lesson-btn danger" onclick="cancelLesson(${lesson.id})">
+                <i class="fas fa-times"></i>
+                Отменить
+            </button>
+        `;
+        
+        if (canJoin) {
+            buttons += `
+                <button class="lesson-btn primary" onclick="joinLesson(${lesson.id})">
+                    <i class="fas fa-video"></i>
+                    Подключиться к уроку
+                </button>
+            `;
+        } else if (now < twoHoursBefore) {
+            buttons += `
+                <button class="lesson-btn disabled" disabled>
+                    <i class="fas fa-clock"></i>
+                    Доступно за 2 часа
+                </button>
+            `;
+        } else if (now > oneHourAfter) {
+            buttons += `
+                <button class="lesson-btn disabled" disabled>
+                    <i class="fas fa-clock"></i>
+                    Урок завершен
+                </button>
+            `;
+        }
+        
+        return buttons;
+    } else if (status === 'scheduled' || status === 'tomorrow') {
+        return `
+            <button class="lesson-btn secondary" onclick="rescheduleLesson(${lesson.id})">
+                <i class="fas fa-calendar-alt"></i>
+                Перенести
+            </button>
+            <button class="lesson-btn danger" onclick="cancelLesson(${lesson.id})">
+                <i class="fas fa-times"></i>
+                Отменить
+            </button>
+        `;
+    } else {
+        return '';
+    }
+}
+
+function createPastLessonActions(lesson, status) {
+    if (status === 'completed') {
+        return `
+            <span class="lesson-status-badge completed">Проведён</span>
+        `;
+    } else if (status === 'cancelled') {
+        return `
+            <span class="lesson-status-badge cancelled">Отменён</span>
+        `;
+    } else {
+        return `
+            <span class="lesson-status-badge completed">Успешно</span>
+        `;
+    }
+}
+
 function getLessonStatus(lesson) {
     const now = new Date();
-    const lessonDate = new Date(lesson.lessonDate);
+    const lessonDate = createDateFromInput(lesson.lessonDate);
+    
+    if (!lessonDate) {
+        return 'scheduled'; // По умолчанию, если дата не может быть обработана
+    }
     
     if (lesson.status === 'COMPLETED') {
         return 'completed';
@@ -624,9 +1065,9 @@ function getStatusClass(status) {
 
 function getStatusText(status) {
     switch (status) {
-        case 'completed': return 'Завершен';
-        case 'cancelled': return 'Отменен';
-        case 'overdue': return 'Просрочен';
+        case 'completed': return 'Проведён';
+        case 'cancelled': return 'Отменён';
+        case 'overdue': return 'Успешно';
         case 'today': return 'Сегодня';
         case 'tomorrow': return 'Завтра';
         default: return 'Запланирован';
@@ -664,11 +1105,13 @@ function createLessonActions(lesson, status) {
     }
 }
 
-function formatLessonDate(dateString) {
-    const date = new Date(dateString);
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+function formatLessonDate(dateInput) {
+    const date = createDateFromInput(dateInput);
+    
+    if (!date || isNaN(date.getTime())) {
+        console.error('Неверная дата:', dateInput);
+        return 'Дата не указана';
+    }
     
     if (isToday(date)) {
         return 'Сегодня';
@@ -683,8 +1126,14 @@ function formatLessonDate(dateString) {
     }
 }
 
-function formatLessonTime(dateString) {
-    const date = new Date(dateString);
+function formatLessonTime(dateInput) {
+    const date = createDateFromInput(dateInput);
+    
+    if (!date || isNaN(date.getTime())) {
+        console.error('Неверная дата для времени:', dateInput);
+        return 'Время не указано';
+    }
+    
     return date.toLocaleTimeString('ru-RU', {
         hour: '2-digit',
         minute: '2-digit'
@@ -692,6 +1141,10 @@ function formatLessonTime(dateString) {
 }
 
 function isToday(date) {
+    if (!date || isNaN(date.getTime())) {
+        return false;
+    }
+    
     const today = new Date();
     return date.getDate() === today.getDate() &&
            date.getMonth() === today.getMonth() &&
@@ -699,6 +1152,10 @@ function isToday(date) {
 }
 
 function isTomorrow(date) {
+    if (!date || isNaN(date.getTime())) {
+        return false;
+    }
+    
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     return date.getDate() === tomorrow.getDate() &&
@@ -706,33 +1163,1157 @@ function isTomorrow(date) {
            date.getFullYear() === tomorrow.getFullYear();
 }
 
-function showNoLessonsMessage() {
-    const lessonsGrid = document.getElementById('lessonsGrid');
-    const noLessonsMessage = document.getElementById('noLessonsMessage');
-    const loadMoreContainer = document.getElementById('loadMoreContainer');
-    
-    if (lessonsGrid) {
-        lessonsGrid.innerHTML = '';
+// Вспомогательная функция для создания даты из разных форматов
+function createDateFromInput(dateInput) {
+    if (!dateInput) {
+        return null;
     }
     
-    if (noLessonsMessage) {
-        noLessonsMessage.style.display = 'block';
+    // Если это массив (LocalDateTime из Java)
+    if (Array.isArray(dateInput)) {
+        const [year, month, day, hour, minute, second, nano] = dateInput;
+        const date = new Date(year, month - 1, day, hour, minute, second);
+        return date;
     }
     
-    if (loadMoreContainer) {
-        loadMoreContainer.style.display = 'none';
+    // Если это объект с полями (возможно, другой формат)
+    if (typeof dateInput === 'object' && dateInput !== null) {
+        if (dateInput.year && dateInput.month && dateInput.day) {
+            const date = new Date(dateInput.year, dateInput.month - 1, dateInput.day, 
+                           dateInput.hour || 0, dateInput.minute || 0, dateInput.second || 0);
+            return date;
+        }
+    }
+    
+    // Если это строка
+    if (typeof dateInput === 'string') {
+        const date = new Date(dateInput);
+        return date;
+    }
+    
+    // Если это уже Date объект
+    if (dateInput instanceof Date) {
+        return dateInput;
+    }
+    
+    return null;
+}
+
+function showNoCurrentLessonsMessage() {
+    const currentLessonsList = document.getElementById('currentLessonsList');
+    const noCurrentLessonsMessage = document.getElementById('noCurrentLessonsMessage');
+    
+    if (currentLessonsList) {
+        currentLessonsList.innerHTML = '';
+    }
+    
+    if (noCurrentLessonsMessage) {
+        noCurrentLessonsMessage.style.display = 'block';
+    }
+}
+
+function showNoPastLessonsMessage() {
+    const pastLessonsList = document.getElementById('pastLessonsList');
+    const noPastLessonsMessage = document.getElementById('noPastLessonsMessage');
+    
+    if (pastLessonsList) {
+        pastLessonsList.innerHTML = '';
+    }
+    
+    if (noPastLessonsMessage) {
+        noPastLessonsMessage.style.display = 'block';
     }
 }
 
 // Функции для действий с уроками
-function startLesson(lessonId) {
-    console.log('Начинаем урок:', lessonId);
-    showToast('Функция начала урока будет реализована позже', 'info');
+function joinLesson(lessonId) {
+    console.log('Подключение к уроку:', lessonId);
+    showToast('Подключение к уроку...', 'info');
+    // Здесь будет логика подключения к уроку
 }
 
-function prepareLesson(lessonId) {
-    console.log('Подготовка к уроку:', lessonId);
-    showToast('Функция подготовки к уроку будет реализована позже', 'info');
+function rescheduleLesson(lessonId) {
+    console.log('Перенос урока:', lessonId);
+    
+    // Получаем информацию о переносе урока
+    fetch(`/api/teacher/lesson/${lessonId}/reschedule-info`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+            return;
+        }
+        
+        // Показываем модальное окно переноса
+        showRescheduleModal(data);
+    })
+    .catch(error => {
+        console.error('Ошибка при получении информации о переносе:', error);
+        showToast('Ошибка при получении информации о переносе', 'error');
+    });
+}
+
+function showRescheduleModal(rescheduleInfo) {
+    // Создаем модальное окно
+    const modal = document.createElement('div');
+    modal.className = 'reschedule-modal';
+    
+    const penaltyText = rescheduleInfo.penaltyAmount > 0 
+        ? `<div class="penalty-warning">
+             <i class="fas fa-exclamation-triangle"></i>
+             <strong>Внимание!</strong> За перенос этого урока будет взиматься штраф ${rescheduleInfo.penaltyAmount}₽
+             <br><small>${rescheduleInfo.penaltyReason}</small>
+           </div>`
+        : `<div class="no-penalty">
+             <i class="fas fa-check-circle"></i>
+             Перенос урока бесплатен
+           </div>`;
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Перенос урока</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="lesson-info-summary">
+                    <div class="info-item">
+                        <strong>Предмет:</strong> ${rescheduleInfo.subjectName}
+                    </div>
+                    <div class="info-item">
+                        <strong>Ученик:</strong> ${rescheduleInfo.studentName}
+                    </div>
+                    <div class="info-item">
+                        <strong>Текущая дата и время:</strong> ${new Date(rescheduleInfo.lessonDate).toLocaleString('ru-RU')}
+                    </div>
+                    <div class="info-item">
+                        <strong>До урока осталось:</strong> ${rescheduleInfo.hoursUntilLesson} часов
+                    </div>
+                </div>
+                
+                ${penaltyText}
+                
+                <div class="schedule-preview">
+                    <div class="schedule-nav">
+                        <button class="schedule-nav-btn" onclick="changeRescheduleWeek(-1)">
+                            <i class="fas fa-chevron-left"></i>
+                            Предыдущая неделя
+                        </button>
+                        <div class="current-week-display" id="currentWeekDisplay">
+                            <!-- Текущая неделя будет отображаться здесь -->
+                        </div>
+                        <button class="schedule-nav-btn" onclick="changeRescheduleWeek(1)">
+                            Следующая неделя
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                    <div class="schedule-mini-table" id="scheduleMiniTable">
+                        <!-- Мини-расписание будет загружено здесь -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn secondary" onclick="closeRescheduleModal()">Отмена</button>
+                <button class="modal-btn primary" onclick="confirmReschedule(${rescheduleInfo.lessonId})" id="confirmRescheduleBtn" disabled>
+                    <i class="fas fa-calendar-alt"></i>
+                    Подтвердить перенос
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Добавляем стили для модального окна
+    if (!document.querySelector('#rescheduleModalStyles')) {
+        const styles = document.createElement('style');
+        styles.id = 'rescheduleModalStyles';
+        styles.textContent = `
+            .reschedule-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            }
+            
+            .reschedule-modal .modal-content {
+                background: white;
+                border-radius: 12px;
+                max-width: 800px;
+                width: 90%;
+                max-height: 90vh;
+                overflow-y: auto;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            }
+            
+            .reschedule-modal .modal-header {
+                padding: 1.5rem;
+                border-bottom: 1px solid #e2e8f0;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            .reschedule-modal .modal-header h3 {
+                margin: 0;
+                color: #1e293b;
+                font-size: 1.25rem;
+            }
+            
+            .reschedule-modal .modal-close {
+                background: none;
+                border: none;
+                font-size: 1.5rem;
+                cursor: pointer;
+                color: #64748b;
+                padding: 0.25rem;
+                border-radius: 4px;
+                transition: background 0.3s ease;
+            }
+            
+            .reschedule-modal .modal-close:hover {
+                background: #f1f5f9;
+            }
+            
+            .reschedule-modal .modal-body {
+                padding: 1.5rem;
+            }
+            
+            .schedule-preview {
+                margin: 1.5rem 0;
+            }
+            
+            .schedule-preview h4 {
+                margin: 0 0 1rem 0;
+                color: #1e293b;
+                font-size: 1.1rem;
+            }
+            
+            .schedule-mini-table {
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                overflow: hidden;
+                max-height: 300px;
+                overflow-y: auto;
+            }
+            
+            .schedule-mini-table table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 0.875rem;
+            }
+            
+            .schedule-mini-table th {
+                background: #f8fafc;
+                padding: 0.5rem;
+                text-align: center;
+                font-weight: 600;
+                color: #374151;
+                border-bottom: 1px solid #e2e8f0;
+            }
+            
+            .schedule-mini-table td {
+                padding: 0.25rem;
+                border: 1px solid #e2e8f0;
+                text-align: center;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                min-height: 30px;
+                vertical-align: middle;
+            }
+            
+            .schedule-mini-table .time-slot {
+                background: #f8fafc;
+                font-weight: 600;
+                color: #374151;
+                font-size: 0.75rem;
+            }
+            
+            .schedule-mini-table .available-slot {
+                background: #dcfce7;
+                color: #166534;
+                cursor: pointer;
+            }
+            
+            .schedule-mini-table .available-slot:hover {
+                background: #bbf7d0;
+                transform: scale(1.05);
+            }
+            
+            .schedule-mini-table .empty-slot {
+                background: #f8fafc;
+                color: #64748b;
+                cursor: pointer;
+            }
+            
+            .schedule-mini-table .empty-slot:hover {
+                background: #e2e8f0;
+                transform: scale(1.05);
+            }
+            
+            .schedule-mini-table .selected-slot {
+                background: #3b82f6;
+                color: white;
+                font-weight: 600;
+            }
+            
+            .schedule-mini-table .booked-slot {
+                background: #fecaca;
+                color: #dc2626;
+                cursor: not-allowed;
+                opacity: 0.7;
+            }
+            
+            .schedule-mini-table .cancelled-slot {
+                background: #f1f5f9;
+                color: #64748b;
+                cursor: not-allowed;
+                opacity: 0.7;
+            }
+            
+            .schedule-mini-table .past-slot {
+                background: #9ca3af;
+                color: #6b7280;
+                cursor: not-allowed;
+                opacity: 0.5;
+            }
+            
+            .reschedule-modal .modal-footer {
+                padding: 1.5rem;
+                border-top: 1px solid #e2e8f0;
+                display: flex;
+                gap: 1rem;
+                justify-content: flex-end;
+            }
+            
+            .modal-btn {
+                padding: 0.75rem 1.5rem;
+                border-radius: 8px;
+                border: none;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            
+            .modal-btn.primary {
+                background: #3b82f6;
+                color: white;
+            }
+            
+            .modal-btn.primary:hover:not(:disabled) {
+                background: #2563eb;
+                transform: translateY(-2px);
+            }
+            
+            .modal-btn.primary:disabled {
+                background: #9ca3af;
+                cursor: not-allowed;
+                transform: none;
+            }
+            
+            .modal-btn.secondary {
+                background: #f1f5f9;
+                color: #64748b;
+            }
+            
+            .modal-btn.secondary:hover {
+                background: #e2e8f0;
+            }
+        `;
+        document.head.appendChild(styles);
+    }
+    
+    document.body.appendChild(modal);
+    
+    // Обработчики для модального окна
+    const closeBtn = modal.querySelector('.modal-close');
+    closeBtn.addEventListener('click', closeRescheduleModal);
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeRescheduleModal();
+        }
+    });
+    
+    // Инициализируем переменную для отслеживания недели
+    window.currentRescheduleWeek = 0;
+    
+    // Загружаем мини-расписание
+    loadMiniSchedule(rescheduleInfo.lessonId);
+}
+
+function closeRescheduleModal() {
+    const modal = document.querySelector('.reschedule-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function loadMiniSchedule(lessonId) {
+    // Загружаем расписание преподавателя для выбора нового времени
+    const weekOffset = window.currentRescheduleWeek || 0;
+    fetch(`/api/teacher/schedule?weekOffset=${weekOffset}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data && data.schedules) {
+            displayMiniSchedule(data.schedules, data.lessons, lessonId);
+            updateWeekDisplay(weekOffset);
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка загрузки расписания:', error);
+        showToast('Ошибка загрузки расписания', 'error');
+    });
+}
+
+function changeRescheduleWeek(direction) {
+    window.currentRescheduleWeek = (window.currentRescheduleWeek || 0) + direction;
+    
+    // Получаем lessonId из кнопки подтверждения
+    const confirmBtn = document.getElementById('confirmRescheduleBtn');
+    const lessonId = confirmBtn ? confirmBtn.getAttribute('onclick').match(/\d+/)[0] : null;
+    
+    if (lessonId) {
+        loadMiniSchedule(lessonId);
+    }
+}
+
+function updateWeekDisplay(weekOffset) {
+    const weekDisplay = document.getElementById('currentWeekDisplay');
+    if (!weekDisplay) return;
+    
+    const now = new Date();
+    const weekStart = new Date(now);
+    
+    // Получаем понедельник текущей недели
+    const dayOfWeek = now.getDay();
+    let daysToMonday;
+    if (dayOfWeek === 0) {
+        daysToMonday = 6;
+    } else {
+        daysToMonday = dayOfWeek - 1;
+    }
+    weekStart.setDate(now.getDate() - daysToMonday);
+    weekStart.setHours(0, 0, 0, 0);
+    
+    // Добавляем смещение недели
+    weekStart.setDate(weekStart.getDate() + (weekOffset * 7));
+    
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    
+    const formatDate = (date) => {
+        return date.toLocaleDateString('ru-RU', { 
+            day: 'numeric', 
+            month: 'short' 
+        });
+    };
+    
+    weekDisplay.innerHTML = `
+        <div class="week-range">
+            <strong>${formatDate(weekStart)} - ${formatDate(weekEnd)}</strong>
+        </div>
+        <div class="week-label">
+            ${weekOffset === 0 ? 'Текущая неделя' : 
+              weekOffset > 0 ? `Через ${weekOffset} недель` : 
+              `На ${Math.abs(weekOffset)} недель назад`}
+        </div>
+    `;
+}
+
+function displayMiniSchedule(schedulesData, lessonsData, lessonId) {
+    const miniTable = document.getElementById('scheduleMiniTable');
+    if (!miniTable) return;
+    
+    // Очищаем содержимое контейнера
+    miniTable.innerHTML = '';
+    
+    // Создаем мини-таблицу расписания
+    const table = document.createElement('table');
+    
+    // Получаем даты для текущей недели
+    const weekDates = getWeekDates(window.currentRescheduleWeek || 0);
+    
+    // Заголовки дней недели
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    headerRow.innerHTML = `
+        <th class="time-slot">Время</th>
+        <th>Пн<br><small>${weekDates[0]}</small></th>
+        <th>Вт<br><small>${weekDates[1]}</small></th>
+        <th>Ср<br><small>${weekDates[2]}</small></th>
+        <th>Чт<br><small>${weekDates[3]}</small></th>
+        <th>Пт<br><small>${weekDates[4]}</small></th>
+        <th>Сб<br><small>${weekDates[5]}</small></th>
+        <th>Вс<br><small>${weekDates[6]}</small></th>
+    `;
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    
+    // Тело таблицы
+    const tbody = document.createElement('tbody');
+    
+    // Временные слоты (с 12:00 до 22:00)
+    const timeSlots = [];
+    for (let hour = 12; hour <= 22; hour++) {
+        timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
+    }
+    
+    // Маппинг дней недели
+    const dayMapping = {
+        'MONDAY': 0,
+        'TUESDAY': 1,
+        'WEDNESDAY': 2,
+        'THURSDAY': 3,
+        'FRIDAY': 4,
+        'SATURDAY': 5,
+        'SUNDAY': 6
+    };
+    
+    timeSlots.forEach(timeSlot => {
+        const row = document.createElement('tr');
+        
+        // Ячейка времени
+        const timeCell = document.createElement('td');
+        timeCell.className = 'time-slot';
+        timeCell.textContent = timeSlot;
+        row.appendChild(timeCell);
+        
+        // Ячейки для каждого дня недели
+        for (let day = 0; day < 7; day++) {
+            const cell = document.createElement('td');
+            
+            // Находим день недели по индексу
+            const dayName = Object.keys(dayMapping).find(key => dayMapping[key] === day);
+            
+            if (dayName) {
+                const hour = parseInt(timeSlot.split(':')[0]);
+                
+                // Проверяем, есть ли урок в это время
+                const lessonAtThisTime = findLessonAtTime(lessonsData, dayName, timeSlot);
+                
+                if (lessonAtThisTime) {
+                    // Занятый слот
+                    if (lessonAtThisTime.status === 'CANCELLED') {
+                        cell.className = 'cancelled-slot';
+                        cell.textContent = 'Отменён';
+                    } else {
+                        cell.className = 'booked-slot';
+                        cell.textContent = 'Занято';
+                    }
+                } else {
+                    // Проверяем, есть ли доступное время в расписании
+                    const scheduleForThisTime = schedulesData.find(schedule => {
+                        return schedule.dayOfWeek === dayName && 
+                               isTimeInRange(timeSlot, schedule.startTime, schedule.endTime) && 
+                               schedule.isAvailable;
+                    });
+                    
+                    if (scheduleForThisTime) {
+                        // Доступное время (зеленое)
+                        cell.className = 'available-slot';
+                        cell.textContent = 'Доступно';
+                        cell.setAttribute('data-day', dayName);
+                        cell.setAttribute('data-time', timeSlot);
+                        cell.addEventListener('click', () => selectTimeSlot(cell, dayName, timeSlot));
+                    } else {
+                        // Пустое время (белое)
+                        cell.className = 'empty-slot';
+                        cell.textContent = 'Пусто';
+                        cell.setAttribute('data-day', dayName);
+                        cell.setAttribute('data-time', timeSlot);
+                        cell.addEventListener('click', () => selectTimeSlot(cell, dayName, timeSlot));
+                    }
+                }
+            }
+            
+            row.appendChild(cell);
+        }
+        
+        tbody.appendChild(row);
+    });
+    
+    table.appendChild(tbody);
+    miniTable.appendChild(table);
+}
+
+function selectTimeSlot(cell, dayName, timeSlot) {
+    // Убираем выделение со всех ячеек
+    const allCells = document.querySelectorAll('.schedule-mini-table td');
+    allCells.forEach(c => c.classList.remove('selected-slot'));
+    
+    // Выделяем выбранную ячейку
+    cell.classList.add('selected-slot');
+    
+    // Активируем кнопку подтверждения
+    const confirmBtn = document.getElementById('confirmRescheduleBtn');
+    if (confirmBtn) {
+        confirmBtn.disabled = false;
+    }
+    
+    // Сохраняем выбранное время
+    window.selectedRescheduleTime = {
+        day: dayName,
+        time: timeSlot
+    };
+}
+
+function confirmReschedule(lessonId) {
+    if (!window.selectedRescheduleTime) {
+        showToast('Пожалуйста, выберите новое время для урока', 'warning');
+        return;
+    }
+    
+    // Создаем новую дату на основе выбранного времени
+    const { day, time } = window.selectedRescheduleTime;
+    const newDate = createDateFromDayAndTime(day, time);
+    
+    if (!newDate) {
+        showToast('Ошибка при создании новой даты', 'error');
+        return;
+    }
+    
+    // Показываем индикатор загрузки
+    const confirmBtn = document.getElementById('confirmRescheduleBtn');
+    const originalText = confirmBtn.innerHTML;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Перенос...';
+    confirmBtn.disabled = true;
+    
+    fetch(`/api/teacher/lesson/${lessonId}/reschedule`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+            reason: 'Перенос урока',
+            newDate: newDate.toISOString()
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Урок успешно перенесен', 'success');
+            closeRescheduleModal();
+            
+            // Перезагружаем уроки
+            loadTeacherLessons();
+            
+            // Если есть штраф, показываем уведомление
+            if (data.penaltyAmount > 0) {
+                setTimeout(() => {
+                    showToast(`Внимание! За перенос урока взимается штраф ${data.penaltyAmount}₽`, 'warning');
+                }, 1000);
+            }
+        } else {
+            showToast(data.error || 'Ошибка при переносе урока', 'error');
+            // Восстанавливаем кнопку
+            confirmBtn.innerHTML = originalText;
+            confirmBtn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка при переносе урока:', error);
+        showToast('Ошибка при переносе урока', 'error');
+        // Восстанавливаем кнопку
+        confirmBtn.innerHTML = originalText;
+        confirmBtn.disabled = false;
+    });
+}
+
+function createDateFromDayAndTime(dayName, timeSlot) {
+    const now = new Date();
+    const weekStart = new Date(now);
+    
+    // Получаем понедельник текущей недели
+    const dayOfWeek = now.getDay();
+    let daysToMonday;
+    if (dayOfWeek === 0) {
+        daysToMonday = 6;
+    } else {
+        daysToMonday = dayOfWeek - 1;
+    }
+    weekStart.setDate(now.getDate() - daysToMonday);
+    weekStart.setHours(0, 0, 0, 0);
+    
+    // Добавляем смещение недели
+    const weekOffset = window.currentRescheduleWeek || 0;
+    weekStart.setDate(weekStart.getDate() + (weekOffset * 7));
+    
+    // Маппинг дней недели
+    const dayMapping = {
+        'MONDAY': 0,
+        'TUESDAY': 1,
+        'WEDNESDAY': 2,
+        'THURSDAY': 3,
+        'FRIDAY': 4,
+        'SATURDAY': 5,
+        'SUNDAY': 6
+    };
+    
+    const dayIndex = dayMapping[dayName];
+    if (dayIndex === undefined) return null;
+    
+    // Создаем дату для выбранного дня
+    const targetDate = new Date(weekStart);
+    targetDate.setDate(weekStart.getDate() + dayIndex);
+    
+    // Добавляем время
+    const [hour, minute] = timeSlot.split(':').map(Number);
+    targetDate.setHours(hour, minute, 0, 0);
+    
+    return targetDate;
+}
+
+// Вспомогательные функции для работы с расписанием
+function findLessonAtTime(lessonsData, dayName, timeSlot) {
+    if (!lessonsData || !Array.isArray(lessonsData)) return null;
+    
+    const [hour, minute] = timeSlot.split(':').map(Number);
+    const targetTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
+    
+    return lessonsData.find(lesson => {
+        const lessonDate = new Date(lesson.lessonDate);
+        const lessonDay = getDayOfWeek(lessonDate);
+        const lessonTime = lessonDate.toTimeString().substring(0, 8);
+        
+        return lessonDay === dayName && lessonTime === targetTime;
+    });
+}
+
+function isTimeInRange(timeSlot, startTime, endTime) {
+    const [hour, minute] = timeSlot.split(':').map(Number);
+    const slotTime = hour * 60 + minute;
+    
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMinute;
+    
+    const [endHour, endMinute] = endTime.split(':').map(Number);
+    const endMinutes = endHour * 60 + endMinute;
+    
+    return slotTime >= startMinutes && slotTime < endMinutes;
+}
+
+function getDayOfWeek(date) {
+    const days = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+    return days[date.getDay()];
+}
+
+function getWeekDates(weekOffset) {
+    const now = new Date();
+    const weekStart = new Date(now);
+    
+    // Получаем понедельник текущей недели
+    const dayOfWeek = now.getDay();
+    let daysToMonday;
+    if (dayOfWeek === 0) {
+        daysToMonday = 6;
+    } else {
+        daysToMonday = dayOfWeek - 1;
+    }
+    weekStart.setDate(now.getDate() - daysToMonday);
+    weekStart.setHours(0, 0, 0, 0);
+    
+    // Добавляем смещение недели
+    weekStart.setDate(weekStart.getDate() + (weekOffset * 7));
+    
+    const weekDates = [];
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(weekStart);
+        date.setDate(weekStart.getDate() + i);
+        weekDates.push(date.getDate());
+    }
+    
+    return weekDates;
+}
+
+function cancelLesson(lessonId) {
+    console.log('Отмена урока:', lessonId);
+    
+    // Получаем информацию об отмене урока
+    fetch(`/api/teacher/lesson/${lessonId}/cancellation-info`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+            return;
+        }
+        
+        // Показываем модальное окно отмены
+        showCancellationModal(data);
+    })
+    .catch(error => {
+        console.error('Ошибка при получении информации об отмене:', error);
+        showToast('Ошибка при получении информации об отмене', 'error');
+    });
+}
+
+function showCancellationModal(cancellationInfo) {
+    // Создаем модальное окно
+    const modal = document.createElement('div');
+    modal.className = 'cancellation-modal';
+    
+    const penaltyText = cancellationInfo.penaltyAmount > 0 
+        ? `<div class="penalty-warning">
+             <i class="fas fa-exclamation-triangle"></i>
+             <strong>Внимание!</strong> За отмену этого урока будет взиматься штраф ${cancellationInfo.penaltyAmount}₽
+             <br><small>${cancellationInfo.penaltyReason}</small>
+           </div>`
+        : `<div class="no-penalty">
+             <i class="fas fa-check-circle"></i>
+             Отмена урока бесплатна
+           </div>`;
+    
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Отмена урока</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="lesson-info-summary">
+                    <div class="info-item">
+                        <strong>Предмет:</strong> ${cancellationInfo.subjectName}
+                    </div>
+                    <div class="info-item">
+                        <strong>Ученик:</strong> ${cancellationInfo.studentName}
+                    </div>
+                    <div class="info-item">
+                        <strong>Дата и время:</strong> ${new Date(cancellationInfo.lessonDate).toLocaleString('ru-RU')}
+                    </div>
+                    <div class="info-item">
+                        <strong>До урока осталось:</strong> ${cancellationInfo.hoursUntilLesson >= 0 ? cancellationInfo.hoursUntilLesson + ' часов' : 'Урок уже прошел'}
+                    </div>
+                </div>
+                
+                <div class="cancellation-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Отмен в этом месяце:</span>
+                        <span class="stat-value">${cancellationInfo.cancellationsThisMonth}/5</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Бесплатных отмен осталось:</span>
+                        <span class="stat-value">${cancellationInfo.freeCancellationsLeft}</span>
+                    </div>
+                </div>
+                
+                ${penaltyText}
+                
+                <div class="reason-input">
+                    <label for="cancellation-reason">Причина отмены:</label>
+                    <textarea id="cancellation-reason" placeholder="Укажите причину отмены урока..." rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn secondary" onclick="closeCancellationModal()">Отмена</button>
+                <button class="modal-btn danger" onclick="confirmCancellation(${cancellationInfo.lessonId})">
+                    <i class="fas fa-times"></i>
+                    Подтвердить отмену
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Добавляем стили для модального окна
+    if (!document.querySelector('#cancellationModalStyles')) {
+        const styles = document.createElement('style');
+        styles.id = 'cancellationModalStyles';
+        styles.textContent = `
+            .cancellation-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            }
+            
+            .cancellation-modal .modal-content {
+                background: white;
+                border-radius: 12px;
+                max-width: 500px;
+                width: 90%;
+                max-height: 90vh;
+                overflow-y: auto;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            }
+            
+            .cancellation-modal .modal-header {
+                padding: 1.5rem;
+                border-bottom: 1px solid #e2e8f0;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            .cancellation-modal .modal-header h3 {
+                margin: 0;
+                color: #1e293b;
+                font-size: 1.25rem;
+            }
+            
+            .cancellation-modal .modal-close {
+                background: none;
+                border: none;
+                font-size: 1.5rem;
+                cursor: pointer;
+                color: #64748b;
+                padding: 0.25rem;
+                border-radius: 4px;
+                transition: background 0.3s ease;
+            }
+            
+            .cancellation-modal .modal-close:hover {
+                background: #f1f5f9;
+            }
+            
+            .cancellation-modal .modal-body {
+                padding: 1.5rem;
+            }
+            
+            .lesson-info-summary {
+                background: #f8fafc;
+                border-radius: 8px;
+                padding: 1rem;
+                margin-bottom: 1rem;
+            }
+            
+            .info-item {
+                margin-bottom: 0.5rem;
+                display: flex;
+                justify-content: space-between;
+            }
+            
+            .info-item:last-child {
+                margin-bottom: 0;
+            }
+            
+            .cancellation-stats {
+                display: flex;
+                gap: 1rem;
+                margin-bottom: 1rem;
+            }
+            
+            .stat-item {
+                flex: 1;
+                background: #f1f5f9;
+                padding: 0.75rem;
+                border-radius: 6px;
+                text-align: center;
+            }
+            
+            .stat-label {
+                display: block;
+                font-size: 0.875rem;
+                color: #64748b;
+                margin-bottom: 0.25rem;
+            }
+            
+            .stat-value {
+                display: block;
+                font-weight: 600;
+                color: #1e293b;
+                font-size: 1.125rem;
+            }
+            
+            .penalty-warning {
+                background: #fef2f2;
+                border: 1px solid #fecaca;
+                color: #dc2626;
+                padding: 1rem;
+                border-radius: 8px;
+                margin-bottom: 1rem;
+                text-align: center;
+            }
+            
+            .penalty-warning i {
+                font-size: 1.5rem;
+                margin-bottom: 0.5rem;
+                display: block;
+            }
+            
+            .no-penalty {
+                background: #dcfce7;
+                border: 1px solid #bbf7d0;
+                color: #166534;
+                padding: 1rem;
+                border-radius: 8px;
+                margin-bottom: 1rem;
+                text-align: center;
+            }
+            
+            .no-penalty i {
+                font-size: 1.5rem;
+                margin-bottom: 0.5rem;
+                display: block;
+            }
+            
+            .reason-input {
+                margin-bottom: 1rem;
+            }
+            
+            .reason-input label {
+                display: block;
+                margin-bottom: 0.5rem;
+                font-weight: 600;
+                color: #374151;
+            }
+            
+            .reason-input textarea {
+                width: 100%;
+                padding: 0.75rem;
+                border: 1px solid #d1d5db;
+                border-radius: 6px;
+                font-family: inherit;
+                font-size: 0.875rem;
+                resize: vertical;
+                min-height: 80px;
+            }
+            
+            .reason-input textarea:focus {
+                outline: none;
+                border-color: #a3e635;
+                box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.1);
+            }
+            
+            .cancellation-modal .modal-footer {
+                padding: 1.5rem;
+                border-top: 1px solid #e2e8f0;
+                display: flex;
+                gap: 1rem;
+                justify-content: flex-end;
+            }
+            
+            .modal-btn {
+                padding: 0.75rem 1.5rem;
+                border-radius: 8px;
+                border: none;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            
+            .modal-btn.secondary {
+                background: #f1f5f9;
+                color: #64748b;
+            }
+            
+            .modal-btn.secondary:hover {
+                background: #e2e8f0;
+            }
+            
+            .modal-btn.danger {
+                background: #dc2626;
+                color: white;
+            }
+            
+            .modal-btn.danger:hover {
+                background: #b91c1c;
+                transform: translateY(-2px);
+            }
+        `;
+        document.head.appendChild(styles);
+    }
+    
+    document.body.appendChild(modal);
+    
+    // Обработчики для модального окна
+    const closeBtn = modal.querySelector('.modal-close');
+    closeBtn.addEventListener('click', closeCancellationModal);
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeCancellationModal();
+        }
+    });
+}
+
+function closeCancellationModal() {
+    const modal = document.querySelector('.cancellation-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function confirmCancellation(lessonId) {
+    const reasonTextarea = document.querySelector('#cancellation-reason');
+    const reason = reasonTextarea ? reasonTextarea.value.trim() : '';
+    
+    if (!reason) {
+        showToast('Пожалуйста, укажите причину отмены', 'warning');
+        return;
+    }
+    
+    // Показываем индикатор загрузки
+    const confirmBtn = document.querySelector('.cancellation-modal .modal-btn.danger');
+    const originalText = confirmBtn.innerHTML;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отмена...';
+    confirmBtn.disabled = true;
+    
+    fetch(`/api/teacher/lesson/${lessonId}/cancel`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ reason: reason })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Урок успешно отменен', 'success');
+            closeCancellationModal();
+            
+            // Перезагружаем уроки
+            loadTeacherLessons();
+            
+            // Если есть штраф, показываем уведомление
+            if (data.penaltyAmount > 0) {
+                setTimeout(() => {
+                    showToast(`Внимание! За отмену урока взимается штраф ${data.penaltyAmount}₽`, 'warning');
+                }, 1000);
+            }
+        } else {
+            showToast(data.error || 'Ошибка при отмене урока', 'error');
+            // Восстанавливаем кнопку
+            confirmBtn.innerHTML = originalText;
+            confirmBtn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка при отмене урока:', error);
+        showToast('Ошибка при отмене урока', 'error');
+        // Восстанавливаем кнопку
+        confirmBtn.innerHTML = originalText;
+        confirmBtn.disabled = false;
+    });
 }
 
 // Функции для работы с вкладками
@@ -765,6 +2346,11 @@ function initTabSwitching() {
             if (targetTab === 'schedule-tab') {
                 loadTeacherSchedule();
             }
+
+            // Если переключаемся на проверку оборудования, инициализируем
+            if (targetTab === 'equipment-tab') {
+                initEquipmentCheck();
+            }
             
             // Закрываем сайдбар на мобильных устройствах
             if (window.innerWidth <= 768) {
@@ -796,6 +2382,8 @@ function initScheduleControls() {
         prevWeekBtn.addEventListener('click', () => {
             currentWeekOffset--;
             loadTeacherSchedule();
+            // Обновляем индикатор после загрузки расписания
+            setTimeout(updateCurrentTimeIndicator, 100);
         });
         prevWeekBtn.setAttribute('data-initialized', 'true');
     }
@@ -804,6 +2392,8 @@ function initScheduleControls() {
         nextWeekBtn.addEventListener('click', () => {
             currentWeekOffset++;
             loadTeacherSchedule();
+            // Обновляем индикатор после загрузки расписания
+            setTimeout(updateCurrentTimeIndicator, 100);
         });
         nextWeekBtn.setAttribute('data-initialized', 'true');
     }
@@ -829,9 +2419,19 @@ function handleSlotClick(slot) {
         hour: slot.getAttribute('data-hour')
     });
     
-    // Проверяем, не является ли слот занятым
+    // Проверяем, не является ли слот занятым, прошедшим или отмененным
     if (currentClass.includes('booked')) {
         showToast('Этот слот занят учеником и не может быть изменен', 'warning');
+        return;
+    }
+    
+    if (currentClass.includes('cancelled')) {
+        showToast('Этот урок отменен и не может быть изменен', 'warning');
+        return;
+    }
+    
+    if (currentClass.includes('past')) {
+        showToast('Этот слот относится к прошедшему времени и не может быть изменен', 'warning');
         return;
     }
     
@@ -916,6 +2516,23 @@ async function saveScheduleChanges() {
             const day = slot.getAttribute('data-day');
             const hour = slot.getAttribute('data-hour');
             
+            // Проверяем, не является ли слот прошедшим или отмененным
+            if (day && hour !== null) {
+                const dayIndex = getDayIndex(day);
+                const isPast = isPastDay(dayIndex) || isPastTime(dayIndex, parseInt(hour));
+                const isCancelled = slot.className.includes('cancelled');
+                
+                if (isPast) {
+                    console.log('Пропускаем прошедший слот:', day, hour);
+                    return; // Пропускаем прошедшие слоты
+                }
+                
+                if (isCancelled) {
+                    console.log('Пропускаем отмененный слот:', day, hour);
+                    return; // Пропускаем отмененные слоты
+                }
+            }
+            
             if (slot.className.includes('selected')) {
                 // Новые слоты для добавления
                 const startHour = parseInt(hour);
@@ -966,11 +2583,6 @@ async function saveScheduleChanges() {
             message += `Удалить: ${slotsToDelete.length} слот(ов). `;
         }
         
-        // Запрашиваем подтверждение
-        if (!confirm(`Подтвердите изменения:\n${message}\n\nПродолжить?`)) {
-            return;
-        }
-        
         const scheduleData = {
             selectedSlots: selectedSlots,
             slotsToDelete: slotsToDelete
@@ -1009,10 +2621,7 @@ function resetScheduleChanges() {
         return;
     }
     
-    // Запрашиваем подтверждение
-    if (!confirm('Отменить все несохраненные изменения?')) {
-        return;
-    }
+
     
     loadTeacherSchedule(); // Перезагружаем расписание
     showToast('Все изменения отменены', 'info');
@@ -1206,6 +2815,11 @@ function displayTeacherScheduleWithLessons(schedulesData, lessonsData) {
                 slot.setAttribute('data-hour', timeSlot.split(':')[0]);
                 slot.setAttribute('data-slot-id', `${dayName}_${timeSlot.split(':')[0]}`);
                 
+                // Проверяем, является ли день или время прошедшим
+                const dayIndex = getDayIndex(dayName);
+                const hour = parseInt(timeSlot.split(':')[0]);
+                const isPast = isPastDay(dayIndex) || isPastTime(dayIndex, hour);
+                
                 // Ищем расписание для этого дня и времени
                 const scheduleForThisTime = schedulesData.find(schedule => {
                     return schedule.dayOfWeek === dayName && 
@@ -1219,22 +2833,44 @@ function displayTeacherScheduleWithLessons(schedulesData, lessonsData) {
                     
                     if (lessonAtThisTime) {
                         // Создаем ячейку с уроком
-                        slot.className = 'schedule-slot booked';
-                        slot.innerHTML = `
-                            <div class="slot-subject">${lessonAtThisTime.subjectName}</div>
-                            <div class="slot-student">${lessonAtThisTime.studentName}</div>
-                        `;
+                        if (lessonAtThisTime.status === 'CANCELLED') {
+                            // Отмененный урок
+                            slot.className = 'schedule-slot cancelled';
+                            slot.innerHTML = `
+                                <div class="slot-subject">${lessonAtThisTime.subjectName}</div>
+                                <div class="slot-student">${lessonAtThisTime.studentName}</div>
+                                <div class="slot-status-cancelled">Отменён</div>
+                            `;
+                        } else if (isPast) {
+                            slot.className = 'schedule-slot past';
+                            slot.innerHTML = `
+                                <div class="slot-subject">${lessonAtThisTime.subjectName}</div>
+                                <div class="slot-student">${lessonAtThisTime.studentName}</div>
+                                <div style="font-size: 0.6rem; opacity: 0.8;">Прошедший урок</div>
+                            `;
+                        } else {
+                            slot.className = 'schedule-slot booked';
+                            slot.innerHTML = `
+                                <div class="slot-subject">${lessonAtThisTime.subjectName}</div>
+                                <div class="slot-student">${lessonAtThisTime.studentName}</div>
+                            `;
+                        }
                         slot.setAttribute('data-lesson-id', lessonAtThisTime.lessonId);
-                        // Занятые слоты не кликабельны
+                        // Занятые, прошедшие и отмененные слоты не кликабельны
                     } else {
                         // Создаем ячейку с доступным временем
-                        slot.className = 'schedule-slot available';
-                        slot.innerHTML = 'Доступно';
-                        slot.setAttribute('data-schedule-id', scheduleForThisTime.id);
-                        
-                        // Добавляем обработчик клика для доступных слотов
-                        slot.addEventListener('click', () => handleSlotClick(slot));
-                        console.log('Добавлен обработчик клика для доступного слота:', dayName, timeSlot);
+                        if (isPast) {
+                            slot.className = 'schedule-slot past';
+                            slot.innerHTML = 'Прошедшее время';
+                        } else {
+                            slot.className = 'schedule-slot available';
+                            slot.innerHTML = 'Доступно';
+                            slot.setAttribute('data-schedule-id', scheduleForThisTime.id);
+                            
+                            // Добавляем обработчик клика только для непрошедших доступных слотов
+                            slot.addEventListener('click', () => handleSlotClick(slot));
+                            console.log('Добавлен обработчик клика для доступного слота:', dayName, timeSlot);
+                        }
                     }
                     
                     // Добавляем информацию о часовом поясе
@@ -1243,12 +2879,17 @@ function displayTeacherScheduleWithLessons(schedulesData, lessonsData) {
                     }
                 } else {
                     // Пустой слот - можно кликать для добавления
-                    slot.className = 'schedule-slot empty';
-                    slot.innerHTML = '';
-                    
-                    // Добавляем обработчик клика для редактирования
-                    slot.addEventListener('click', () => handleSlotClick(slot));
-                    console.log('Добавлен обработчик клика для пустого слота:', dayName, timeSlot);
+                    if (isPast) {
+                        slot.className = 'schedule-slot past';
+                        slot.innerHTML = 'Прошедшее время';
+                    } else {
+                        slot.className = 'schedule-slot empty';
+                        slot.innerHTML = '';
+                        
+                        // Добавляем обработчик клика только для непрошедших пустых слотов
+                        slot.addEventListener('click', () => handleSlotClick(slot));
+                        console.log('Добавлен обработчик клика для пустого слота:', dayName, timeSlot);
+                    }
                 }
                 
                 cell.appendChild(slot);
@@ -1261,6 +2902,10 @@ function displayTeacherScheduleWithLessons(schedulesData, lessonsData) {
     });
     
     console.log('Таблица расписания преподавателя с уроками создана');
+    
+    // Создаем и обновляем индикатор текущего времени
+    createCurrentTimeIndicator();
+    updateCurrentTimeIndicator();
 }
 
 function findLessonAtTime(lessonsData, dayOfWeek, timeSlot) {
@@ -1283,6 +2928,129 @@ function isTimeInRange(timeSlot, startTime, endTime) {
     }
     
     return slotTime >= startTime && slotTime < endTime;
+}
+
+// Функция для проверки, является ли день прошедшим
+function isPastDay(dayIndex) {
+    const now = new Date();
+    const weekStart = getWeekStart();
+    const targetDate = new Date(weekStart);
+    targetDate.setDate(weekStart.getDate() + dayIndex);
+    
+    // Устанавливаем время на конец дня (23:59:59)
+    targetDate.setHours(23, 59, 59, 999);
+    
+    return targetDate < now;
+}
+
+// Функция для проверки, является ли время прошедшим
+function isPastTime(dayIndex, hour) {
+    const now = new Date();
+    const weekStart = getWeekStart();
+    const targetDate = new Date(weekStart);
+    targetDate.setDate(weekStart.getDate() + dayIndex);
+    targetDate.setHours(hour, 0, 0, 0);
+    
+    return targetDate < now;
+}
+
+// Функция для получения индекса дня недели
+function getDayIndex(dayName) {
+    const dayMapping = {
+        'MONDAY': 0,
+        'TUESDAY': 1,
+        'WEDNESDAY': 2,
+        'THURSDAY': 3,
+        'FRIDAY': 4,
+        'SATURDAY': 5,
+        'SUNDAY': 6
+    };
+    return dayMapping[dayName] || 0;
+}
+
+// Функция для создания и управления индикатором текущего времени
+function createCurrentTimeIndicator() {
+    const tableWrapper = document.querySelector('.schedule-table-wrapper');
+    if (!tableWrapper) return;
+    
+    // Удаляем существующие индикаторы
+    const existingIndicators = tableWrapper.querySelectorAll('.current-time-indicator');
+    existingIndicators.forEach(indicator => indicator.remove());
+    
+    // Создаем индикатор для всей недели
+    const indicator = document.createElement('div');
+    indicator.className = 'current-time-indicator';
+    tableWrapper.appendChild(indicator);
+    
+    return indicator;
+}
+
+// Функция для обновления позиции индикатора текущего времени
+function updateCurrentTimeIndicator() {
+    const indicator = document.querySelector('.current-time-indicator');
+    if (!indicator) return;
+    
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    // Получаем начало недели
+    const weekStart = getWeekStart();
+    
+    // Вычисляем, является ли текущий день в пределах отображаемой недели
+    const daysDiff = Math.floor((now - weekStart) / (1000 * 60 * 60 * 24));
+    
+    // Проверяем, находится ли текущее время в пределах отображаемого диапазона (12:00-22:00)
+    if (currentHour < 12 || currentHour > 22 || daysDiff < 0 || daysDiff > 6) {
+        indicator.style.display = 'none';
+        return;
+    }
+    
+    // Показываем индикатор
+    indicator.style.display = 'block';
+    
+    // Вычисляем позицию по вертикали (время)
+    const currentTimeInMinutes = currentHour * 60 + currentMinute;
+    const startTimeInMinutes = 12 * 60; // 12:00
+    const endTimeInMinutes = 23 * 60; // 23:00
+    
+    // Вычисляем процентное положение времени в диапазоне
+    const timeProgress = Math.max(0, Math.min(1, (currentTimeInMinutes - startTimeInMinutes) / (endTimeInMinutes - startTimeInMinutes)));
+    
+    // Получаем высоту таблицы для вычисления позиции
+    const table = document.querySelector('.schedule-table');
+    if (!table) return;
+    
+    const tableHeight = table.offsetHeight;
+    const headerHeight = table.querySelector('thead').offsetHeight;
+    const bodyHeight = tableHeight - headerHeight;
+    
+    // Вычисляем позицию по вертикали
+    const verticalPosition = headerHeight + (bodyHeight * timeProgress);
+    
+    // Получаем размеры таблицы для горизонтального позиционирования
+    const tableWidth = table.offsetWidth;
+    const timeColumnWidth = table.querySelector('.time-column').offsetWidth;
+    
+    // Устанавливаем позицию индикатора через всю неделю
+    indicator.style.top = `${verticalPosition}px`;
+    indicator.style.left = `${timeColumnWidth}px`;
+    indicator.style.width = `${tableWidth - timeColumnWidth}px`;
+    
+    // Определяем, является ли текущий день прошедшим
+    const isPastDay = daysDiff < 0;
+    
+    // Обновляем класс для прошедших дней
+    if (isPastDay) {
+        indicator.classList.add('past-day');
+    } else {
+        indicator.classList.remove('past-day');
+    }
+    
+    // Добавляем подсказку с текущим временем
+    const dayNames = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+    const currentDayName = dayNames[now.getDay()];
+    indicator.title = `Текущее время: ${now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })} (${currentDayName})`;
 }
 
 // Функция больше не нужна, так как используем schedule-slot
@@ -1316,6 +3084,61 @@ function showScheduleEmpty() {
     
     if (scheduleTableContainer) scheduleTableContainer.style.display = 'none';
     if (scheduleEmpty) scheduleEmpty.style.display = 'block';
+}
+
+// Функция для обновления отображения расписания без перезагрузки данных
+function updateScheduleDisplay() {
+    const slots = document.querySelectorAll('.schedule-slot');
+    
+    slots.forEach(slot => {
+        const dayName = slot.getAttribute('data-day');
+        const hour = parseInt(slot.getAttribute('data-hour'));
+        
+        if (dayName && hour !== null) {
+            const dayIndex = getDayIndex(dayName);
+            const isPast = isPastDay(dayIndex) || isPastTime(dayIndex, hour);
+            const currentClass = slot.className;
+            
+            // Если слот стал прошедшим, обновляем его
+            if (isPast && !currentClass.includes('past') && !currentClass.includes('booked') && !currentClass.includes('cancelled')) {
+                slot.className = 'schedule-slot past';
+                slot.innerHTML = 'Прошедшее время';
+                
+                // Удаляем обработчик клика
+                const newSlot = slot.cloneNode(true);
+                slot.parentNode.replaceChild(newSlot, slot);
+            }
+        }
+    });
+}
+
+// Функция для обновления кнопок уроков
+function updateLessonButtons() {
+    const lessonCards = document.querySelectorAll('.lesson-card');
+    
+    lessonCards.forEach(card => {
+        const lessonActions = card.querySelector('.lesson-actions');
+        if (lessonActions) {
+            // Получаем данные урока из карточки
+            const lessonId = card.querySelector('[onclick*="joinLesson"]')?.getAttribute('onclick')?.match(/joinLesson\((\d+)\)/)?.[1];
+            const lessonDate = card.querySelector('.lesson-time')?.textContent;
+            
+            if (lessonId && lessonDate) {
+                // Пересоздаем кнопки с обновленной логикой
+                const lesson = {
+                    id: parseInt(lessonId),
+                    lessonDate: lessonDate
+                };
+                
+                // Определяем статус урока
+                const status = getLessonStatus(lesson);
+                
+                // Пересоздаем действия
+                const newActions = createCurrentLessonActions(lesson, status);
+                lessonActions.innerHTML = newActions;
+            }
+        }
+    });
 }
 
 function openLessonDetails(lesson) {

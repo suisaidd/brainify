@@ -97,4 +97,50 @@ CREATE INDEX IF NOT EXISTS idx_teacher_schedules_available ON teacher_schedules(
 CREATE INDEX IF NOT EXISTS idx_student_teachers_student_id ON student_teachers(student_id);
 CREATE INDEX IF NOT EXISTS idx_student_teachers_teacher_id ON student_teachers(teacher_id);
 CREATE INDEX IF NOT EXISTS idx_student_teachers_subject_id ON student_teachers(subject_id);
-CREATE INDEX IF NOT EXISTS idx_student_teachers_active ON student_teachers(is_active); 
+CREATE INDEX IF NOT EXISTS idx_student_teachers_active ON student_teachers(is_active);
+
+-- Создаем таблицу отмен уроков
+CREATE TABLE IF NOT EXISTS lesson_cancellations (
+    id BIGSERIAL PRIMARY KEY,
+    lesson_id BIGINT NOT NULL,
+    cancelled_by BIGINT NOT NULL,
+    cancellation_reason VARCHAR(500),
+    cancellation_date TIMESTAMP NOT NULL,
+    hours_before_lesson INTEGER,
+    penalty_amount DECIMAL(10,2),
+    penalty_reason VARCHAR(200),
+    is_penalty_paid BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
+    FOREIGN KEY (cancelled_by) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Создаем индексы для таблицы отмен уроков
+CREATE INDEX IF NOT EXISTS idx_lesson_cancellations_lesson_id ON lesson_cancellations(lesson_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_cancellations_cancelled_by ON lesson_cancellations(cancelled_by);
+CREATE INDEX IF NOT EXISTS idx_lesson_cancellations_date ON lesson_cancellations(cancellation_date);
+CREATE INDEX IF NOT EXISTS idx_lesson_cancellations_penalty_paid ON lesson_cancellations(is_penalty_paid);
+
+-- Создаем таблицу переносов уроков
+CREATE TABLE IF NOT EXISTS lesson_reschedules (
+    id BIGSERIAL PRIMARY KEY,
+    lesson_id BIGINT NOT NULL,
+    rescheduled_by BIGINT NOT NULL,
+    original_date TIMESTAMP NOT NULL,
+    new_date TIMESTAMP NOT NULL,
+    reschedule_reason VARCHAR(500),
+    reschedule_date TIMESTAMP NOT NULL,
+    hours_before_lesson INTEGER,
+    penalty_amount DECIMAL(10,2),
+    penalty_reason VARCHAR(200),
+    is_penalty_paid BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE,
+    FOREIGN KEY (rescheduled_by) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Создаем индексы для таблицы переносов уроков
+CREATE INDEX IF NOT EXISTS idx_lesson_reschedules_lesson_id ON lesson_reschedules(lesson_id);
+CREATE INDEX IF NOT EXISTS idx_lesson_reschedules_rescheduled_by ON lesson_reschedules(rescheduled_by);
+CREATE INDEX IF NOT EXISTS idx_lesson_reschedules_date ON lesson_reschedules(reschedule_date);
+CREATE INDEX IF NOT EXISTS idx_lesson_reschedules_penalty_paid ON lesson_reschedules(is_penalty_paid); 

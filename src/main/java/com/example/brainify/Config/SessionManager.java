@@ -22,9 +22,17 @@ public class SessionManager {
      * Создать новую сессию для пользователя
      */
     public void createSession(HttpSession session, User user) {
+        if (session == null || user == null) {
+            System.err.println("SessionManager: Попытка создать сессию с null параметрами");
+            return;
+        }
+        
         // Очищаем старые данные сессии если есть
         String sessionId = session.getId();
-        activeSessions.remove(sessionId);
+        User oldUser = activeSessions.get(sessionId);
+        if (oldUser != null) {
+            System.out.println("SessionManager: Заменяем сессию для пользователя " + oldUser.getName() + " на " + user.getName());
+        }
         
         // Создаем новую сессию
         session.setAttribute(USER_ATTRIBUTE, user);
@@ -35,6 +43,7 @@ public class SessionManager {
         activeSessions.put(sessionId, user);
         
         System.out.println("SessionManager: Создана сессия для пользователя " + user.getName() + " (ID: " + sessionId + ")");
+        System.out.println("SessionManager: Всего активных сессий: " + activeSessions.size());
     }
     
     /**
@@ -45,22 +54,46 @@ public class SessionManager {
             return null;
         }
         
+        String sessionId = session.getId();
+        
         // Проверяем флаг валидности сессии
         Boolean isValid = (Boolean) session.getAttribute(SESSION_VALID_ATTRIBUTE);
         if (isValid == null || !isValid) {
+            System.out.println("SessionManager: Сессия " + sessionId + " невалидна");
             return null;
         }
         
         // Проверяем наличие в активных сессиях
-        User user = activeSessions.get(session.getId());
+        User user = activeSessions.get(sessionId);
         if (user == null) {
-            // Если нет в активных сессиях, но есть в атрибутах - очищаем
+            // Если нет в активных сессиях, но есть в атрибутах - пытаемся восстановить
+            User sessionUser = (User) session.getAttribute(USER_ATTRIBUTE);
+            if (sessionUser != null) {
+                System.out.println("SessionManager: Восстанавливаем пользователя из атрибутов сессии: " + sessionUser.getName());
+                activeSessions.put(sessionId, sessionUser);
+                return sessionUser;
+            }
+            
+            // Если и в атрибутах нет - очищаем
+            System.out.println("SessionManager: Пользователь не найден в активных сессиях для " + sessionId);
             session.removeAttribute(USER_ATTRIBUTE);
             session.setAttribute(SESSION_VALID_ATTRIBUTE, false);
             return null;
         }
         
+        System.out.println("SessionManager: Найден пользователь " + user.getName() + " в сессии " + sessionId);
         return user;
+    }
+    
+    /**
+     * Обновить ID сессии (для обработки смены ID)
+     */
+    public void updateSessionId(String oldSessionId, String newSessionId) {
+        User user = activeSessions.remove(oldSessionId);
+        if (user != null) {
+            activeSessions.put(newSessionId, user);
+            System.out.println("SessionManager: Обновлен ID сессии с " + oldSessionId + " на " + newSessionId + " для пользователя " + user.getName());
+        }
     }
     
     /**
@@ -92,6 +125,7 @@ public class SessionManager {
             System.out.println("SessionManager: Сессия инвалидирована" + 
                 (user != null ? " для пользователя " + user.getName() : "") + 
                 " (ID: " + sessionId + ")");
+            System.out.println("SessionManager: Осталось активных сессий: " + activeSessions.size());
                 
         } catch (Exception e) {
             System.err.println("SessionManager: Ошибка при инвалидации сессии: " + e.getMessage());

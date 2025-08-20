@@ -69,7 +69,7 @@ public class User {
     
     public User(String name, String email, String phone) {
         this.name = name;
-        this.email = email;
+        this.email = email.toLowerCase().trim();
         this.phone = phone;
         this.role = UserRole.STUDENT;
         this.isVerified = false;
@@ -100,7 +100,7 @@ public class User {
     }
     
     public void setEmail(String email) {
-        this.email = email;
+        this.email = email.toLowerCase().trim();
     }
     
     public String getPhone() {

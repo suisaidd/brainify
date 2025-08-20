@@ -4,11 +4,86 @@ console.log('main.js загружен');
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM загружен, инициализация компонентов...');
+    
+    // Принудительно устанавливаем класс для неавторизованных пользователей по умолчанию
+    document.body.classList.add('user-unauthenticated');
+    console.log('Установлен класс user-unauthenticated по умолчанию');
+    
+    // Проверяем, есть ли параметр успешной аутентификации
+    const urlParams = new URLSearchParams(window.location.search);
+    const authSuccess = urlParams.get('auth');
+    
+    if (authSuccess === 'success') {
+        console.log('Обнаружен параметр успешной аутентификации, принудительно обновляем интерфейс');
+        // Очищаем URL от параметров
+        window.history.replaceState({}, document.title, window.location.pathname);
+        // Принудительно проверяем статус аутентификации
+        checkAuthStatus();
+    } else {
+        // Обычная проверка состояния аутентификации
+        checkAuthStatus();
+    }
+    
     // Инициализация всех компонентов
     initMobileMenu();
     initSmoothScrolling();
     initButtonAnimations();
     initNavButtons();
+    
+    // Проверяем, что кнопки видны сразу после загрузки
+    console.log('Проверяем видимость кнопок после инициализации...');
+    const unauthorizedButtons = document.querySelectorAll('.unauthorized-buttons');
+    console.log('Найдено кнопок для неавторизованных пользователей:', unauthorizedButtons.length);
+    
+    unauthorizedButtons.forEach((div, index) => {
+        console.log(`Кнопка ${index}:`, div.className, 'display:', div.style.display, 'computed:', window.getComputedStyle(div).display);
+    });
+    
+    // Принудительно устанавливаем класс для неавторизованных пользователей по умолчанию
+    setTimeout(() => {
+        if (!document.body.classList.contains('user-authenticated')) {
+            console.log('Принудительно устанавливаем класс user-unauthenticated');
+            document.body.classList.add('user-unauthenticated');
+        }
+        
+        // Отладочная информация о кнопках
+        const navButtons = document.querySelector('.nav-buttons');
+        const mobileNavButtons = document.querySelector('.mobile-nav-buttons');
+        
+        console.log('nav-buttons найден:', !!navButtons);
+        console.log('mobile-nav-buttons найден:', !!mobileNavButtons);
+        
+        if (navButtons) {
+            const children = navButtons.children;
+            console.log('Количество дочерних элементов в nav-buttons:', children.length);
+            for (let i = 0; i < children.length; i++) {
+                console.log(`Дочерний элемент ${i}:`, children[i].className, 'display:', children[i].style.display);
+            }
+        }
+        
+        if (mobileNavButtons) {
+            const children = mobileNavButtons.children;
+            console.log('Количество дочерних элементов в mobile-nav-buttons:', children.length);
+            for (let i = 0; i < children.length; i++) {
+                console.log(`Дочерний элемент ${i}:`, children[i].className, 'display:', children[i].style.display);
+            }
+        }
+        
+        // Если кнопки не видны, принудительно показываем их
+        const unauthenticatedButtons = document.querySelectorAll('.unauthorized-buttons');
+        let buttonsVisible = false;
+        
+        unauthenticatedButtons.forEach(div => {
+            if (div.style.display !== 'none' && div.offsetParent !== null) {
+                buttonsVisible = true;
+            }
+        });
+        
+        if (!buttonsVisible) {
+            console.log('Кнопки не видны, принудительно показываем их');
+            forceShowLoginButtons();
+        }
+    }, 100);
     
     console.log('Инициализация завершена');
 });
@@ -1156,4 +1231,120 @@ function devTeacherLogin() {
         // Показываем уведомление об ошибке
         showToast('Ошибка автоматического входа преподавателя. Проверьте данные аккаунта.', 'error');
     });
+}
+
+// Функция проверки состояния аутентификации
+async function checkAuthStatus() {
+    console.log('Проверка состояния аутентификации...');
+    
+    try {
+        const response = await fetch('/api/auth/status', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Статус аутентификации:', data);
+            
+            if (data.authenticated) {
+                // Пользователь аутентифицирован - обновляем интерфейс
+                updateUIForAuthenticatedUser(data.user);
+            } else {
+                // Пользователь не аутентифицирован - показываем стандартный интерфейс
+                updateUIForUnauthenticatedUser();
+            }
+        } else {
+            console.log('Пользователь не аутентифицирован (статус 401/403)');
+            updateUIForUnauthenticatedUser();
+        }
+    } catch (error) {
+        console.error('Ошибка при проверке статуса аутентификации:', error);
+        // В случае ошибки показываем стандартный интерфейс
+        updateUIForUnauthenticatedUser();
+    }
+}
+
+// Обновление интерфейса для аутентифицированного пользователя
+function updateUIForAuthenticatedUser(user) {
+    console.log('Обновление интерфейса для аутентифицированного пользователя:', user);
+    
+    // Добавляем класс для скрытия неавторизованных кнопок
+    document.body.classList.add('user-authenticated');
+    document.body.classList.remove('user-unauthenticated');
+    
+    console.log('Классы body после обновления:', document.body.className);
+    
+    // Обновляем приветствие
+    const welcomeElements = document.querySelectorAll('.user-welcome');
+    welcomeElements.forEach(element => {
+        element.textContent = `Привет, ${user.name}!`;
+    });
+    
+    // Обновляем data-role для кнопок кабинета
+    const dashboardButtons = document.querySelectorAll('.nav-btn-dashboard');
+    dashboardButtons.forEach(button => {
+        button.setAttribute('data-role', user.role);
+    });
+    
+    // Проверяем видимость кнопок
+    const unauthenticatedButtons = document.querySelectorAll('.unauthorized-buttons');
+    const authenticatedButtons = document.querySelectorAll('.authorized-buttons');
+    
+    console.log('Кнопки для неавторизованных пользователей:', unauthenticatedButtons.length);
+    console.log('Кнопки для авторизованных пользователей:', authenticatedButtons.length);
+    
+    unauthenticatedButtons.forEach((div, index) => {
+        console.log(`Неавторизованные кнопки ${index}:`, div.style.display);
+    });
+    
+    authenticatedButtons.forEach((div, index) => {
+        console.log(`Авторизованные кнопки ${index}:`, div.style.display);
+    });
+}
+
+// Обновление интерфейса для неаутентифицированного пользователя
+function updateUIForUnauthenticatedUser() {
+    console.log('Обновление интерфейса для неаутентифицированного пользователя');
+    
+    // Добавляем класс для показа неавторизованных кнопок
+    document.body.classList.add('user-unauthenticated');
+    document.body.classList.remove('user-authenticated');
+    
+    console.log('Классы body после обновления:', document.body.className);
+    
+    // Проверяем видимость кнопок
+    const unauthenticatedButtons = document.querySelectorAll('.unauthorized-buttons');
+    const authenticatedButtons = document.querySelectorAll('.authorized-buttons');
+    
+    console.log('Кнопки для неавторизованных пользователей:', unauthenticatedButtons.length);
+    console.log('Кнопки для авторизованных пользователей:', authenticatedButtons.length);
+    
+    unauthenticatedButtons.forEach((div, index) => {
+        console.log(`Неавторизованные кнопки ${index}:`, div.style.display);
+    });
+    
+    authenticatedButtons.forEach((div, index) => {
+        console.log(`Авторизованные кнопки ${index}:`, div.style.display);
+    });
+}
+
+// Функция для принудительного показа кнопок входа (если что-то пошло не так)
+function forceShowLoginButtons() {
+    console.log('Принудительно показываем кнопки входа');
+    
+    const unauthenticatedButtons = document.querySelectorAll('.unauthorized-buttons');
+    const authenticatedButtons = document.querySelectorAll('.authorized-buttons');
+    
+    unauthenticatedButtons.forEach(div => {
+        div.style.display = 'flex';
+    });
+    
+    authenticatedButtons.forEach(div => {
+        div.style.display = 'none';
+    });
+    
+    console.log('Кнопки входа принудительно показаны');
 } 

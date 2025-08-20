@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -33,6 +34,8 @@ public class AuthService {
     
     // Регистрация нового пользователя
     public String registerUser(String name, String email, String phone) throws Exception {
+        // Нормализуем email к нижнему регистру
+        email = email.toLowerCase().trim();
         logger.info("Starting registration for email: {}", email);
         
         // Проверяем, не существует ли уже пользователь с таким email
@@ -71,33 +74,46 @@ public class AuthService {
     
     // Вход пользователя
     public String loginUser(String email) throws Exception {
+        // Нормализуем email к нижнему регистру
+        email = email.toLowerCase().trim();
         logger.info("Starting login for email: {}", email);
         
         // Проверяем, существует ли пользователь
         Optional<User> userOpt = userRepository.findByEmail(email);
         if (userOpt.isEmpty()) {
-            throw new Exception("Пользователь с таким email не найден");
+            logger.error("User not found for email: {}", email);
+            throw new Exception("Пользователь с таким email не найден. Проверьте правильность email или зарегистрируйтесь");
         }
         
         User user = userOpt.get();
+        logger.info("User found: id={}, name={}, role={}, isActive={}, isVerified={}", 
+                   user.getId(), user.getName(), user.getRole(), user.getIsActive(), user.getIsVerified());
         
         // Проверяем, активен ли пользователь
         if (!user.getIsActive()) {
+            logger.error("User account is inactive: {}", email);
             throw new Exception("Аккаунт заблокирован. Обратитесь в поддержку");
         }
         
         // Проверяем, верифицирован ли пользователь
         if (!user.getIsVerified()) {
+            logger.error("User account is not verified: {}", email);
             throw new Exception("Аккаунт не верифицирован. Завершите регистрацию");
         }
         
         // Проверяем лимит попыток
         if (isRateLimited(email)) {
+            logger.error("Rate limit exceeded for email: {}", email);
             throw new Exception("Превышен лимит попыток. Попробуйте позже");
         }
         
+        // Деактивируем все существующие коды для этого пользователя
+        verificationCodeRepository.deactivateAllUserCodes(email, VerificationCode.CodeType.LOGIN, LocalDateTime.now());
+        
         // Генерируем и отправляем код для входа
         String code = generateVerificationCode();
+        logger.info("Generated code: {} for email: {}", code, email);
+        
         VerificationCode verificationCode = new VerificationCode(email, code, VerificationCode.CodeType.LOGIN);
         verificationCodeRepository.save(verificationCode);
         
@@ -110,13 +126,21 @@ public class AuthService {
     
     // Верификация кода
     public User verifyCode(String email, String code, VerificationCode.CodeType type) throws Exception {
+        // Нормализуем email к нижнему регистру
+        email = email.toLowerCase().trim();
         logger.info("Verifying code for email: {} and type: {}", email, type);
         
         // Ищем код
         Optional<VerificationCode> codeOpt = verificationCodeRepository
                 .findByEmailAndCodeAndType(email, code, type);
         
+        logger.info("Code search result: found={}, email={}, code={}, type={}", 
+                   codeOpt.isPresent(), email, code, type);
+        
         if (codeOpt.isEmpty()) {
+            // Попробуем найти все коды для этого email и типа для диагностики
+            List<VerificationCode> allCodes = verificationCodeRepository.findByEmailOrderByCreatedAtDesc(email);
+            logger.info("All codes for email {}: {}", email, allCodes);
             throw new Exception("Неверный код подтверждения");
         }
         
@@ -157,6 +181,8 @@ public class AuthService {
     
     // Повторная отправка кода
     public String resendCode(String email, VerificationCode.CodeType type) throws Exception {
+        // Нормализуем email к нижнему регистру
+        email = email.toLowerCase().trim();
         logger.info("Resending code for email: {} and type: {}", email, type);
         
         // Проверяем лимит попыток
@@ -164,13 +190,8 @@ public class AuthService {
             throw new Exception("Превышен лимит попыток. Попробуйте позже");
         }
         
-        // Проверяем, есть ли активный код
-        Optional<VerificationCode> existingCode = verificationCodeRepository
-                .findValidCodeByEmailAndType(email, type, LocalDateTime.now());
-        
-        if (existingCode.isPresent()) {
-            throw new Exception("Активный код уже отправлен. Проверьте почту или подождите истечения срока действия");
-        }
+        // Деактивируем все существующие коды для этого пользователя и типа
+        verificationCodeRepository.deactivateAllUserCodes(email, type, LocalDateTime.now());
         
         // Генерируем новый код
         String code = generateVerificationCode();

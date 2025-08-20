@@ -1,17 +1,131 @@
 // JavaScript для системы аутентификации
 
 // Глобальные переменные
-let currentEmail = sessionStorage.getItem('currentEmail') || '';
-let currentType = sessionStorage.getItem('currentType') || '';
+let currentEmail = '';
+let currentType = '';
 let countdownTimer = null;
 let timeLeft = 600; // 10 минут в секундах
+let isSubmitting = false; // Защита от двойной отправки
+
+// Функция для надежного сохранения данных в sessionStorage
+function saveAuthData(email, type) {
+    try {
+        currentEmail = email;
+        currentType = type;
+        
+        // Сохраняем в sessionStorage
+        sessionStorage.setItem('currentEmail', email);
+        sessionStorage.setItem('currentType', type);
+        sessionStorage.setItem('authTimestamp', Date.now().toString());
+        
+        // Дополнительная проверка сохранения
+        const savedEmail = sessionStorage.getItem('currentEmail');
+        const savedType = sessionStorage.getItem('currentType');
+        
+        if (savedEmail !== email || savedType !== type) {
+            console.error('Ошибка: данные не сохранились правильно');
+            return false;
+        }
+        
+        console.log('Данные успешно сохранены:', { email, type, timestamp: Date.now() });
+        return true;
+    } catch (error) {
+        console.error('Ошибка сохранения данных:', error);
+        return false;
+    }
+}
+
+// Функция для надежного получения данных из sessionStorage
+function getAuthData() {
+    try {
+        const email = sessionStorage.getItem('currentEmail');
+        const type = sessionStorage.getItem('currentType');
+        const timestamp = sessionStorage.getItem('authTimestamp');
+        
+        // Проверяем, что данные не устарели (старше 30 минут)
+        if (timestamp && (Date.now() - parseInt(timestamp)) > 30 * 60 * 1000) {
+            console.log('Данные устарели, очищаем sessionStorage');
+            clearAuthData();
+            return { email: '', type: '' };
+        }
+        
+        currentEmail = email || '';
+        currentType = type || '';
+        
+        console.log('Данные получены:', { email: currentEmail, type: currentType });
+        return { email: currentEmail, type: currentType };
+    } catch (error) {
+        console.error('Ошибка получения данных:', error);
+        return { email: '', type: '' };
+    }
+}
+
+// Функция для очистки данных аутентификации
+function clearAuthData() {
+    try {
+        sessionStorage.removeItem('currentEmail');
+        sessionStorage.removeItem('currentType');
+        sessionStorage.removeItem('authTimestamp');
+        sessionStorage.removeItem('selectedRole');
+        currentEmail = '';
+        currentType = '';
+        console.log('Данные очищены');
+    } catch (error) {
+        console.error('Ошибка очистки данных:', error);
+    }
+}
+
+// Функция для принудительной проверки и восстановления данных
+function forceRestoreAuthData() {
+    const authData = getAuthData();
+    if (authData.email && authData.type) {
+        console.log('Восстановлены данные аутентификации:', authData);
+        return true;
+    }
+    return false;
+}
 
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Инициализация auth.js...');
+    
+    // Загружаем данные из sessionStorage
+    const authData = getAuthData();
+    currentEmail = authData.email;
+    currentType = authData.type;
+    
+    console.log('Инициализация auth.js:', { currentEmail, currentType });
+    
+    // Принудительно восстанавливаем данные, если они есть
+    if (currentEmail && currentType) {
+        console.log('Найдены данные аутентификации, восстанавливаем...');
+        forceRestoreAuthData();
+    }
+    
     initForms();
     initModal();
     initCodeInputs();
     initPhoneFormatting();
+    
+    // Дополнительная проверка через 1 секунду
+    setTimeout(() => {
+        const restoredData = getAuthData();
+        if (restoredData.email && restoredData.email !== currentEmail) {
+            console.log('Данные изменились, обновляем переменные');
+            currentEmail = restoredData.email;
+            currentType = restoredData.type;
+        }
+    }, 1000);
+    
+    // Проверяем, есть ли параметр auth=success в URL (успешная аутентификация)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('auth') === 'success') {
+        console.log('Обнаружена успешная аутентификация, очищаем данные');
+        clearAuthData();
+        // Убираем параметр из URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+    }
 });
 
 // Инициализация форм
@@ -37,6 +151,11 @@ function initForms() {
 async function handleRegistration(e) {
     e.preventDefault();
     
+    // Защита от двойной отправки
+    if (isSubmitting) {
+        return;
+    }
+    
     const submitBtn = document.getElementById('registerBtn');
     const btnText = submitBtn.querySelector('.btn-text');
     const btnLoading = submitBtn.querySelector('.btn-loading');
@@ -47,7 +166,7 @@ async function handleRegistration(e) {
     // Получаем данные формы
     const formData = {
         name: document.getElementById('name').value.trim(),
-        email: document.getElementById('email').value.trim(),
+        email: document.getElementById('email').value.trim().toLowerCase(),
         phone: document.getElementById('phone').value.trim()
     };
     
@@ -58,6 +177,7 @@ async function handleRegistration(e) {
     
     // Показываем состояние загрузки
     setButtonLoading(submitBtn, btnText, btnLoading, true);
+    isSubmitting = true;
     
     try {
         const response = await fetch('/auth/api/register', {
@@ -72,23 +192,13 @@ async function handleRegistration(e) {
         
         if (data.success) {
             // Сохраняем данные для верификации
-            currentEmail = formData.email;
-            currentType = 'REGISTRATION';
-            sessionStorage.setItem('currentEmail', currentEmail);
-            sessionStorage.setItem('currentType', currentType);
-            
-            console.log('DEBUG: Сохранение после регистрации:');
-            console.log('DEBUG: formData.email =', formData.email);
-            console.log('DEBUG: currentEmail =', currentEmail);
-            console.log('DEBUG: currentType =', currentType);
-            console.log('DEBUG: sessionStorage после сохранения =', {
-                email: sessionStorage.getItem('currentEmail'),
-                type: sessionStorage.getItem('currentType')
-            });
-            
-            // Показываем модальное окно
-            showVerificationModal(formData.email, 'Подтверждение регистрации');
-            showToast(data.message, 'success');
+            if (saveAuthData(formData.email, 'REGISTRATION')) {
+                // Показываем модальное окно
+                showVerificationModal(formData.email, 'Подтверждение регистрации');
+                showToast(data.message, 'success');
+            } else {
+                showToast('Ошибка сохранения данных сессии', 'error');
+            }
             
         } else {
             showToast(data.message, 'error');
@@ -99,12 +209,18 @@ async function handleRegistration(e) {
         showToast('Произошла ошибка при регистрации', 'error');
     } finally {
         setButtonLoading(submitBtn, btnText, btnLoading, false);
+        isSubmitting = false;
     }
 }
 
 // Обработка входа
 async function handleLogin(e) {
     e.preventDefault();
+    
+    // Защита от двойной отправки
+    if (isSubmitting) {
+        return;
+    }
     
     const submitBtn = document.getElementById('loginBtn');
     const btnText = submitBtn.querySelector('.btn-text');
@@ -115,7 +231,7 @@ async function handleLogin(e) {
     
     // Получаем данные формы
     const formData = {
-        email: document.getElementById('email').value.trim()
+        email: document.getElementById('email').value.trim().toLowerCase()
     };
     
     // Получаем выбранную роль, если есть
@@ -131,6 +247,7 @@ async function handleLogin(e) {
     
     // Показываем состояние загрузки
     setButtonLoading(submitBtn, btnText, btnLoading, true);
+    isSubmitting = true;
     
     try {
         const response = await fetch('/auth/api/login', {
@@ -145,28 +262,18 @@ async function handleLogin(e) {
         
         if (data.success) {
             // Сохраняем данные для верификации
-            currentEmail = formData.email;
-            currentType = 'LOGIN';
-            sessionStorage.setItem('currentEmail', currentEmail);
-            sessionStorage.setItem('currentType', currentType);
-            
-            // Сохраняем выбранную роль, если есть
-            if (formData.selectedRole) {
-                sessionStorage.setItem('selectedRole', formData.selectedRole);
+            if (saveAuthData(formData.email, 'LOGIN')) {
+                // Сохраняем выбранную роль, если есть
+                if (formData.selectedRole) {
+                    sessionStorage.setItem('selectedRole', formData.selectedRole);
+                }
+                
+                // Показываем модальное окно
+                showVerificationModal(formData.email, 'Подтверждение входа');
+                showToast(data.message, 'success');
+            } else {
+                showToast('Ошибка сохранения данных сессии', 'error');
             }
-            
-            console.log('DEBUG: Сохранение после входа:');
-            console.log('DEBUG: formData.email =', formData.email);
-            console.log('DEBUG: currentEmail =', currentEmail);
-            console.log('DEBUG: currentType =', currentType);
-            console.log('DEBUG: sessionStorage после сохранения =', {
-                email: sessionStorage.getItem('currentEmail'),
-                type: sessionStorage.getItem('currentType')
-            });
-            
-            // Показываем модальное окно
-            showVerificationModal(formData.email, 'Подтверждение входа');
-            showToast(data.message, 'success');
             
         } else {
             showToast(data.message, 'error');
@@ -177,12 +284,18 @@ async function handleLogin(e) {
         showToast('Произошла ошибка при входе', 'error');
     } finally {
         setButtonLoading(submitBtn, btnText, btnLoading, false);
+        isSubmitting = false;
     }
 }
 
 // Обработка верификации кода
 async function handleVerification(e) {
     e.preventDefault();
+    
+    // Защита от двойной отправки
+    if (isSubmitting) {
+        return;
+    }
     
     const submitBtn = document.getElementById('verifyBtn');
     const btnText = submitBtn.querySelector('.btn-text');
@@ -203,24 +316,25 @@ async function handleVerification(e) {
     
     // Показываем состояние загрузки
     setButtonLoading(submitBtn, btnText, btnLoading, true);
+    isSubmitting = true;
     
     // Обновляем данные из sessionStorage
-    currentEmail = sessionStorage.getItem('currentEmail') || currentEmail;
-    currentType = sessionStorage.getItem('currentType') || currentType;
+    const authData = getAuthData();
+    currentEmail = authData.email;
+    currentType = authData.type;
     
-    // Подробная отладка
-    console.log('DEBUG: sessionStorage.currentEmail =', sessionStorage.getItem('currentEmail'));
-    console.log('DEBUG: sessionStorage.currentType =', sessionStorage.getItem('currentType'));
-    console.log('DEBUG: currentEmail variable =', currentEmail);
-    console.log('DEBUG: currentType variable =', currentType);
-    console.log('DEBUG: code =', code);
+    console.log('Данные для верификации:', { currentEmail, currentType });
     
-    // Проверяем данные перед отправкой
-    console.log('Данные для верификации:', {
-        email: currentEmail,
-        code: code,
-        type: currentType
-    });
+    // Принудительно восстанавливаем данные, если они отсутствуют
+    if (!currentEmail || !currentType) {
+        console.log('Данные отсутствуют, пытаемся восстановить...');
+        if (forceRestoreAuthData()) {
+            const restoredData = getAuthData();
+            currentEmail = restoredData.email;
+            currentType = restoredData.type;
+            console.log('Данные восстановлены:', { currentEmail, currentType });
+        }
+    }
     
     if (!currentEmail) {
         showCodeError('Ошибка: email не найден. Пожалуйста, повторите вход или регистрацию');
@@ -239,17 +353,14 @@ async function handleVerification(e) {
             type: currentType
         };
         
-        const requestBody = JSON.stringify(requestData);
-        console.log('DEBUG: Request data object =', requestData);
-        console.log('DEBUG: Request body JSON =', requestBody);
-        console.log('DEBUG: Request body length =', requestBody.length);
+        console.log('DEBUG: Отправляем запрос верификации:', requestData);
         
         const response = await fetch('/auth/api/verify', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: requestBody
+            body: JSON.stringify(requestData)
         });
         
         const data = await response.json();
@@ -257,19 +368,18 @@ async function handleVerification(e) {
         if (data.success) {
             showToast(data.message, 'success');
             
-            // Очищаем данные верификации
-            sessionStorage.removeItem('currentEmail');
-            sessionStorage.removeItem('currentType');
-            sessionStorage.removeItem('selectedRole');
-            currentEmail = '';
-            currentType = '';
+            // Очищаем данные верификации только при успешной верификации
+            clearAuthData();
             
             // Закрываем модальное окно
             closeModal();
             
             // Перенаправляем пользователя
             setTimeout(() => {
-                window.location.href = data.redirectUrl;
+                // Добавляем параметр для принудительного обновления
+                const redirectUrl = data.redirectUrl || '/';
+                const separator = redirectUrl.includes('?') ? '&' : '?';
+                window.location.href = redirectUrl + separator + 'auth=success&t=' + Date.now();
             }, 1500);
             
         } else {
@@ -279,6 +389,13 @@ async function handleVerification(e) {
                 input.classList.add('error');
                 setTimeout(() => input.classList.remove('error'), 500);
             });
+            
+            // Очищаем поля ввода кода при ошибке
+            codeInputs.forEach(input => {
+                input.value = '';
+                input.classList.remove('filled');
+            });
+            codeInputs[0].focus();
         }
         
     } catch (error) {
@@ -286,6 +403,7 @@ async function handleVerification(e) {
         showCodeError('Произошла ошибка при проверке кода');
     } finally {
         setButtonLoading(submitBtn, btnText, btnLoading, false);
+        isSubmitting = false;
     }
 }
 
@@ -294,8 +412,9 @@ async function resendCode() {
     const resendBtn = document.getElementById('resendBtn');
     
     // Обновляем данные из sessionStorage
-    currentEmail = sessionStorage.getItem('currentEmail') || currentEmail;
-    currentType = sessionStorage.getItem('currentType') || currentType;
+    const authData = getAuthData();
+    currentEmail = authData.email;
+    currentType = authData.type;
     
     if (!currentEmail || !currentType) {
         showToast('Ошибка: данные сессии потеряны', 'error');
@@ -371,6 +490,27 @@ function initModal() {
             closeModal();
         }
     });
+    
+    // Автоматическая проверка данных при открытии модального окна
+    if (modal) {
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (modal.classList.contains('active')) {
+                        console.log('Модальное окно открыто, проверяем данные...');
+                        const authData = getAuthData();
+                        if (authData.email && authData.type) {
+                            console.log('Данные найдены в модальном окне:', authData);
+                        } else {
+                            console.warn('Данные не найдены в модальном окне');
+                        }
+                    }
+                }
+            });
+        });
+        
+        observer.observe(modal, { attributes: true });
+    }
 }
 
 // Показ модального окна верификации
@@ -397,6 +537,9 @@ function showVerificationModal(email, title) {
     
     // Запускаем таймер
     startTimer();
+    
+    // Дополнительная проверка данных
+    console.log('Модальное окно открыто, текущие данные:', getAuthData());
 }
 
 // Закрытие модального окна
@@ -420,6 +563,8 @@ function closeModal() {
         
         // Очищаем ошибки
         document.getElementById('codeError').textContent = '';
+        
+        console.log('Модальное окно закрыто, данные в sessionStorage:', getAuthData());
     }
 }
 

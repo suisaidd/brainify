@@ -6,6 +6,8 @@ import com.example.brainify.Model.TeacherSchedule;
 import com.example.brainify.Repository.LessonRepository;
 import com.example.brainify.Repository.TeacherScheduleRepository;
 import com.example.brainify.Config.SessionManager;
+import com.example.brainify.Service.LessonCancellationService;
+import com.example.brainify.Service.LessonRescheduleService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -39,6 +41,12 @@ public class MainController {
     
     @Autowired
     private TeacherScheduleRepository teacherScheduleRepository;
+    
+    @Autowired
+    private LessonCancellationService lessonCancellationService;
+    
+    @Autowired
+    private LessonRescheduleService lessonRescheduleService;
 
     @GetMapping({"/", "/main"})
     public String mainPage(Model model, HttpSession session) {
@@ -127,7 +135,7 @@ public class MainController {
                 lessonInfo.put("id", lesson.getId());
                 lessonInfo.put("subjectName", lesson.getSubject().getName());
                 lessonInfo.put("teacherName", lesson.getTeacher().getName());
-                lessonInfo.put("lessonDate", lesson.getLessonDate());
+                lessonInfo.put("lessonDate", lesson.getLessonDate().toString()); // Форматируем как строку ISO
                 lessonInfo.put("status", lesson.getStatus().toString());
                 lessonInfo.put("description", lesson.getDescription());
                 lessonInfo.put("isRecurring", lesson.getIsRecurring());
@@ -158,17 +166,29 @@ public class MainController {
         
         try {
             // Получаем статистику преподавателя
-            List<Lesson> teacherLessons = lessonRepository.findByTeacherOrderByLessonDateDesc(currentUser);
+            List<Lesson> teacherLessons = lessonRepository.findByTeacherOrderByLessonDateAsc(currentUser);
             
-            long totalLessons = teacherLessons.size();
-            long completedLessons = teacherLessons.stream()
-                .filter(lesson -> lesson.getStatus().toString().equals("COMPLETED"))
+            LocalDateTime now = LocalDateTime.now();
+            
+            // Считаем уроки со статусом "Успешно" (COMPLETED или прошедшие уроки)
+            long successfulLessons = teacherLessons.stream()
+                .filter(lesson -> {
+                    // Уроки со статусом COMPLETED
+                    if (lesson.getStatus().toString().equals("COMPLETED")) {
+                        return true;
+                    }
+                    // Прошедшие уроки (которые не отменены) - они будут отображаться как "Успешно"
+                    if (!lesson.getStatus().toString().equals("CANCELLED") && lesson.getLessonDate().isBefore(now)) {
+                        return true;
+                    }
+                    return false;
+                })
                 .count();
             
             // Пока что возвращаем базовую статистику
             Map<String, Object> dashboardData = new HashMap<>();
-            dashboardData.put("totalLessons", totalLessons);
-            dashboardData.put("completedLessons", completedLessons);
+            dashboardData.put("totalLessons", successfulLessons); // Изменено: теперь показывает количество успешных уроков
+            dashboardData.put("completedLessons", successfulLessons);
             dashboardData.put("averageRating", 0.0); // Пока не реализовано
             dashboardData.put("notificationCount", 0); // Пока не реализовано
             
@@ -178,7 +198,7 @@ public class MainController {
         }
     }
     
-    // API для получения уроков преподавателя
+    // API для получения уроков преподавателя (для расписания)
     @GetMapping("/api/teacher/lessons")
     @ResponseBody
     public ResponseEntity<List<Map<String, Object>>> getTeacherLessons(
@@ -195,7 +215,7 @@ public class MainController {
         }
         
         try {
-            List<Lesson> lessons = lessonRepository.findByTeacherOrderByLessonDateDesc(currentUser);
+            List<Lesson> lessons = lessonRepository.findByTeacherOrderByLessonDateAsc(currentUser);
             
             // Фильтруем уроки для выбранной недели
             LocalDateTime now = LocalDateTime.now();
@@ -212,7 +232,7 @@ public class MainController {
                     lessonInfo.put("id", lesson.getId());
                     lessonInfo.put("subjectName", lesson.getSubject() != null ? lesson.getSubject().getName() : "Предмет не указан");
                     lessonInfo.put("studentName", lesson.getStudent() != null ? lesson.getStudent().getName() : "Ученик не указан");
-                    lessonInfo.put("lessonDate", lesson.getLessonDate());
+                    lessonInfo.put("lessonDate", lesson.getLessonDate().toString()); // Форматируем как строку ISO
                     lessonInfo.put("status", lesson.getStatus().toString());
                     lessonInfo.put("description", lesson.getDescription());
                     lessonInfo.put("rating", 5.0); // Пока не реализовано
@@ -220,6 +240,48 @@ public class MainController {
                 }).collect(Collectors.toList());
             
             System.out.println("Найдено уроков для преподавателя " + currentUser.getName() + ": " + result.size());
+            result.forEach(lesson -> {
+                System.out.println("Урок: " + lesson.get("subjectName") + " с " + lesson.get("studentName") + " в " + lesson.get("lessonDate"));
+            });
+            
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+    }
+    
+    // API для получения всех уроков преподавателя (для главной страницы)
+    @GetMapping("/api/teacher/all-lessons")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> getAllTeacherLessons(HttpSession session) {
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        // Проверяем, что пользователь является преподавателем
+        if (!currentUser.getRole().equals(UserRole.TEACHER)) {
+            return ResponseEntity.status(403).build();
+        }
+        
+        try {
+            List<Lesson> lessons = lessonRepository.findByTeacherOrderByLessonDateAsc(currentUser);
+            
+            List<Map<String, Object>> result = lessons.stream()
+                .map(lesson -> {
+                    Map<String, Object> lessonInfo = new HashMap<>();
+                    lessonInfo.put("id", lesson.getId());
+                    lessonInfo.put("subjectName", lesson.getSubject() != null ? lesson.getSubject().getName() : "Предмет не указан");
+                    lessonInfo.put("studentName", lesson.getStudent() != null ? lesson.getStudent().getName() : "Ученик не указан");
+                    lessonInfo.put("lessonDate", lesson.getLessonDate().toString()); // Форматируем как строку ISO
+                    lessonInfo.put("status", lesson.getStatus().toString());
+                    lessonInfo.put("description", lesson.getDescription());
+                    lessonInfo.put("rating", 5.0); // Пока не реализовано
+                    return lessonInfo;
+                }).collect(Collectors.toList());
+            
+            System.out.println("Найдено всех уроков для преподавателя " + currentUser.getName() + ": " + result.size());
             result.forEach(lesson -> {
                 System.out.println("Урок: " + lesson.get("subjectName") + " с " + lesson.get("studentName") + " в " + lesson.get("lessonDate"));
             });
@@ -297,6 +359,7 @@ public class MainController {
                 lessonMap.put("subjectName", lesson.getSubject().getName());
                 lessonMap.put("studentName", lesson.getStudent().getName());
                 lessonMap.put("lessonId", lesson.getId());
+                lessonMap.put("status", lesson.getStatus().toString());
                 lessonsData.add(lessonMap);
             }
             
@@ -396,23 +459,221 @@ public class MainController {
         }
     }
     
+    // API для получения информации об отмене урока
+    @GetMapping("/api/teacher/lesson/{lessonId}/cancellation-info")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getLessonCancellationInfo(@PathVariable Long lessonId, HttpSession session) {
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        if (!currentUser.getRole().equals(UserRole.TEACHER)) {
+            return ResponseEntity.status(403).build();
+        }
+        
+        try {
+            Map<String, Object> info = lessonCancellationService.getCancellationInfo(lessonId, currentUser);
+            
+            if (info.containsKey("error")) {
+                return ResponseEntity.badRequest().body(info);
+            }
+            
+            return ResponseEntity.ok(info);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Ошибка при получении информации: " + e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        }
+    }
+    
+    // API для отмены урока
+    @PostMapping("/api/teacher/lesson/{lessonId}/cancel")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> cancelLesson(
+            @PathVariable Long lessonId,
+            @RequestBody Map<String, String> request,
+            HttpSession session) {
+        
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        if (!currentUser.getRole().equals(UserRole.TEACHER)) {
+            return ResponseEntity.status(403).build();
+        }
+        
+        try {
+            String reason = request.get("reason");
+            if (reason == null || reason.trim().isEmpty()) {
+                reason = "Причина не указана";
+            }
+            
+            Map<String, Object> result = lessonCancellationService.cancelLesson(lessonId, currentUser, reason);
+            
+            if (result.get("success").equals(true)) {
+                return ResponseEntity.ok(result);
+            } else {
+                return ResponseEntity.badRequest().body(result);
+            }
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("error", "Ошибка при отмене урока: " + e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        }
+    }
+    
+    // API для получения статистики отмен преподавателя
+    @GetMapping("/api/teacher/cancellation-stats")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getTeacherCancellationStats(HttpSession session) {
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        if (!currentUser.getRole().equals(UserRole.TEACHER)) {
+            return ResponseEntity.status(403).build();
+        }
+        
+        try {
+            Map<String, Object> stats = lessonCancellationService.getTeacherCancellationStats(currentUser);
+            return ResponseEntity.ok(stats);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Ошибка при получении статистики: " + e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        }
+    }
+    
+    // API для получения информации о переносе урока
+    @GetMapping("/api/teacher/lesson/{lessonId}/reschedule-info")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getLessonRescheduleInfo(@PathVariable Long lessonId, HttpSession session) {
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        if (!currentUser.getRole().equals(UserRole.TEACHER)) {
+            return ResponseEntity.status(403).build();
+        }
+        
+        try {
+            Map<String, Object> info = lessonRescheduleService.getRescheduleInfo(lessonId, currentUser);
+            
+            if (info.containsKey("error")) {
+                return ResponseEntity.badRequest().body(info);
+            }
+            
+            return ResponseEntity.ok(info);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Ошибка при получении информации: " + e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        }
+    }
+    
+    // API для переноса урока
+    @PostMapping("/api/teacher/lesson/{lessonId}/reschedule")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> rescheduleLesson(
+            @PathVariable Long lessonId,
+            @RequestBody Map<String, Object> request,
+            HttpSession session) {
+        
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        if (!currentUser.getRole().equals(UserRole.TEACHER)) {
+            return ResponseEntity.status(403).build();
+        }
+        
+        try {
+            String reason = (String) request.get("reason");
+            String newDateStr = (String) request.get("newDate");
+            
+            if (reason == null || reason.trim().isEmpty()) {
+                reason = "Причина не указана";
+            }
+            
+            if (newDateStr == null || newDateStr.trim().isEmpty()) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("success", false);
+                error.put("error", "Не указана новая дата урока");
+                return ResponseEntity.badRequest().body(error);
+            }
+            
+            LocalDateTime newDate = LocalDateTime.parse(newDateStr);
+            
+            Map<String, Object> result = lessonRescheduleService.rescheduleLesson(lessonId, currentUser, newDate, reason);
+            
+            if (result.get("success").equals(true)) {
+                return ResponseEntity.ok(result);
+            } else {
+                return ResponseEntity.badRequest().body(result);
+            }
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("error", "Ошибка при переносе урока: " + e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        }
+    }
+    
+    // API для получения статистики переносов преподавателя
+    @GetMapping("/api/teacher/reschedule-stats")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getTeacherRescheduleStats(HttpSession session) {
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        if (!currentUser.getRole().equals(UserRole.TEACHER)) {
+            return ResponseEntity.status(403).build();
+        }
+        
+        try {
+            Map<String, Object> stats = lessonRescheduleService.getTeacherRescheduleStats(currentUser);
+            return ResponseEntity.ok(stats);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Ошибка при получении статистики: " + e.getMessage());
+            return ResponseEntity.status(500).body(error);
+        }
+    }
+    
+    // API для проверки статуса аутентификации
+    @GetMapping("/api/auth/status")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getAuthStatus(HttpSession session) {
+        Map<String, Object> response = new HashMap<>();
+        
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser != null) {
+            response.put("authenticated", true);
+            response.put("user", Map.of(
+                "id", currentUser.getId(),
+                "name", currentUser.getName(),
+                "email", currentUser.getEmail(),
+                "role", currentUser.getRole().name()
+            ));
+            return ResponseEntity.ok(response);
+        } else {
+            response.put("authenticated", false);
+            return ResponseEntity.ok(response);
+        }
+    }
+    
     // Вспомогательный метод для получения даты по дню недели и часу
     private LocalDateTime getDateFromDayAndHour(String dayOfWeek, String hour, int weekOffset) {
         LocalDateTime now = LocalDateTime.now();
-        
-        // Правильно вычисляем понедельник текущей недели
-        LocalDateTime weekStart = now.toLocalDate().atStartOfDay();
-        java.time.DayOfWeek currentDayOfWeek = now.getDayOfWeek();
-        
-        // Вычисляем количество дней до понедельника
-        int daysToMonday;
-        if (currentDayOfWeek == java.time.DayOfWeek.SUNDAY) {
-            daysToMonday = 6; // До понедельника этой недели (6 дней назад)
-        } else {
-            daysToMonday = currentDayOfWeek.getValue() - 1; // До понедельника этой недели
-        }
-        
-        weekStart = weekStart.minusDays(daysToMonday);
+        LocalDateTime weekStart = now.toLocalDate().atStartOfDay().with(java.time.DayOfWeek.MONDAY);
         weekStart = weekStart.plusWeeks(weekOffset);
         
         java.time.DayOfWeek targetDay = java.time.DayOfWeek.valueOf(dayOfWeek);
