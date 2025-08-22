@@ -63,4 +63,10 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     List<Lesson> findByStudentAndLessonDateBetween(@Param("student") User student, 
                                                  @Param("startDate") LocalDateTime startDate, 
                                                  @Param("endDate") LocalDateTime endDate);
+    
+    // Найти завершенные уроки преподавателя с конкретным учеником
+    List<Lesson> findByTeacherAndStudentAndStatus(User teacher, User student, Lesson.LessonStatus status);
+    
+    // Найти уроки по статусу и дате (для автоматического завершения)
+    List<Lesson> findByStatusAndLessonDateBefore(Lesson.LessonStatus status, LocalDateTime date);
 } 

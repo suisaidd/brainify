@@ -5,10 +5,26 @@
     margin: 0;
     padding: 0;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0) !important;
     min-height: 100vh;
     display: flex;
     overflow-x: hidden;
+    max-width: 100vw;
+}
+
+/* Переопределяем стили body для dashboard */
+.dashboard-body body {
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0) !important;
+}
+
+/* Переопределяем стили hero для dashboard */
+.dashboard-body .hero {
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0) !important;
+    padding: 0 !important;
+}
+
+.dashboard-body .hero::before {
+    display: none !important;
 }
 
 /* Боковое меню */
@@ -149,6 +165,8 @@
     flex-direction: column;
     min-height: 100vh;
     transition: margin-left 0.3s ease;
+    max-width: calc(100vw - 280px);
+    overflow-x: hidden;
 }
 
 /* Верхняя панель */
@@ -250,6 +268,9 @@
     flex: 1;
     padding: 1.5rem;
     overflow-y: auto;
+    overflow-x: hidden;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* Новая раскладка строками */
@@ -261,6 +282,46 @@
 
 .first-row {
     grid-template-columns: 1fr;
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+}
+
+.first-row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #a3e635, #84cc16, #65a30d);
+    border-radius: 20px 20px 0 0;
+}
+
+.first-row::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(163, 230, 53, 0.1) 0%, transparent 70%);
+    pointer-events: none;
+    animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px) rotate(0deg);
+    }
+    50% {
+        transform: translateY(-20px) rotate(180deg);
+    }
 }
 
 .second-row {
@@ -314,58 +375,304 @@
     padding: 1.25rem;
 }
 
-/* Карточка статистики */
+/* Карточка статистики - СУПЕР КРАСИВАЯ ВЕРСИЯ */
 .stats-card {
     grid-column: span 2;
-    background: linear-gradient(135deg, #a3e635, #84cc16);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
+    box-shadow: 
+        0 20px 40px rgba(102, 126, 234, 0.3),
+        0 0 0 1px rgba(255, 255, 255, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    border-radius: 24px;
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+
+    backdrop-filter: blur(10px);
 }
 
+.stats-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.2) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+.stats-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+}
+
+
+
 .stats-card .card-header {
-    border-color: rgba(255, 255, 255, 0.2);
+    padding: 1.5rem 2rem 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .stats-card .card-header h2 {
     color: white;
+    font-size: 1.75rem;
+    font-weight: 900;
+    margin: 0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    letter-spacing: -0.02em;
+    position: relative;
+    z-index: 2;
+}
+
+.stats-card .card-header h2::before {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 0;
+    width: 60px;
+    height: 4px;
+    background: linear-gradient(90deg, #ffd700, #ffed4e);
+    border-radius: 2px;
+    animation: slideIn 0.6s ease-out 0.3s both;
+}
+
+@keyframes slideIn {
+    from {
+        width: 0;
+        opacity: 0;
+    }
+    to {
+        width: 60px;
+        opacity: 1;
+    }
 }
 
 .stats-card .card-header i {
-    color: white;
+    color: #ffd700;
+    font-size: 2rem;
+    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    position: relative;
+    z-index: 2;
 }
+
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+}
+
+.stats-card .card-content {
+    padding: 1.5rem 2rem;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    position: relative;
+    z-index: 2;
+}
+
+/* Добавляем дополнительные эффекты для карточки статистики */
+.stats-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.2) 0%, transparent 50%);
+    pointer-events: none;
+
+}
+
+
+
+/* Добавляем частицы для эффекта */
+.stats-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+        radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+        radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 50px 50px, 30px 30px, 40px 40px;
+
+    pointer-events: none;
+}
+
+
 
 .user-avatar {
     width: 60px;
     height: 60px;
-    background: rgba(255, 255, 255, 0.2);
+    background: linear-gradient(135deg, #ffd700, #ffed4e);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.5rem;
+    color: #1e293b;
+    box-shadow: 
+        0 8px 24px rgba(255, 215, 0, 0.4),
+        0 0 0 2px rgba(255, 255, 255, 0.3),
+        inset 0 2px 0 rgba(255, 255, 255, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    position: relative;
+    overflow: hidden;
 }
+
+.user-avatar::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(from 0deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+
+    opacity: 0;
+}
+
+
+
+
 
 .welcome-stats {
     display: flex;
     gap: 2rem;
-    margin-top: 1.5rem;
+    margin-top: 0.5rem;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    z-index: 3;
 }
 
-.stat-item {
+.stats-stat-item {
     display: flex;
     flex-direction: column;
     align-items: center;
+    text-align: center;
+    padding: 1.5rem 1.5rem;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    min-width: 160px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+    box-shadow: 
+        0 4px 16px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
-.stat-number {
-    font-size: 2rem;
-    font-weight: 800;
+.stats-stat-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #ffd700, #ffed4e, #ffd700);
+}
+
+
+
+
+
+.stats-stat-number {
+    font-size: 3.5rem;
+    font-weight: 900;
     color: white;
+    line-height: 1;
+    margin-bottom: 0.75rem;
+    animation: countUp 1.2s ease-out;
+    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    order: 1;
+    position: relative;
 }
 
-.stat-label {
-    font-size: 0.875rem;
-    color: rgba(255, 255, 255, 0.9);
-    margin-top: 0.25rem;
+
+
+
+
+@keyframes countUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Специальные стили для статистики в карточке статистики */
+.stats-card .stats-stat-number {
+    color: white;
+    font-weight: 900;
+    font-size: 4rem;
+    animation: countUp 1.2s ease-out;
+    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    position: relative;
+}
+
+
+
+
+
+
+
+@keyframes countUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.stats-stat-label {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.9) !important;
+    margin-top: 0;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0.5px;
+    line-height: 1.3;
+    order: 2;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+
+
+/* Специальные стили для подписей в карточке статистики */
+.stats-card .stats-stat-label {
+    color: rgba(255, 255, 255, 0.95) !important;
+    font-weight: 600;
+    font-size: 1.125rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+
 }
 
 /* Вкладки уроков */
@@ -687,6 +994,541 @@
 .video-frame.red { border-color: #ef4444; }
 .video-frame.green { border-color: #22c55e; }
 
+/* Стили для вкладки конспектов */
+.notes-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.notes-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.note-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1rem;
+    transition: all 0.3s ease;
+}
+
+.note-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.note-card .note-title {
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 0.5rem;
+}
+
+.note-card .note-subject {
+    color: #64748b;
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+}
+
+.note-card .note-description {
+    color: #64748b;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+/* Стили для вкладки учеников */
+.students-header {
+    margin-bottom: 1.5rem;
+}
+
+.students-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.loading-students {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 2rem;
+    color: #64748b;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #e2e8f0;
+    border-top: 3px solid #a3e635;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.student-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.3s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.student-card:hover {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+    border-color: #a3e635;
+}
+
+.student-info {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex: 1;
+}
+
+.student-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    flex-shrink: 0;
+}
+
+.student-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.student-details h4 {
+    margin: 0 0 0.5rem 0;
+    color: #1e293b;
+    font-weight: 700;
+    font-size: 1.125rem;
+}
+
+.student-email,
+.student-phone {
+    margin: 0 0 0.25rem 0;
+    color: #64748b;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.student-email i,
+.student-phone i {
+    width: 16px;
+    color: #a3e635;
+}
+
+.student-stats {
+    display: flex;
+    gap: 1rem;
+    margin: 0.75rem 0;
+}
+
+.student-stat-item {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: #64748b;
+    background: #f8fafc;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+}
+
+.student-stat-item i {
+    color: #a3e635;
+}
+
+.student-subjects {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.subject-tag {
+    background: linear-gradient(135deg, #a3e635, #84cc16);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.no-subjects {
+    color: #94a3b8;
+    font-size: 0.75rem;
+    font-style: italic;
+}
+
+.student-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-shrink: 0;
+}
+
+.message-btn,
+.view-profile-btn {
+    border: none;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.message-btn {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+}
+
+.message-btn:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.view-profile-btn {
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+
+.view-profile-btn:hover {
+    background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+    color: #374151;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Модальное окно для конспектов */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    max-width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.large-modal {
+    width: 800px;
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #1e293b;
+    font-size: 1.25rem;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #64748b;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: background 0.3s ease;
+}
+
+.modal-close:hover {
+    background: #f1f5f9;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    padding: 1.5rem;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+.modal-btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.modal-btn.primary {
+    background: #3b82f6;
+    color: white;
+}
+
+.modal-btn.primary:hover {
+    background: #2563eb;
+    transform: translateY(-2px);
+}
+
+.modal-btn.secondary {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.modal-btn.secondary:hover {
+    background: #e2e8f0;
+}
+
+/* Форма конспекта */
+.note-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: #374151;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.875rem;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #a3e635;
+    box-shadow: 0 0 0 3px rgba(163, 230, 53, 0.1);
+}
+
+/* Вкладки контента */
+.content-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.content-tab {
+    padding: 0.5rem 1rem;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.content-tab.active {
+    background: #a3e635;
+    color: white;
+    border-color: #a3e635;
+}
+
+.content-tab:hover:not(.active) {
+    background: #e2e8f0;
+}
+
+.content-panel {
+    display: none;
+}
+
+.content-panel.active {
+    display: block;
+}
+
+/* Холст для рисования */
+.drawing-canvas-container {
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#drawingCanvas {
+    display: block;
+    background: white;
+    cursor: crosshair;
+}
+
+.drawing-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+}
+
+.tool-btn {
+    padding: 0.5rem;
+    border: 1px solid #e2e8f0;
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tool-btn:hover,
+.tool-btn.active {
+    background: #a3e635;
+    color: white;
+    border-color: #a3e635;
+}
+
+#colorPicker {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+#brushSize {
+    width: 80px;
+}
+
+/* Загрузка файлов */
+.file-upload-area {
+    border: 2px dashed #e2e8f0;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.file-upload-area:hover {
+    border-color: #a3e635;
+    background: #f0fdf4;
+}
+
+.upload-zone {
+    position: relative;
+}
+
+.upload-zone i {
+    font-size: 3rem;
+    color: #64748b;
+    margin-bottom: 1rem;
+}
+
+.upload-zone p {
+    color: #64748b;
+    margin-bottom: 1rem;
+}
+
+#fileInput {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.uploaded-files {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: #f8fafc;
+    border-radius: 6px;
+}
+
+.file-item i {
+    color: #64748b;
+}
+
+.file-item .file-name {
+    flex: 1;
+    font-size: 0.875rem;
+}
+
+.remove-file {
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+/* Текстовый редактор */
+.text-editor textarea {
+    width: 100%;
+    min-height: 200px;
+    resize: vertical;
+}
+
 @media (max-width: 900px) {
     .equipment-check {
         flex-direction: column;
@@ -707,6 +1549,28 @@
         min-width: 140px;
         min-height: 80px;
         padding: 0.75rem 1rem;
+    }
+    
+    .large-modal {
+        width: 95%;
+        margin: 1rem;
+    }
+    
+    .notes-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    
+    .student-card {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+    
+    .student-actions {
+        width: 100%;
+        justify-content: center;
     }
 }
 
@@ -835,6 +1699,7 @@
     
     .main-content {
         margin-left: 0;
+        max-width: 100vw;
     }
     
     .mobile-sidebar-toggle {
@@ -858,8 +1723,59 @@
         gap: 1rem;
     }
     
+    /* Адаптивные стили для first-row */
+    .first-row {
+        padding: 1.5rem;
+        border-radius: 16px;
+    }
+    
+    .stats-card .card-header {
+        padding: 1.5rem 1.5rem 1rem;
+    }
+    
+    .stats-card .card-header h2 {
+        font-size: 1.5rem;
+    }
+    
+    .stats-card .card-header i {
+        font-size: 1.5rem;
+    }
+    
+    .stats-card .card-content {
+        padding: 1.5rem;
+    }
+    
     .welcome-stats {
-        gap: 1rem;
+        gap: 1.5rem;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .stats-stat-item {
+        min-width: 160px;
+        padding: 1.5rem;
+    }
+    
+    .stats-stat-number {
+        font-size: 3.5rem;
+    }
+    
+    .stats-card .stats-stat-number {
+        font-size: 4rem;
+    }
+    
+    .stats-stat-label {
+        font-size: 0.875rem;
+    }
+    
+    .stats-card .stats-stat-label {
+        font-size: 1rem;
+    }
+    
+    .user-avatar {
+        width: 60px;
+        height: 60px;
+        font-size: 1.5rem;
     }
     
     .action-buttons {
@@ -889,10 +1805,60 @@
         padding: 1rem;
     }
     
+    /* Адаптивные стили для first-row на очень маленьких экранах */
+    .first-row {
+        padding: 1rem;
+        border-radius: 12px;
+    }
+    
+    .stats-card .card-header {
+        padding: 1rem 1rem 0.75rem;
+    }
+    
+    .stats-card .card-header h2 {
+        font-size: 1.25rem;
+    }
+    
+    .stats-card .card-header i {
+        font-size: 1.25rem;
+    }
+    
+    .stats-card .card-content {
+        padding: 1rem;
+    }
+    
     .welcome-stats {
         flex-direction: column;
-        gap: 0.75rem;
+        gap: 1rem;
         align-items: center;
+    }
+    
+    .stats-stat-item {
+        min-width: 140px;
+        padding: 1rem;
+        border-radius: 16px;
+    }
+    
+    .stats-stat-number {
+        font-size: 3rem;
+    }
+    
+    .stats-card .stats-stat-number {
+        font-size: 3.5rem;
+    }
+    
+    .stats-stat-label {
+        font-size: 0.75rem;
+    }
+    
+    .stats-card .stats-stat-label {
+        font-size: 0.875rem;
+    }
+    
+    .user-avatar {
+        width: 50px;
+        height: 50px;
+        font-size: 1.25rem;
     }
 }
 
@@ -1064,7 +2030,6 @@
 
 .lessons-grid.show {
     display: grid;
-    animation: fadeInUp 0.5s ease;
 }
 
 @keyframes fadeInUp {
@@ -1349,6 +2314,8 @@
 /* Стили для вкладок дашборда */
 .dashboard-tab {
     display: none;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 .dashboard-tab.active {
@@ -1833,6 +2800,100 @@
     justify-content: center;
 }
 
+/* Медиа-запросы для адаптивности карточки статистики */
+@media (max-width: 768px) {
+    .stats-card {
+        grid-column: span 1;
+        margin: 1rem;
+        border-radius: 20px;
+    }
+    
+    .stats-card .card-header {
+        padding: 2rem 1.5rem 1.5rem;
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+    
+    .stats-card .card-header h2 {
+        font-size: 1.75rem;
+    }
+    
+    .stats-card .card-header i {
+        font-size: 2rem;
+    }
+    
+    .stats-card .card-content {
+        padding: 2rem 1.5rem;
+    }
+    
+    .welcome-stats {
+        flex-direction: column;
+        gap: 2rem;
+    }
+    
+    .stats-stat-item {
+        min-width: auto;
+        width: 100%;
+        padding: 2rem 1.5rem;
+    }
+    
+    .stats-stat-number {
+        font-size: 3rem;
+    }
+    
+    .stats-card .stats-stat-number {
+        font-size: 3.5rem;
+    }
+    
+    .user-avatar {
+        width: 60px;
+        height: 60px;
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-card {
+        margin: 0.5rem;
+        border-radius: 16px;
+    }
+    
+    .stats-card .card-header {
+        padding: 1.5rem 1rem 1rem;
+    }
+    
+    .stats-card .card-header h2 {
+        font-size: 1.5rem;
+    }
+    
+    .stats-card .card-content {
+        padding: 1.5rem 1rem;
+    }
+    
+    .stats-stat-item {
+        padding: 1.5rem 1rem;
+    }
+    
+    .stats-stat-number {
+        font-size: 2.5rem;
+    }
+    
+    .stats-card .stats-stat-number {
+        font-size: 3rem;
+    }
+    
+    .stats-stat-label {
+        font-size: 0.9rem;
+    }
+    
+    .user-avatar {
+        width: 50px;
+        height: 50px;
+        font-size: 1.25rem;
+    }
+}
+
 .schedule-action-btn {
     padding: 0.75rem 1.5rem;
     border: none;
@@ -2053,4 +3114,873 @@
     font-size: 0.75rem;
     color: #64748b;
     font-weight: 500;
-} 
+}
+
+/* Стили для вкладки "Система вознаграждений" */
+.rewards-header {
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.rewards-header h2 {
+    color: #1e293b;
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.rewards-subtitle {
+    color: #64748b;
+    font-size: 1rem;
+    margin: 0;
+}
+
+.rewards-section {
+    margin-bottom: 2.5rem;
+}
+
+.rewards-section .section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.rewards-section .section-title i {
+    color: #3b82f6;
+    font-size: 1.1rem;
+}
+
+.rewards-section .section-title h3 {
+    color: #1e293b;
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+/* Таблица тарифов */
+.rates-table-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.rates-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.rates-table th {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.rates-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+}
+
+.rates-table tr:last-child td {
+    border-bottom: none;
+}
+
+.rates-table tr:hover {
+    background: #f8fafc;
+}
+
+.rates-table tr.highlighted {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+}
+
+.rates-table tr.highlighted:hover {
+    background: linear-gradient(135deg, #fde68a, #fbbf24);
+}
+
+.exam-badge {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.exam-badge.oge {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+}
+
+.exam-badge.ege {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+}
+
+.exam-badge.ege-pro {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    color: white;
+}
+
+.rate-amount {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #059669;
+}
+
+/* Карточки бонусов */
+.bonus-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+}
+
+.bonus-card {
+    background: white;
+    border-radius: 10px;
+    padding: 1.25rem;
+    box-shadow: 0 3px 5px -1px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.bonus-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.bonus-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px -3px rgba(0, 0, 0, 0.08);
+}
+
+.bonus-icon {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.8rem;
+}
+
+.bonus-icon i {
+    color: white;
+    font-size: 1.25rem;
+}
+
+.bonus-content h4 {
+    color: #1e293b;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.6rem;
+}
+
+.bonus-description {
+    color: #64748b;
+    line-height: 1.5;
+    margin-bottom: 0.8rem;
+    font-size: 0.9rem;
+}
+
+.bonus-amount {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #059669;
+    text-align: right;
+}
+
+/* Информационная панель */
+.rewards-info-panel {
+    margin-top: 2rem;
+}
+
+.info-card {
+    background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+    border: 1px solid #93c5fd;
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.info-card i {
+    color: #1d4ed8;
+    font-size: 1.5rem;
+    margin-top: 0.25rem;
+}
+
+.info-content h4 {
+    color: #1e293b;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.info-content p {
+    color: #374151;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+    .rewards-header h2 {
+        font-size: 1.5rem;
+    }
+    
+    .rewards-subtitle {
+        font-size: 1rem;
+    }
+    
+    .bonus-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .rates-table {
+        font-size: 0.875rem;
+    }
+    
+    .rates-table th,
+    .rates-table td {
+        padding: 0.75rem 0.5rem;
+    }
+    
+    .exam-badge {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.75rem;
+    }
+    
+    .bonus-card {
+        padding: 1rem;
+    }
+    
+    .bonus-icon {
+        width: 50px;
+        height: 50px;
+    }
+    
+    .bonus-icon i {
+        font-size: 1.25rem;
+    }
+    
+    .info-card {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .penalties-table {
+        font-size: 0.875rem;
+    }
+    
+    .penalties-table th,
+    .penalties-table td {
+        padding: 0.75rem 0.5rem;
+    }
+    
+    .penalty-badge {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.75rem;
+    }
+}
+
+/* Таблица штрафов */
+.penalties-table-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    border: 1px solid #fecaca;
+}
+
+.penalties-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.penalties-table th {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.penalties-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #fecaca;
+    vertical-align: middle;
+}
+
+.penalties-table tr:last-child td {
+    border-bottom: none;
+}
+
+.penalties-table tr:hover {
+    background: #fef2f2;
+}
+
+.penalties-table tr.severe-penalty {
+    background: linear-gradient(135deg, #fef2f2, #fee2e2);
+}
+
+.penalties-table tr.severe-penalty:hover {
+    background: linear-gradient(135deg, #fee2e2, #fecaca);
+}
+
+.penalty-badge {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.penalty-badge.late {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+}
+
+.penalty-badge.late-cancel {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+}
+
+.penalty-badge.excess-cancel {
+    background: linear-gradient(135deg, #f97316, #ea580c);
+    color: white;
+}
+
+.penalty-badge.late-reschedule {
+    background: linear-gradient(135deg, #eab308, #ca8a04);
+    color: white;
+}
+
+.penalty-badge.contact {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    color: white;
+}
+
+.penalty-amount {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #dc2626;
+}
+
+/* Стили для вкладки "Вознаграждения" (Сметы) */
+
+/* Заголовок вкладки */
+.payroll-header {
+    margin-bottom: 1.5rem;
+}
+
+.payroll-header h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.5rem;
+}
+
+.payroll-subtitle {
+    color: #64748b;
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+/* Навигация по разделам */
+.payroll-navigation {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    background: white;
+    padding: 0.75rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    flex-wrap: wrap;
+}
+
+.payroll-nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.6rem 1.2rem;
+    border: 2px solid #e2e8f0;
+    background: white;
+    color: #64748b;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.payroll-nav-btn:hover {
+    border-color: #3b82f6;
+    color: #3b82f6;
+}
+
+.payroll-nav-btn.active {
+    background: #3b82f6;
+    border-color: #3b82f6;
+    color: white;
+}
+
+.payroll-nav-btn i {
+    font-size: 0.85rem;
+}
+
+/* Лента месяцев */
+.months-timeline {
+    margin-bottom: 1.5rem;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+}
+
+.timeline-container {
+    padding: 0.75rem;
+}
+
+.timeline-scroll {
+    display: flex;
+    gap: 0.6rem;
+    overflow-x: auto;
+    padding-bottom: 0.4rem;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
+    -webkit-overflow-scrolling: touch;
+}
+
+.timeline-scroll::-webkit-scrollbar {
+    height: 4px;
+}
+
+.timeline-scroll::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 2px;
+}
+
+.timeline-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 2px;
+}
+
+.timeline-scroll::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.month-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.6rem 0.8rem;
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 80px;
+    flex-shrink: 0;
+}
+
+.month-item:hover {
+    border-color: #3b82f6;
+    background: #eff6ff;
+}
+
+.month-item.active {
+    background: #3b82f6;
+    border-color: #3b82f6;
+    color: white;
+}
+
+.month-name {
+    font-weight: 600;
+    font-size: 0.8rem;
+    margin-bottom: 0.2rem;
+}
+
+.month-year {
+    font-size: 0.65rem;
+    opacity: 0.8;
+}
+
+/* Разделы смет */
+.payroll-section {
+    display: none;
+}
+
+.payroll-section.active {
+    display: block;
+}
+
+/* Информация о периоде сметы */
+.payroll-period-info {
+    margin-bottom: 1.25rem;
+}
+
+.period-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.6rem 0.8rem;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.period-badge i {
+    font-size: 0.9rem;
+}
+
+/* Сводка по смете */
+.payroll-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.summary-card {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 1.25rem;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s ease;
+}
+
+.summary-card:hover {
+    transform: translateY(-2px);
+}
+
+.summary-icon {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.summary-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.summary-content h3 {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin: 0 0 0.4rem 0;
+    font-weight: 600;
+}
+
+.summary-amount {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+/* Таблица сметы */
+.payroll-table-container {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.payroll-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+    table-layout: fixed;
+    border: 1px solid #e5e7eb;
+    min-width: 800px;
+}
+
+.payroll-table th {
+    background: #f8fafc;
+    padding: 0.6rem 0.4rem;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+    white-space: nowrap;
+    font-size: 0.7rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.payroll-table td {
+    padding: 0.4rem;
+    border: 1px solid #e5e7eb;
+    vertical-align: middle;
+    font-size: 0.7rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Задаем ширину колонок */
+.payroll-table th:nth-child(1), .payroll-table td:nth-child(1) { width: 9%; } /* Дата */
+.payroll-table th:nth-child(2), .payroll-table td:nth-child(2) { width: 11%; } /* Предмет */
+.payroll-table th:nth-child(3), .payroll-table td:nth-child(3) { width: 9%; } /* Тип */
+.payroll-table th:nth-child(4), .payroll-table td:nth-child(4) { width: 11%; } /* Статус */
+.payroll-table th:nth-child(5), .payroll-table td:nth-child(5) { width: 14%; } /* Ученик */
+.payroll-table th:nth-child(6), .payroll-table td:nth-child(6) { width: 9%; } /* Ставка */
+.payroll-table th:nth-child(7), .payroll-table td:nth-child(7) { width: 9%; } /* Бонус */
+.payroll-table th:nth-child(8), .payroll-table td:nth-child(8) { width: 11%; } /* Компенсация */
+.payroll-table th:nth-child(9), .payroll-table td:nth-child(9) { width: 8%; }  /* Штраф */
+
+.payroll-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+/* Статусы уроков */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 10px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.status-badge.completed {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-badge.completed::before {
+    content: "✓";
+    font-weight: bold;
+}
+
+.status-badge.absent {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.status-badge.absent::before {
+    content: "⚠";
+    font-weight: bold;
+}
+
+.status-badge.cancelled {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.status-badge.cancelled::before {
+    content: "✗";
+    font-weight: bold;
+}
+
+/* Суммы в таблице */
+.amount-cell {
+    font-weight: 600;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.amount-positive {
+    color: #059669;
+}
+
+.amount-negative {
+    color: #dc2626;
+}
+
+.amount-zero {
+    color: #6b7280;
+}
+
+/* Сообщение об отсутствии данных */
+.no-payroll-message {
+    text-align: center;
+    padding: 2.5rem 1rem;
+}
+
+/* Адаптивность */
+@media (max-width: 1024px) {
+    .payroll-table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .payroll-table {
+        min-width: 750px;
+    }
+}
+
+@media (max-width: 768px) {
+    .payroll-header h2 {
+        font-size: 1.5rem;
+    }
+    
+    .payroll-subtitle {
+        font-size: 0.9rem;
+    }
+    
+    .payroll-navigation {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .payroll-nav-btn {
+        justify-content: center;
+        padding: 0.5rem 1rem;
+        font-size: 0.8rem;
+    }
+    
+    .payroll-summary {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .timeline-scroll {
+        gap: 0.4rem;
+    }
+    
+    .month-item {
+        min-width: 65px;
+        padding: 0.4rem 0.6rem;
+    }
+    
+    .month-name {
+        font-size: 0.75rem;
+    }
+    
+    .month-year {
+        font-size: 0.6rem;
+    }
+    
+    .summary-card {
+        padding: 1rem;
+    }
+    
+    .summary-icon {
+        width: 45px;
+        height: 45px;
+        font-size: 1.1rem;
+    }
+    
+    .summary-amount {
+        font-size: 1.3rem;
+    }
+    
+    .period-badge {
+        font-size: 0.75rem;
+        padding: 0.5rem 0.7rem;
+    }
+    
+    .payroll-table {
+        min-width: 700px;
+        font-size: 0.7rem;
+    }
+    
+    .payroll-table th,
+    .payroll-table td {
+        padding: 0.3rem 0.25rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .payroll-header h2 {
+        font-size: 1.3rem;
+    }
+    
+    .payroll-subtitle {
+        font-size: 0.85rem;
+    }
+    
+    .summary-card {
+        padding: 0.8rem;
+    }
+    
+    .summary-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+    
+    .summary-amount {
+        font-size: 1.2rem;
+    }
+    
+    .payroll-nav-btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.75rem;
+    }
+    
+    .month-item {
+        min-width: 55px;
+        padding: 0.3rem 0.5rem;
+    }
+    
+    .month-name {
+        font-size: 0.7rem;
+    }
+    
+    .month-year {
+        font-size: 0.55rem;
+    }
+    
+    .period-badge {
+        font-size: 0.7rem;
+        padding: 0.4rem 0.6rem;
+    }
+    
+    .payroll-table {
+        min-width: 650px;
+        font-size: 0.65rem;
+    }
+    
+    .payroll-table th,
+    .payroll-table td {
+        padding: 0.25rem 0.2rem;
+    }
+    
+    .status-badge {
+        font-size: 0.6rem;
+        padding: 0.15rem 0.3rem;
+    }
+}

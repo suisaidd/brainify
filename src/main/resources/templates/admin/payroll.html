@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление сметами преподавателей - Brainify</title>
+    
+    <!-- Подключение стилей -->
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/admin.css}">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="admin-body">
+    <div class="admin-container">
+        <!-- Заголовок -->
+        <header class="admin-header">
+            <div class="header-content">
+                <h1>Управление сметами преподавателей</h1>
+                <a href="/admin" class="back-btn">
+                    <i class="fas fa-arrow-left"></i>
+                    Назад к админ панели
+                </a>
+            </div>
+        </header>
+
+        <!-- Основной контент -->
+        <main class="admin-main">
+            <!-- Выбор месяца -->
+            <div class="month-selector">
+                <form id="monthForm" method="get">
+                    <div class="form-group">
+                        <label for="year">Год:</label>
+                        <select id="year" name="year">
+                            <option value="2024">2024</option>
+                            <option value="2025" selected>2025</option>
+                            <option value="2026">2026</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="month">Месяц:</label>
+                        <select id="month" name="month">
+                            <option value="1" th:selected="${selectedMonth == 1}">Январь</option>
+                            <option value="2" th:selected="${selectedMonth == 2}">Февраль</option>
+                            <option value="3" th:selected="${selectedMonth == 3}">Март</option>
+                            <option value="4" th:selected="${selectedMonth == 4}">Апрель</option>
+                            <option value="5" th:selected="${selectedMonth == 5}">Май</option>
+                            <option value="6" th:selected="${selectedMonth == 6}">Июнь</option>
+                            <option value="7" th:selected="${selectedMonth == 7}">Июль</option>
+                            <option value="8" th:selected="${selectedMonth == 8}">Август</option>
+                            <option value="9" th:selected="${selectedMonth == 9}">Сентябрь</option>
+                            <option value="10" th:selected="${selectedMonth == 10}">Октябрь</option>
+                            <option value="11" th:selected="${selectedMonth == 11}">Ноябрь</option>
+                            <option value="12" th:selected="${selectedMonth == 12}">Декабрь</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i>
+                        Показать
+                    </button>
+                </form>
+            </div>
+
+            <!-- Кнопки управления -->
+            <div class="admin-actions">
+                <button id="createPayrollBtn" class="btn btn-success">
+                    <i class="fas fa-file-excel"></i>
+                    Сформировать смету
+                </button>
+                <button id="markPaidBtn" class="btn btn-warning" style="display: none;">
+                    <i class="fas fa-check"></i>
+                    Отметить как оплачено
+                </button>
+            </div>
+
+            <!-- Таблица преподавателей -->
+            <div class="teachers-table-container">
+                <table class="teachers-table">
+                    <thead>
+                        <tr>
+                            <th>№</th>
+                            <th>ФИО</th>
+                            <th>Email</th>
+                            <th>Телефон</th>
+                            <th>Текущая смета</th>
+                            <th>Выплачено</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="teachersTableBody">
+                        <tr th:each="teacher, stat : ${teachersData}">
+                            <td th:text="${stat.count}">1</td>
+                            <td th:text="${teacher.teacherName}">Иванов И.И.</td>
+                            <td th:text="${teacher.teacherEmail}">ivanov@example.com</td>
+                            <td th:text="${teacher.teacherPhone}">+79001234567</td>
+                            <td class="amount-cell" th:text="${#numbers.formatDecimal(teacher.currentPayrollAmount, 0, 'COMMA', 0, 'POINT')} + ' ₽'">0 ₽</td>
+                            <td class="amount-cell" th:text="${#numbers.formatDecimal(teacher.paidAmount, 0, 'COMMA', 0, 'POINT')} + ' ₽'">0 ₽</td>
+                            <td>
+                                <span class="status-badge" th:classappend="${teacher.paymentStatus == 'paid' ? 'paid' : teacher.paymentStatus == 'pending' ? 'pending' : 'none'}"
+                                      th:text="${teacher.paymentStatus == 'paid' ? 'Оплачено' : teacher.paymentStatus == 'pending' ? 'Ожидает' : 'Нет сметы'}">
+                                    Нет сметы
+                                </span>
+                            </td>
+                            <td>
+                                <button th:if="${teacher.paymentStatus == 'pending'}" 
+                                        class="btn btn-sm btn-warning mark-paid-btn" 
+                                        th:data-payment-id="${teacher.paymentId}">
+                                    <i class="fas fa-check"></i>
+                                    Оплачено
+                                </button>
+                                <span th:if="${teacher.paymentStatus == 'paid'" class="text-success">
+                                    <i class="fas fa-check-circle"></i>
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Сообщение об ошибке -->
+            <div th:if="${error}" class="error-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span th:text="${error}">Ошибка</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Подключение скриптов -->
+    <script th:src="@{/js/main.js}"></script>
+    <script th:src="@{/js/admin-payroll.js}"></script>
+</body>
+</html>

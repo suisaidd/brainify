@@ -52,6 +52,9 @@ public class Lesson {
     @Column(name = "original_lesson_id")
     private Long originalLessonId;
     
+    @Column(name = "auto_completed")
+    private Boolean autoCompleted = false;
+    
     public enum LessonStatus {
         SCHEDULED,
         COMPLETED,
@@ -157,5 +160,13 @@ public class Lesson {
     
     public void setOriginalLessonId(Long originalLessonId) {
         this.originalLessonId = originalLessonId;
+    }
+    
+    public Boolean getAutoCompleted() {
+        return autoCompleted;
+    }
+    
+    public void setAutoCompleted(Boolean autoCompleted) {
+        this.autoCompleted = autoCompleted;
     }
 } 

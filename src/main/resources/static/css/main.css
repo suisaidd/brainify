@@ -10,7 +10,8 @@
     box-sizing: border-box;
 }
 
-body {
+/* Стили body только для главной страницы */
+body:not(.dashboard-body) {
     font-family: 'Nunito', sans-serif;
     background: #ffffff;
     line-height: 1.6;
@@ -136,14 +137,14 @@ body {
 }
 
 /* Hero секция */
-.hero {
+body:not(.dashboard-body) .hero {
     background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     padding: 4rem 1rem;
     position: relative;
     overflow: hidden;
 }
 
-.hero::before {
+body:not(.dashboard-body) .hero::before {
     content: '';
     position: absolute;
     top: 0;
@@ -154,7 +155,7 @@ body {
     opacity: 0.5;
 }
 
-.hero-content {
+body:not(.dashboard-body) .hero-content {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -163,12 +164,12 @@ body {
     z-index: 1;
 }
 
-.hero-text {
+body:not(.dashboard-body) .hero-text {
     text-align: center;
     max-width: 600px;
 }
 
-.hero-title {
+body:not(.dashboard-body) .hero-title {
     font-size: 3.5rem;
     font-weight: 800;
     color: #1e293b;
@@ -183,7 +184,7 @@ body {
     background-clip: text;
 }
 
-.hero-subtitle {
+body:not(.dashboard-body) .hero-subtitle {
     font-size: 1.25rem;
     color: #64748b;
     margin-bottom: 2rem;
@@ -191,7 +192,7 @@ body {
 }
 
 /* Главные кнопки */
-.main-buttons {
+body:not(.dashboard-body) .main-buttons {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
@@ -200,7 +201,7 @@ body {
     margin: 0 auto;
 }
 
-.main-btn {
+body:not(.dashboard-body) .main-btn {
     display: flex;
     align-items: center;
     gap: 1.5rem;
@@ -216,7 +217,7 @@ body {
     cursor: pointer;
 }
 
-.main-btn::before {
+body:not(.dashboard-body) .main-btn::before {
     content: '';
     position: absolute;
     top: 0;
@@ -227,78 +228,78 @@ body {
     transition: left 0.5s;
 }
 
-.main-btn:hover::before {
+body:not(.dashboard-body) .main-btn:hover::before {
     left: 100%;
 }
 
-.main-btn:hover {
+body:not(.dashboard-body) .main-btn:hover {
     transform: translateX(10px) scale(1.02);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
 }
 
-.main-btn-primary {
+body:not(.dashboard-body) .main-btn-primary {
     border-color: #a3e635;
 }
 
-.main-btn-primary:hover {
+body:not(.dashboard-body) .main-btn-primary:hover {
     background: linear-gradient(135deg, #a3e635, #84cc16);
     color: white;
 }
 
-.main-btn-primary:hover .btn-icon {
+body:not(.dashboard-body) .main-btn-primary:hover .btn-icon {
     background: rgba(255, 255, 255, 0.2);
     color: white;
 }
 
-.main-btn-secondary {
+body:not(.dashboard-body) .main-btn-secondary {
     border-color: #84cc16;
 }
 
-.main-btn-secondary:hover {
+body:not(.dashboard-body) .main-btn-secondary:hover {
     background: linear-gradient(135deg, #84cc16, #65a30d);
     color: white;
 }
 
-.main-btn-secondary:hover .btn-icon {
+body:not(.dashboard-body) .main-btn-secondary:hover .btn-icon {
     background: rgba(255, 255, 255, 0.2);
     color: white;
 }
 
-.main-btn-accent {
+body:not(.dashboard-body) .main-btn-accent {
     border-color: #65a30d;
 }
 
-.main-btn-accent:hover {
+body:not(.dashboard-body) .main-btn-accent:hover {
     background: linear-gradient(135deg, #65a30d, #4d7c0f);
     color: white;
 }
 
-.main-btn-accent:hover .btn-icon {
+body:not(.dashboard-body) .main-btn-accent:hover .btn-icon {
     background: rgba(255, 255, 255, 0.2);
     color: white;
 }
 
 /* Дополнительные стили для органичности */
-.main-btn:nth-child(1) {
+body:not(.dashboard-body) .main-btn:nth-child(1) {
     margin-left: 0;
 }
 
-.main-btn:nth-child(2) {
+body:not(.dashboard-body) .main-btn:nth-child(2) {
     margin-left: 2rem;
 }
 
-.main-btn:nth-child(3) {
+body:not(.dashboard-body) .main-btn:nth-child(3) {
     margin-left: 4rem;
 }
 
 @media (max-width: 768px) {
-    .main-btn:nth-child(2),
-    .main-btn:nth-child(3) {
+    body:not(.dashboard-body) .main-btn:nth-child(2),
+    body:not(.dashboard-body) .main-btn:nth-child(3) {
         margin-left: 0;
     }
 }
 
-.btn-icon {
+body:not(.dashboard-body) .btn-icon {
     width: 60px;
     height: 60px;
     border-radius: 15px;
@@ -311,14 +312,14 @@ body {
     flex-shrink: 0;
 }
 
-.btn-content h3 {
+body:not(.dashboard-body) .btn-content h3 {
     font-size: 1.25rem;
     font-weight: 700;
     margin-bottom: 0.5rem;
     color: inherit;
 }
 
-.btn-content p {
+body:not(.dashboard-body) .btn-content p {
     font-size: 0.875rem;
     color: inherit;
     opacity: 0.8;
@@ -492,16 +493,16 @@ body {
         display: block;
     }
     
-    .hero-title {
+    body:not(.dashboard-body) .hero-title {
         font-size: 2.5rem;
     }
     
-    .main-buttons {
+    body:not(.dashboard-body) .main-buttons {
         max-width: 100%;
         padding: 0 1rem;
     }
     
-    .main-btn {
+    body:not(.dashboard-body) .main-btn {
         flex-direction: column;
         text-align: center;
         gap: 1rem;

@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест API вознаграждений - Исправленная логика</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        .success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+        .info {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Тест API вознаграждений - Исправленная логика</h1>
+        
+        <div class="test-section">
+            <h3>Проверка исправленной логики:</h3>
+            <ul>
+                <li>✅ Текущая смета (17-31 число) - прошедшие и ВСЕ отменённые уроки месяца</li>
+                <li>✅ Прошлая смета (1-16 число) - только прошедшие уроки</li>
+                <li>✅ Месячный просмотр - прошедшие и отменённые уроки за месяц</li>
+                <li>✅ Будущие уроки (SCHEDULED) не отображаются в сметах</li>
+                <li>✅ Отменённые уроки из всех периодов попадают в текущую смету</li>
+                <li>✅ Правильное отображение в соответствующих разделах</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>Текущая смета (17-31 число) - прошедшие и ВСЕ отменённые уроки месяца</h3>
+            <p>Должны отображаться уроки с 17 по 31 число + ВСЕ отменённые уроки за месяц</p>
+            <button class="test-button" onclick="testAPI('current-payroll')">Тест</button>
+            <div id="current-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Прошлая смета (1-16 число) - только прошедшие уроки</h3>
+            <p>Должны отображаться только уроки с 1 по 16 число, которые уже прошли</p>
+            <button class="test-button" onclick="testAPI('past-payroll')">Тест</button>
+            <div id="past-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Месячный просмотр - прошедшие и отменённые уроки</h3>
+            <p>Должны отображаться уроки за выбранный месяц, которые уже прошли или отменены</p>
+            <button class="test-button" onclick="testAPI('monthly-payroll')">Тест</button>
+            <div id="monthly-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Проверка логики отменённых уроков</h3>
+            <p>Проверим, что отменённые уроки из всех периодов попадают в текущую смету</p>
+            <button class="test-button" onclick="testCancelledLessonsLogic()">Проверить логику</button>
+            <div id="cancelled-logic-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Проверка фильтрации уроков</h3>
+            <p>Проверим, что будущие уроки не отображаются, а отменённые отображаются</p>
+            <button class="test-button" onclick="testLessonFiltering()">Проверить фильтрацию</button>
+            <div id="lesson-filter-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Сравнение периодов</h3>
+            <p>Сравним количество уроков в разных периодах</p>
+            <button class="test-button" onclick="comparePeriods()">Сравнить</button>
+            <div id="compare-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Проверка дат</h3>
+            <button class="test-button" onclick="testDates()">Проверить форматирование дат</button>
+            <div id="dates-result" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        async function testAPI(type) {
+            const resultDiv = document.getElementById(`${type}-result`);
+            
+            try {
+                resultDiv.innerHTML = 'Загрузка...';
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result info';
+
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                
+                const response = await fetch(`/api/payroll?year=${year}&month=${month}&type=${type}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                let result = `Тип: ${type}\n`;
+                result += `Год: ${year}, Месяц: ${month}\n`;
+                result += `Ожидаемая сумма: ${data.summary?.expected || 0} ₽\n`;
+                result += `Выплачено: ${data.summary?.paid || 0} ₽\n`;
+                result += `Количество уроков: ${data.lessons?.length || 0}\n\n`;
+                
+                if (data.lessons && data.lessons.length > 0) {
+                    result += 'Уроки:\n';
+                    data.lessons.forEach((lesson, index) => {
+                        const formattedDate = formatDate(lesson.date);
+                        result += `${index + 1}. ${formattedDate} - ${lesson.subject} (${lesson.status}) - ${lesson.rate} ₽\n`;
+                    });
+                } else {
+                    result += 'Уроков не найдено\n';
+                }
+                
+                resultDiv.textContent = result;
+                resultDiv.className = 'result success';
+                
+            } catch (error) {
+                resultDiv.textContent = `Ошибка: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function comparePeriods() {
+            const resultDiv = document.getElementById('compare-result');
+            resultDiv.innerHTML = 'Сравнение периодов...';
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            
+            try {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                
+                const [currentResponse, pastResponse, monthlyResponse] = await Promise.all([
+                    fetch(`/api/payroll?year=${year}&month=${month}&type=current-payroll`),
+                    fetch(`/api/payroll?year=${year}&month=${month}&type=past-payroll`),
+                    fetch(`/api/payroll?year=${year}&month=${month}&type=monthly-payroll`)
+                ]);
+                
+                const [currentData, pastData, monthlyData] = await Promise.all([
+                    currentResponse.json(),
+                    pastResponse.json(),
+                    monthlyResponse.json()
+                ]);
+                
+                let result = 'Сравнение периодов:\n\n';
+                result += `Текущая смета (17-31): ${currentData.lessons?.length || 0} уроков, ${currentData.summary?.expected || 0} ₽\n`;
+                result += `Прошлая смета (1-16): ${pastData.lessons?.length || 0} уроков, ${pastData.summary?.expected || 0} ₽\n`;
+                result += `Месячный просмотр: ${monthlyData.lessons?.length || 0} уроков, ${monthlyData.summary?.expected || 0} ₽\n\n`;
+                
+                const totalFromSections = (currentData.lessons?.length || 0) + (pastData.lessons?.length || 0);
+                const totalFromMonthly = monthlyData.lessons?.length || 0;
+                
+                if (totalFromSections === totalFromMonthly) {
+                    result += '✅ Сумма уроков в сметах равна месячному просмотру\n';
+                } else {
+                    result += `⚠️ Разница: ${Math.abs(totalFromSections - totalFromMonthly)} уроков\n`;
+                }
+                
+                resultDiv.textContent = result;
+                resultDiv.className = 'result success';
+                
+            } catch (error) {
+                resultDiv.textContent = `Ошибка сравнения: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function testLessonFiltering() {
+            const resultDiv = document.getElementById('lesson-filter-result');
+            resultDiv.innerHTML = 'Проверка фильтрации уроков...';
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            
+            try {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                
+                const [currentResponse, pastResponse, monthlyResponse] = await Promise.all([
+                    fetch(`/api/payroll?year=${year}&month=${month}&type=current-payroll`),
+                    fetch(`/api/payroll?year=${year}&month=${month}&type=past-payroll`),
+                    fetch(`/api/payroll?year=${year}&month=${month}&type=monthly-payroll`)
+                ]);
+                
+                const [currentData, pastData, monthlyData] = await Promise.all([
+                    currentResponse.json(),
+                    pastResponse.json(),
+                    monthlyResponse.json()
+                ]);
+                
+                let result = 'Проверка фильтрации уроков:\n\n';
+                let hasFutureScheduledLessons = false;
+                let hasCancelledLessons = false;
+                let totalLessons = 0;
+                
+                // Проверяем все сметы
+                const allData = [
+                    { name: 'Текущая смета', data: currentData },
+                    { name: 'Прошлая смета', data: pastData },
+                    { name: 'Месячный просмотр', data: monthlyData }
+                ];
+                
+                allData.forEach(({ name, data }) => {
+                    totalLessons += data.lessons?.length || 0;
+                    
+                    if (data.lessons && data.lessons.length > 0) {
+                        // Проверяем будущие уроки со статусом SCHEDULED (не должны отображаться)
+                        const futureScheduledLessons = data.lessons.filter(lesson => {
+                            const lessonDate = new Date(lesson.date);
+                            return lessonDate > now && lesson.status === 'SCHEDULED';
+                        });
+                        
+                        if (futureScheduledLessons.length > 0) {
+                            hasFutureScheduledLessons = true;
+                            result += `❌ ${name}: найдено ${futureScheduledLessons.length} будущих SCHEDULED уроков\n`;
+                            futureScheduledLessons.forEach(lesson => {
+                                result += `   - ${lesson.date} (${lesson.status}) - ${lesson.subject}\n`;
+                            });
+                        } else {
+                            result += `✅ ${name}: будущих SCHEDULED уроков не найдено\n`;
+                        }
+
+                        // Проверяем отменённые уроки (должны отображаться)
+                        const cancelledLessons = data.lessons.filter(lesson => lesson.status === 'CANCELLED');
+                        if (cancelledLessons.length > 0) {
+                            hasCancelledLessons = true;
+                            result += `✅ ${name}: найдено ${cancelledLessons.length} отменённых уроков\n`;
+                            cancelledLessons.forEach(lesson => {
+                                const lessonDate = new Date(lesson.date);
+                                const isFuture = lessonDate > now;
+                                result += `   - ${lesson.date} (${lesson.status})${isFuture ? ' [БУДУЩИЙ]' : ''} - ${lesson.subject}\n`;
+                            });
+                        } else {
+                            result += `ℹ️ ${name}: отменённых уроков нет\n`;
+                        }
+                    } else {
+                        result += `ℹ️ ${name}: уроков нет\n`;
+                    }
+                });
+                
+                result += `\nВсего уроков: ${totalLessons}\n`;
+                
+                if (hasFutureScheduledLessons) {
+                    result += '\n❌ ОШИБКА: Найдены будущие SCHEDULED уроки в сметах!\n';
+                    result += 'Фильтрация работает неправильно.\n';
+                    resultDiv.className = 'result error';
+                } else if (hasCancelledLessons) {
+                    result += '\n✅ УСПЕХ: Фильтрация работает корректно!\n';
+                    result += '- Будущие SCHEDULED уроки не отображаются\n';
+                    result += '- Отменённые уроки отображаются (включая будущие)\n';
+                    resultDiv.className = 'result success';
+                } else {
+                    result += '\nℹ️ ИНФО: Фильтрация работает, но отменённых уроков нет\n';
+                    resultDiv.className = 'result info';
+                }
+                
+                resultDiv.textContent = result;
+                
+            } catch (error) {
+                resultDiv.textContent = `Ошибка проверки фильтрации: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function testCancelledLessonsLogic() {
+            const resultDiv = document.getElementById('cancelled-logic-result');
+            resultDiv.innerHTML = 'Проверка логики отменённых уроков...';
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            
+            try {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                
+                const [currentResponse, pastResponse, monthlyResponse] = await Promise.all([
+                    fetch(`/api/payroll?year=${year}&month=${month}&type=current-payroll`),
+                    fetch(`/api/payroll?year=${year}&month=${month}&type=past-payroll`),
+                    fetch(`/api/payroll?year=${year}&month=${month}&type=monthly-payroll`)
+                ]);
+                
+                const [currentData, pastData, monthlyData] = await Promise.all([
+                    currentResponse.json(),
+                    pastResponse.json(),
+                    monthlyResponse.json()
+                ]);
+                
+                let result = 'Проверка логики отменённых уроков:\n\n';
+                let hasCancelledLessonsInCurrent = false;
+                let hasCancelledLessonsInPast = false;
+                let hasCancelledLessonsInMonthly = false;
+                
+                // Проверяем отменённые уроки в текущей смете
+                if (currentData.lessons && currentData.lessons.length > 0) {
+                    const cancelledInCurrent = currentData.lessons.filter(lesson => lesson.status === 'CANCELLED');
+                    if (cancelledInCurrent.length > 0) {
+                        hasCancelledLessonsInCurrent = true;
+                        result += `✅ Текущая смета: найдено ${cancelledInCurrent.length} отменённых уроков\n`;
+                        cancelledInCurrent.forEach(lesson => {
+                            const lessonDate = new Date(lesson.date);
+                            const isFuture = lessonDate > now;
+                            result += `   - ${lesson.date} (${lesson.status})${isFuture ? ' [БУДУЩИЙ]' : ''} - ${lesson.subject}\n`;
+                        });
+                    } else {
+                        result += `ℹ️ Текущая смета: отменённых уроков нет\n`;
+                    }
+                } else {
+                    result += `ℹ️ Текущая смета: уроков нет\n`;
+                }
+
+                // Проверяем отменённые уроки в прошлой смете
+                if (pastData.lessons && pastData.lessons.length > 0) {
+                    const cancelledInPast = pastData.lessons.filter(lesson => lesson.status === 'CANCELLED');
+                    if (cancelledInPast.length > 0) {
+                        hasCancelledLessonsInPast = true;
+                        result += `✅ Прошлая смета: найдено ${cancelledInPast.length} отменённых уроков\n`;
+                        cancelledInPast.forEach(lesson => {
+                            const lessonDate = new Date(lesson.date);
+                            result += `   - ${lesson.date} (${lesson.status}) - ${lesson.subject}\n`;
+                        });
+                    } else {
+                        result += `ℹ️ Прошлая смета: отменённых уроков нет\n`;
+                    }
+                } else {
+                    result += `ℹ️ Прошлая смета: уроков нет\n`;
+                }
+
+                // Проверяем отменённые уроки в месячном просмотре
+                if (monthlyData.lessons && monthlyData.lessons.length > 0) {
+                    const cancelledInMonthly = monthlyData.lessons.filter(lesson => lesson.status === 'CANCELLED');
+                    if (cancelledInMonthly.length > 0) {
+                        hasCancelledLessonsInMonthly = true;
+                        result += `✅ Месячный просмотр: найдено ${cancelledInMonthly.length} отменённых уроков\n`;
+                        cancelledInMonthly.forEach(lesson => {
+                            const lessonDate = new Date(lesson.date);
+                            result += `   - ${lesson.date} (${lesson.status}) - ${lesson.subject}\n`;
+                        });
+                    } else {
+                        result += `ℹ️ Месячный просмотр: отменённых уроков нет\n`;
+                    }
+                } else {
+                    result += `ℹ️ Месячный просмотр: уроков нет\n`;
+                }
+
+                if (hasCancelledLessonsInCurrent && hasCancelledLessonsInPast && hasCancelledLessonsInMonthly) {
+                    result += '\n✅ УСПЕХ: Отменённые уроки из всех периодов попадают в текущую смету!\n';
+                    result += '- Отменённые уроки из текущей смета отображаются\n';
+                    result += '- Отменённые уроки из прошлой смета отображаются\n';
+                    result += '- Отменённые уроки из месячного просмотра отображаются\n';
+                    resultDiv.className = 'result success';
+                } else {
+                    result += '\n❌ ОШИБКА: Отменённые уроки из одного или нескольких периодов не отображаются в текущей смете!\n';
+                    resultDiv.className = 'result error';
+                }
+                
+                resultDiv.textContent = result;
+                
+            } catch (error) {
+                resultDiv.textContent = `Ошибка проверки логики отменённых уроков: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            try {
+                const date = new Date(dateString);
+                if (isNaN(date.getTime())) {
+                    return `INVALID: ${dateString}`;
+                }
+                return date.toLocaleDateString('ru-RU', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                });
+            } catch (error) {
+                return `ERROR: ${dateString}`;
+            }
+        }
+
+        function testDates() {
+            const resultDiv = document.getElementById('dates-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            
+            const testDates = [
+                '2025-01-15',
+                '2025-02-28',
+                'invalid-date',
+                null,
+                undefined,
+                '2025-13-45'
+            ];
+            
+            let result = 'Тест форматирования дат:\n\n';
+            testDates.forEach(date => {
+                const formatted = formatDate(date);
+                result += `"${date}" -> "${formatted}"\n`;
+            });
+            
+            resultDiv.textContent = result;
+        }
+    </script>
+</body>
+</html>

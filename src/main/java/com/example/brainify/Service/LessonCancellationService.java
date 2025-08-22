@@ -25,7 +25,7 @@ public class LessonCancellationService {
     
     private static final int FREE_CANCELLATIONS_PER_MONTH = 5;
     private static final double PENALTY_FOR_EXCESS_CANCELLATIONS = 120.0;
-    private static final double PENALTY_FOR_LATE_CANCELLATION = 300.0;
+    private static final double PENALTY_FOR_LATE_CANCELLATION = 600.0;
     private static final int LATE_CANCELLATION_HOURS = 12;
     
     /**

@@ -1,6 +1,7 @@
 package com.example.brainify.Config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.hibernate6.Hibernate6Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.context.annotation.Bean;
@@ -26,6 +27,10 @@ public class JacksonConfig {
         
         mapper.registerModule(hibernate6Module);
         mapper.registerModule(javaTimeModule);
+        
+        // Настройка для правильной сериализации BigDecimal
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        mapper.enable(SerializationFeature.WRITE_ENUMS_USING_TO_STRING);
         
         return mapper;
     }

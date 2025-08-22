@@ -8,6 +8,7 @@
     <!-- Подключение стилей -->
     <link rel="stylesheet" th:href="@{/css/main.css}">
     <link rel="stylesheet" th:href="@{/css/dashboard.css}">
+    <link rel="stylesheet" th:href="@{/css/notes.css}">
     
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -58,11 +59,11 @@
                         <i class="fas fa-file-alt"></i>
                         <span>База знаний</span>
                     </a>
-                    <a href="#" class="sidebar-item">
+                    <a href="#" class="sidebar-item" data-tab="notes-tab">
                         <i class="fas fa-sticky-note"></i>
                         <span>Конспекты</span>
                     </a>
-                    <a href="#" class="sidebar-item">
+                    <a href="#" class="sidebar-item" data-tab="students-tab">
                         <i class="fas fa-users"></i>
                         <span>Мои ученики</span>
                     </a>
@@ -76,11 +77,11 @@
                     <span class="section-title">Вознаграждение</span>
                 </div>
                 <div class="section-items">
-                    <a href="#" class="sidebar-item">
+                    <a href="#" class="sidebar-item" data-tab="rewards-payroll-tab">
                         <i class="fas fa-coins"></i>
-                        <span>Вознаграждение</span>
+                        <span>Вознаграждения</span>
                     </a>
-                    <a href="#" class="sidebar-item">
+                    <a href="#" class="sidebar-item" data-tab="rewards-tab">
                         <i class="fas fa-trophy"></i>
                         <span>Система вознаграждений</span>
                     </a>
@@ -130,13 +131,13 @@
                         </div>
                         <div class="card-content">
                             <div class="welcome-stats">
-                                <div class="stat-item">
-                                    <span class="stat-number" id="totalLessons">0</span>
-                                    <span class="stat-label">Уроков проведено</span>
+                                <div class="stats-stat-item">
+                                    <span class="stats-stat-number" id="totalLessons">0</span>
+                                    <span class="stats-stat-label">Уроков проведено</span>
                                 </div>
-                                <div class="stat-item">
-                                    <span class="stat-number" id="nextLessonTime">--:--</span>
-                                    <span class="stat-label">Ближайший урок</span>
+                                <div class="stats-stat-item">
+                                    <span class="stats-stat-number" id="nextLessonTime">--:--</span>
+                                    <span class="stats-stat-label">Ближайший урок</span>
                                 </div>
                             </div>
                         </div>
@@ -375,11 +376,666 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Вкладка: Конспекты -->
+            <div id="notes-tab" class="dashboard-tab">
+                <div class="notes-header">
+                    <h2>Мои конспекты</h2>
+                    <button id="addNoteBtn" class="lesson-btn primary">
+                        <i class="fas fa-plus"></i>
+                        Добавить конспект
+                    </button>
+                </div>
+                <div class="notes-list" id="notesList">
+                    <!-- Конспекты будут загружаться динамически -->
+                </div>
+                <div class="no-notes-message" id="noNotesMessage" style="display: none;">
+                    <div class="empty-state">
+                        <i class="fas fa-sticky-note"></i>
+                        <h3>Конспектов пока нет</h3>
+                        <p>Создайте первый конспект для ваших уроков</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Вкладка: Мои ученики -->
+            <div id="students-tab" class="dashboard-tab">
+                <div class="students-header">
+                    <h2>Мои ученики</h2>
+                </div>
+                <div class="students-list" id="studentsList">
+                    <!-- Ученики будут загружаться динамически -->
+                </div>
+                <div class="no-students-message" id="noStudentsMessage" style="display: none;">
+                    <div class="empty-state">
+                        <i class="fas fa-users"></i>
+                        <h3>Учеников пока нет</h3>
+                        <p>Ученики появятся здесь после записи на уроки</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Вкладка: Система вознаграждений -->
+            <div id="rewards-tab" class="dashboard-tab">
+                <div class="rewards-header">
+                    <h2>Система вознаграждений</h2>
+                    <p class="rewards-subtitle">Узнайте о всех возможностях заработка на платформе Brainify</p>
+                </div>
+
+                <!-- Основные тарифы -->
+                <div class="rewards-section">
+                    <div class="section-title">
+                        <i class="fas fa-coins"></i>
+                        <h3>Основные тарифы за регулярный урок</h3>
+                    </div>
+                    <div class="rates-table-container">
+                        <table class="rates-table">
+                            <thead>
+                                <tr>
+                                    <th>Тип экзамена</th>
+                                    <th>Предмет</th>
+                                    <th>Тариф за час</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="exam-badge oge">ОГЭ</span></td>
+                                    <td>Все предметы</td>
+                                    <td class="rate-amount">450 ₽</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="exam-badge ege">ЕГЭ</span></td>
+                                    <td>Все предметы</td>
+                                    <td class="rate-amount">600 ₽</td>
+                                </tr>
+                                <tr class="highlighted">
+                                    <td><span class="exam-badge ege-pro">ЕГЭ Профиль</span></td>
+                                    <td>Математика</td>
+                                    <td class="rate-amount">650 ₽</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Дополнительные вознаграждения -->
+                <div class="rewards-section">
+                    <div class="section-title">
+                        <i class="fas fa-gift"></i>
+                        <h3>Дополнительные вознаграждения</h3>
+                    </div>
+                    <div class="bonus-cards">
+                        <div class="bonus-card">
+                            <div class="bonus-icon">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div class="bonus-content">
+                                <h4>Вводный урок</h4>
+                                <p class="bonus-description">Оплата за проведение первого ознакомительного (вводного) урока с новым учеником</p>
+                                <div class="bonus-amount">120 ₽</div>
+                            </div>
+                        </div>
+
+                        <div class="bonus-card">
+                            <div class="bonus-icon">
+                                <i class="fas fa-user-plus"></i>
+                            </div>
+                            <div class="bonus-content">
+                                <h4>Приведи друга</h4>
+                                <p class="bonus-description">Бонус за привлечение нового преподавателя на платформу, который успешно проведет первые 10 уроков</p>
+                                <div class="bonus-amount">5 000 ₽</div>
+                            </div>
+                        </div>
+
+                        <div class="bonus-card">
+                            <div class="bonus-icon">
+                                <i class="fas fa-sync-alt"></i>
+                            </div>
+                            <div class="bonus-content">
+                                <h4>Продление пакета уроков</h4>
+                                <p class="bonus-description">Вознаграждение, если ученик продлил пакет уроков при остатке менее 10 занятий и не сменил преподавателя</p>
+                                <div class="bonus-amount">1 000 ₽</div>
+                            </div>
+                        </div>
+
+                        <div class="bonus-card">
+                            <div class="bonus-icon">
+                                <i class="fas fa-award"></i>
+                            </div>
+                            <div class="bonus-content">
+                                <h4>Долгосрочное сотрудничество</h4>
+                                <p class="bonus-description">
+                                    <strong>До 500 уроков:</strong> 1500 ₽/месяц при проведении более 60 уроков в месяц<br>
+                                    <strong>Более 500 уроков:</strong> 3000 ₽/месяц при проведении более 60 уроков в месяц
+                                </p>
+                                <div class="bonus-amount">1 500 - 3 000 ₽</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Таблица штрафов -->
+                <div class="rewards-section">
+                    <div class="section-title">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Система штрафов</h3>
+                    </div>
+                    <div class="penalties-table-container">
+                        <table class="penalties-table">
+                            <thead>
+                                <tr>
+                                    <th>Нарушение</th>
+                                    <th>Описание</th>
+                                    <th>Штраф</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="penalty-badge late">Опоздание на урок</span></td>
+                                    <td>Опоздание более чем на 15 минут</td>
+                                    <td class="penalty-amount">Сумма за один урок</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="penalty-badge late-cancel">Поздняя отмена</span></td>
+                                    <td>Отмена урока менее чем за 12 часов до начала</td>
+                                    <td class="penalty-amount">600 ₽</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="penalty-badge excess-cancel">Превышение лимита отмен</span></td>
+                                    <td>Превышение лимита бесплатных отмен (5 в месяц)</td>
+                                    <td class="penalty-amount">120 ₽</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="penalty-badge late-reschedule">Поздний перенос</span></td>
+                                    <td>Перенос урока менее чем за 12 часов до начала</td>
+                                    <td class="penalty-amount">120 ₽</td>
+                                </tr>
+                                <tr class="severe-penalty">
+                                    <td><span class="penalty-badge contact">Обмен контактами</span></td>
+                                    <td>Обмен контактной информацией с учеником</td>
+                                    <td class="penalty-amount">5 000 ₽ + расторжение договора</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Информационная панель -->
+                <div class="rewards-info-panel">
+                    <div class="info-card">
+                        <i class="fas fa-info-circle"></i>
+                        <div class="info-content">
+                            <h4>Как рассчитываются вознаграждения?</h4>
+                            <p>Все вознаграждения начисляются автоматически в конце каждого месяца. Дополнительные бонусы выплачиваются в течение 3 рабочих дней после начисления.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Вкладка: Вознаграждения (Сметы) -->
+            <div id="rewards-payroll-tab" class="dashboard-tab">
+                <div class="payroll-header">
+                    <h2>Вознаграждения</h2>
+                    <p class="payroll-subtitle">Просмотр смет и выплат по месяцам</p>
+                </div>
+
+                <!-- Навигация по разделам -->
+                <div class="payroll-navigation">
+                    <button class="payroll-nav-btn active" data-section="current-payroll">
+                        <i class="fas fa-calendar-check"></i>
+                        Текущая смета
+                    </button>
+                    <button class="payroll-nav-btn" data-section="past-payroll">
+                        <i class="fas fa-history"></i>
+                        Прошлая смета
+                    </button>
+                </div>
+
+                <!-- Лента месяцев -->
+                <div class="months-timeline">
+                    <div class="timeline-container">
+                        <div class="timeline-scroll">
+                            <div class="month-item" data-month="2025-01">
+                                <div class="month-name">Янв</div>
+                                <div class="month-year">2025</div>
+                            </div>
+                            <div class="month-item" data-month="2025-02">
+                                <div class="month-name">Фев</div>
+                                <div class="month-year">2025</div>
+                            </div>
+                            <div class="month-item" data-month="2025-03">
+                                <div class="month-name">Мар</div>
+                                <div class="month-year">2025</div>
+                            </div>
+                            <div class="month-item" data-month="2025-04">
+                                <div class="month-name">Апр</div>
+                                <div class="month-year">2025</div>
+                            </div>
+                            <div class="month-item" data-month="2025-05">
+                                <div class="month-name">Май</div>
+                                <div class="month-year">2025</div>
+                            </div>
+                            <div class="month-item" data-month="2025-06">
+                                <div class="month-name">Июн</div>
+                                <div class="month-year">2025</div>
+                            </div>
+                            <div class="month-item" data-month="2025-07">
+                                <div class="month-name">Июл</div>
+                                <div class="month-year">2025</div>
+                            </div>
+                            <div class="month-item" data-month="2025-08">
+                                <div class="month-name">Авг</div>
+                                <div class="month-year">2025</div>
+                            </div>
+                            <div class="month-item" data-month="2025-09">
+                                <div class="month-name">Сен</div>
+                                <div class="month-year">2025</div>
+                            </div>
+                            <div class="month-item" data-month="2025-10">
+                                <div class="month-name">Окт</div>
+                                <div class="month-year">2025</div>
+                            </div>
+                            <div class="month-item" data-month="2025-11">
+                                <div class="month-name">Ноя</div>
+                                <div class="month-year">2025</div>
+                            </div>
+                            <div class="month-item" data-month="2025-12">
+                                <div class="month-name">Дек</div>
+                                <div class="month-year">2025</div>
+                            </div>
+                            <div class="month-item" data-month="2026-01">
+                                <div class="month-name">Янв</div>
+                                <div class="month-year">2026</div>
+                            </div>
+                            <div class="month-item" data-month="2026-02">
+                                <div class="month-name">Фев</div>
+                                <div class="month-year">2026</div>
+                            </div>
+                            <div class="month-item" data-month="2026-03">
+                                <div class="month-name">Мар</div>
+                                <div class="month-year">2026</div>
+                            </div>
+                            <div class="month-item" data-month="2026-04">
+                                <div class="month-name">Апр</div>
+                                <div class="month-year">2026</div>
+                            </div>
+                            <div class="month-item" data-month="2026-05">
+                                <div class="month-name">Май</div>
+                                <div class="month-year">2026</div>
+                            </div>
+                            <div class="month-item" data-month="2026-06">
+                                <div class="month-name">Июн</div>
+                                <div class="month-year">2026</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Раздел: Текущая смета -->
+                <div id="current-payroll" class="payroll-section active">
+                    <div class="payroll-period-info">
+                        <div class="period-badge">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span id="currentPeriodText">Период сметы: 01.01 - 16.01</span>
+                        </div>
+                    </div>
+                    
+                    <div class="payroll-summary">
+                        <div class="summary-card">
+                            <div class="summary-icon">
+                                <i class="fas fa-calculator"></i>
+                            </div>
+                            <div class="summary-content">
+                                <h3>Ожидаемая сумма</h3>
+                                <div class="summary-amount" id="expectedAmount">0 ₽</div>
+                            </div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-icon">
+                                <i class="fas fa-money-bill-wave"></i>
+                            </div>
+                            <div class="summary-content">
+                                <h3>Выплачено</h3>
+                                <div class="summary-amount" id="paidAmount">0 ₽</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="payroll-table-container">
+                        <table class="payroll-table" id="currentPayrollTable">
+                            <thead>
+                                <tr>
+                                    <th>Дата</th>
+                                    <th>Предмет</th>
+                                    <th>Тип</th>
+                                    <th>Статус</th>
+                                    <th>Ученик</th>
+                                    <th>Ставка</th>
+                                    <th>Бонус</th>
+                                    <th>Компенсация</th>
+                                    <th>Штраф</th>
+                                </tr>
+                            </thead>
+                            <tbody id="currentPayrollTableBody">
+                                <!-- Данные будут загружаться динамически -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="no-payroll-message" id="noCurrentPayrollMessage" style="display: none;">
+                        <div class="empty-state">
+                            <i class="fas fa-calculator"></i>
+                            <h3>Смета пуста</h3>
+                            <p>В выбранном месяце нет данных для сметы</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Раздел: Прошлая смета -->
+                <div id="past-payroll" class="payroll-section">
+                    <div class="payroll-period-info">
+                        <div class="period-badge">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span id="pastPeriodText">Период сметы: 17.01 - 31.01</span>
+                        </div>
+                    </div>
+                    
+                    <div class="payroll-summary">
+                        <div class="summary-card">
+                            <div class="summary-icon">
+                                <i class="fas fa-calculator"></i>
+                            </div>
+                            <div class="summary-content">
+                                <h3>Ожидаемая сумма</h3>
+                                <div class="summary-amount" id="pastExpectedAmount">0 ₽</div>
+                            </div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-icon">
+                                <i class="fas fa-money-bill-wave"></i>
+                            </div>
+                            <div class="summary-content">
+                                <h3>Выплачено</h3>
+                                <div class="summary-amount" id="pastPaidAmount">0 ₽</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="payroll-table-container">
+                        <table class="payroll-table" id="pastPayrollTable">
+                            <thead>
+                                <tr>
+                                    <th>Дата</th>
+                                    <th>Предмет</th>
+                                    <th>Тип</th>
+                                    <th>Статус</th>
+                                    <th>Ученик</th>
+                                    <th>Ставка</th>
+                                    <th>Бонус</th>
+                                    <th>Компенсация</th>
+                                    <th>Штраф</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pastPayrollTableBody">
+                                <!-- Данные будут загружаться динамически -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="no-payroll-message" id="noPastPayrollMessage" style="display: none;">
+                        <div class="empty-state">
+                            <i class="fas fa-history"></i>
+                            <h3>Прошлая смета пуста</h3>
+                            <p>В выбранном месяце нет данных для прошлой сметы</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
+
+    <!-- Модальное окно для создания конспекта -->
+    <div id="noteModal" class="modal" style="display: none;">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3>Создать новый конспект</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="note-form">
+                    <div class="form-group">
+                        <label for="noteTitle">Название конспекта</label>
+                        <input type="text" id="noteTitle" placeholder="Введите название конспекта" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="noteSubject">Предмет</label>
+                        <select id="noteSubject" required>
+                            <option value="">Выберите предмет</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="noteDescription">Описание</label>
+                        <textarea id="noteDescription" placeholder="Краткое описание конспекта" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="note-content-section">
+                        <h4>Содержание конспекта</h4>
+                        <div class="content-tabs">
+                            <button class="content-tab active" data-tab="drawing">
+                                <i class="fas fa-paint-brush"></i>
+                                Рисунок
+                            </button>
+                            <button class="content-tab" data-tab="upload">
+                                <i class="fas fa-upload"></i>
+                                Загрузить файлы
+                            </button>
+                            <button class="content-tab" data-tab="text">
+                                <i class="fas fa-font"></i>
+                                Текст
+                            </button>
+                        </div>
+                        
+                        <div class="content-panel active" id="drawingPanel">
+                            <div class="drawing-canvas-container">
+                                <canvas id="drawingCanvas" width="600" height="400"></canvas>
+                                <div class="drawing-tools">
+                                    <button class="tool-btn active" data-tool="pen" title="Карандаш">
+                                        <i class="fas fa-pen"></i>
+                                    </button>
+                                    <button class="tool-btn" data-tool="eraser" title="Ластик">
+                                        <i class="fas fa-eraser"></i>
+                                    </button>
+                                    <input type="color" id="colorPicker" value="#000000" title="Цвет">
+                                    <input type="range" id="brushSize" min="1" max="20" value="3" title="Размер кисти">
+                                    <button class="tool-btn" id="clearCanvas" title="Очистить">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="content-panel" id="uploadPanel">
+                            <div class="file-upload-area">
+                                <div class="upload-zone" id="uploadZone">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <p>Перетащите файлы сюда или нажмите для выбора</p>
+                                    <input type="file" id="fileInput" multiple accept="image/*,.pdf,.doc,.docx,.txt">
+                                </div>
+                                <div class="uploaded-files" id="uploadedFiles">
+                                    <!-- Загруженные файлы будут отображаться здесь -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="content-panel" id="textPanel">
+                            <div class="text-editor">
+                                <textarea id="noteText" placeholder="Введите текст конспекта..." rows="10"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn secondary" onclick="closeNoteModal()">Отмена</button>
+                <button class="modal-btn primary" onclick="saveNote()">
+                    <i class="fas fa-save"></i>
+                    Сохранить конспект
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модальное окно для просмотра конспекта -->
+    <div id="viewNoteModal" class="modal" style="display: none;">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content view-note-modal">
+            <div class="modal-header">
+                <h3>Просмотр конспекта</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="note-view-content">
+                    <div class="note-view-header">
+                        <h2 class="note-view-title" id="viewNoteTitle"></h2>
+                        <div class="note-view-subject" id="viewNoteSubject"></div>
+                        <div class="note-view-description" id="viewNoteDescription"></div>
+                    </div>
+                    
+                    <div class="note-view-tabs">
+                        <button class="note-view-tab active" data-tab="text">
+                            <i class="fas fa-font"></i>
+                            Текст
+                        </button>
+                        <button class="note-view-tab" data-tab="drawing">
+                            <i class="fas fa-paint-brush"></i>
+                            Зарисовки
+                        </button>
+                        <button class="note-view-tab" data-tab="files">
+                            <i class="fas fa-file"></i>
+                            Файлы
+                        </button>
+                    </div>
+                    
+                    <div class="note-view-panel active" id="viewTextPanel">
+                        <div class="note-text-content" id="viewNoteText"></div>
+                    </div>
+                    
+                    <div class="note-view-panel" id="viewDrawingPanel">
+                        <div class="note-drawing-content" id="viewNoteDrawing"></div>
+                    </div>
+                    
+                    <div class="note-view-panel" id="viewFilesPanel">
+                        <div class="note-files-grid" id="viewNoteFiles"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn secondary" onclick="closeViewNoteModal()">Закрыть</button>
+                <button class="modal-btn primary" onclick="editCurrentNote()">
+                    <i class="fas fa-edit"></i>
+                    Редактировать
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модальное окно для редактирования конспекта -->
+    <div id="editNoteModal" class="modal" style="display: none;">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3>Редактировать конспект</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="note-form">
+                    <div class="form-group">
+                        <label for="editNoteTitle">Название конспекта</label>
+                        <input type="text" id="editNoteTitle" placeholder="Введите название конспекта" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editNoteSubject">Предмет</label>
+                        <select id="editNoteSubject" required>
+                            <option value="">Выберите предмет</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editNoteDescription">Описание</label>
+                        <textarea id="editNoteDescription" placeholder="Краткое описание конспекта" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="note-content-section">
+                        <h4>Содержание конспекта</h4>
+                        <div class="content-tabs">
+                            <button class="content-tab active" data-tab="drawing">
+                                <i class="fas fa-paint-brush"></i>
+                                Рисунок
+                            </button>
+                            <button class="content-tab" data-tab="upload">
+                                <i class="fas fa-upload"></i>
+                                Загрузить файлы
+                            </button>
+                            <button class="content-tab" data-tab="text">
+                                <i class="fas fa-font"></i>
+                                Текст
+                            </button>
+                        </div>
+                        
+                        <div class="content-panel active" id="editDrawingPanel">
+                            <div class="drawing-canvas-container">
+                                <canvas id="editDrawingCanvas" width="600" height="400"></canvas>
+                                <div class="drawing-tools">
+                                    <button class="tool-btn active" data-tool="pen" title="Карандаш">
+                                        <i class="fas fa-pen"></i>
+                                    </button>
+                                    <button class="tool-btn" data-tool="eraser" title="Ластик">
+                                        <i class="fas fa-eraser"></i>
+                                    </button>
+                                    <input type="color" id="editColorPicker" value="#000000" title="Цвет">
+                                    <input type="range" id="editBrushSize" min="1" max="20" value="3" title="Размер кисти">
+                                    <button class="tool-btn" id="editClearCanvas" title="Очистить">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="content-panel" id="editUploadPanel">
+                            <div class="file-upload-area">
+                                <div class="upload-zone" id="editUploadZone">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <p>Перетащите файлы сюда или нажмите для выбора</p>
+                                    <input type="file" id="editFileInput" multiple accept="image/*,.pdf,.doc,.docx,.txt">
+                                </div>
+                                <div class="uploaded-files" id="editUploadedFiles">
+                                    <!-- Загруженные файлы будут отображаться здесь -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="content-panel" id="editTextPanel">
+                            <div class="text-editor">
+                                <textarea id="editNoteText" placeholder="Введите текст конспекта..." rows="10"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn secondary" onclick="closeEditNoteModal()">Отмена</button>
+                <button class="modal-btn primary" onclick="updateNote()">
+                    <i class="fas fa-save"></i>
+                    Сохранить изменения
+                </button>
+            </div>
+        </div>
+    </div>
     
     <!-- Подключение скриптов -->
     <script th:src="@{/js/main.js}"></script>
     <script th:src="@{/js/dashboard.js}"></script>
+    <script th:src="@{/js/notes.js}"></script>
+    <script th:src="@{/js/payroll.js}"></script>
 </body>
 </html> 

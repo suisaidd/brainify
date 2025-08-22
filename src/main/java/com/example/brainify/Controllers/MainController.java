@@ -3,8 +3,12 @@ package com.example.brainify.Controllers;
 import com.example.brainify.Model.User;
 import com.example.brainify.Model.Lesson;
 import com.example.brainify.Model.TeacherSchedule;
+import com.example.brainify.Model.StudentTeacher;
+import com.example.brainify.Model.Subject;
 import com.example.brainify.Repository.LessonRepository;
 import com.example.brainify.Repository.TeacherScheduleRepository;
+import com.example.brainify.Repository.StudentTeacherRepository;
+import com.example.brainify.Repository.SubjectRepository;
 import com.example.brainify.Config.SessionManager;
 import com.example.brainify.Service.LessonCancellationService;
 import com.example.brainify.Service.LessonRescheduleService;
@@ -43,10 +47,16 @@ public class MainController {
     private TeacherScheduleRepository teacherScheduleRepository;
     
     @Autowired
+    private StudentTeacherRepository studentTeacherRepository;
+    
+    @Autowired
     private LessonCancellationService lessonCancellationService;
     
     @Autowired
     private LessonRescheduleService lessonRescheduleService;
+    
+    @Autowired
+    private SubjectRepository subjectRepository;
 
     @GetMapping({"/", "/main"})
     public String mainPage(Model model, HttpSession session) {
@@ -190,7 +200,7 @@ public class MainController {
             dashboardData.put("totalLessons", successfulLessons); // Изменено: теперь показывает количество успешных уроков
             dashboardData.put("completedLessons", successfulLessons);
             dashboardData.put("averageRating", 0.0); // Пока не реализовано
-            dashboardData.put("notificationCount", 0); // Пока не реализовано
+            dashboardData.put("notificationCount", 0); // Уведомления о штрафах убраны
             
             return ResponseEntity.ok(dashboardData);
         } catch (Exception e) {
@@ -243,6 +253,70 @@ public class MainController {
             result.forEach(lesson -> {
                 System.out.println("Урок: " + lesson.get("subjectName") + " с " + lesson.get("studentName") + " в " + lesson.get("lessonDate"));
             });
+            
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+    }
+    
+    // API для получения учеников преподавателя
+    @GetMapping("/api/teacher/students")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> getTeacherStudents(HttpSession session) {
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null) {
+            return ResponseEntity.status(401).build();
+        }
+        
+        // Проверяем, что пользователь является преподавателем
+        if (!currentUser.getRole().equals(UserRole.TEACHER)) {
+            return ResponseEntity.status(403).build();
+        }
+        
+        try {
+            // Получаем всех учеников преподавателя через связи student_teachers
+            List<StudentTeacher> studentTeachers = studentTeacherRepository.findActiveByTeacher(currentUser);
+            
+            // Группируем учеников и считаем количество уроков
+            Map<Long, Map<String, Object>> studentsMap = new HashMap<>();
+            
+            for (StudentTeacher st : studentTeachers) {
+                User student = st.getStudent();
+                Long studentId = student.getId();
+                
+                if (!studentsMap.containsKey(studentId)) {
+                    Map<String, Object> studentInfo = new HashMap<>();
+                    studentInfo.put("id", student.getId());
+                    studentInfo.put("name", student.getName());
+                    studentInfo.put("email", student.getEmail());
+                    studentInfo.put("phone", student.getPhone());
+                    studentInfo.put("remainingLessons", student.getRemainingLessons());
+                    studentInfo.put("subjects", new ArrayList<>());
+                    studentInfo.put("lessonsCount", 0);
+                    studentsMap.put(studentId, studentInfo);
+                }
+                
+                // Добавляем предмет
+                List<String> subjects = (List<String>) studentsMap.get(studentId).get("subjects");
+                subjects.add(st.getSubject().getName());
+            }
+            
+            // Считаем количество уроков для каждого ученика
+            List<Lesson> allLessons = lessonRepository.findByTeacherOrderByLessonDateAsc(currentUser);
+            for (Lesson lesson : allLessons) {
+                Long studentId = lesson.getStudent().getId();
+                if (studentsMap.containsKey(studentId)) {
+                    Map<String, Object> studentInfo = studentsMap.get(studentId);
+                    int currentCount = (Integer) studentInfo.get("lessonsCount");
+                    studentInfo.put("lessonsCount", currentCount + 1);
+                }
+            }
+            
+            List<Map<String, Object>> result = new ArrayList<>(studentsMap.values());
+            
+            System.out.println("Найдено учеников для преподавателя " + currentUser.getName() + ": " + result.size());
             
             return ResponseEntity.ok(result);
         } catch (Exception e) {
@@ -679,5 +753,17 @@ public class MainController {
         java.time.DayOfWeek targetDay = java.time.DayOfWeek.valueOf(dayOfWeek);
         LocalDateTime targetDate = weekStart.with(targetDay);
         return targetDate.withHour(Integer.parseInt(hour));
+    }
+    
+    // API для получения всех активных предметов
+    @GetMapping("/api/subjects")
+    @ResponseBody
+    public ResponseEntity<List<Subject>> getAllSubjects() {
+        try {
+            List<Subject> subjects = subjectRepository.findByIsActiveTrueOrderByNameAsc();
+            return ResponseEntity.ok(subjects);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).build();
+        }
     }
 } 

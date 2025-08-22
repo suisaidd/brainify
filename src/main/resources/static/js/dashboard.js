@@ -228,6 +228,436 @@ setInterval(() => {
     }
 }, 1000);
 
+// Функции для работы с конспектами
+function loadTeacherNotes() {
+    console.log('Загрузка конспектов преподавателя...');
+    
+    // Используем NotesManager для загрузки конспектов
+    if (window.notesManager) {
+        console.log('NotesManager найден, загружаем конспекты...');
+        window.notesManager.loadNotes();
+    } else {
+        console.log('NotesManager не найден, инициализируем...');
+        // Если NotesManager еще не инициализирован, инициализируем его
+        if (document.getElementById('notesList') && document.getElementById('addNoteBtn')) {
+            window.notesManager = new NotesManager();
+        }
+    }
+}
+
+// Функции для работы с учениками
+function loadTeacherStudents() {
+    console.log('Загрузка учеников преподавателя...');
+    
+    const studentsList = document.getElementById('studentsList');
+    const noStudentsMessage = document.getElementById('noStudentsMessage');
+    
+    if (!studentsList) return;
+    
+    // Показываем загрузку
+    studentsList.innerHTML = `
+        <div class="loading-students">
+            <div class="loading-spinner"></div>
+            <p>Загрузка учеников...</p>
+        </div>
+    `;
+    
+    fetch('/api/teacher/students', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.json();
+        } else {
+            throw new Error('Ошибка загрузки учеников');
+        }
+    })
+    .then(students => {
+        console.log('Ученики загружены:', students);
+        
+        if (!students || students.length === 0) {
+            if (noStudentsMessage) noStudentsMessage.style.display = 'block';
+            studentsList.innerHTML = '';
+            return;
+        }
+        
+        if (noStudentsMessage) noStudentsMessage.style.display = 'none';
+        
+        studentsList.innerHTML = students.map(student => `
+            <div class="student-card">
+                <div class="student-info">
+                    <div class="student-avatar" style="background: linear-gradient(135deg, ${getRandomGradient()})">
+                        ${student.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div class="student-details">
+                        <h4>${student.name}</h4>
+                        <p class="student-email">
+                            <i class="fas fa-envelope"></i>
+                            ${student.email}
+                        </p>
+                        <p class="student-phone">
+                            <i class="fas fa-phone"></i>
+                            ${student.phone || 'Телефон не указан'}
+                        </p>
+                        <div class="student-stats">
+                            <span class="stat-item">
+                                <i class="fas fa-graduation-cap"></i>
+                                ${student.lessonsCount || 0} уроков
+                            </span>
+                            <span class="stat-item">
+                                <i class="fas fa-book"></i>
+                                ${student.remainingLessons || 0} осталось
+                            </span>
+                        </div>
+                        <div class="student-subjects">
+                            ${student.subjects && student.subjects.length > 0 ? 
+                                student.subjects.map(subject => `<span class="subject-tag">${subject}</span>`).join('') : 
+                                '<span class="no-subjects">Предметы не указаны</span>'
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="student-actions">
+                    <button class="message-btn" onclick="sendMessage(${student.id})">
+                        <i class="fas fa-envelope"></i>
+                        Написать сообщение
+                    </button>
+                    <button class="view-profile-btn" onclick="viewStudentProfile(${student.id})">
+                        <i class="fas fa-user"></i>
+                        Профиль
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    })
+    .catch(error => {
+        console.error('Ошибка загрузки учеников:', error);
+        if (noStudentsMessage) noStudentsMessage.style.display = 'block';
+        studentsList.innerHTML = '';
+        showToast('Ошибка загрузки учеников', 'error');
+    });
+}
+
+// Функция для генерации случайного градиента для аватара
+function getRandomGradient() {
+    const gradients = [
+        '#667eea, #764ba2',
+        '#f093fb, #f5576c',
+        '#4facfe, #00f2fe',
+        '#43e97b, #38f9d7',
+        '#fa709a, #fee140',
+        '#a8edea, #fed6e3',
+        '#ffecd2, #fcb69f',
+        '#ff9a9e, #fecfef',
+        '#a18cd1, #fbc2eb',
+        '#fad0c4, #ffd1ff'
+    ];
+    return gradients[Math.floor(Math.random() * gradients.length)];
+}
+
+// Функции для модального окна конспектов
+function openNoteModal() {
+    const modal = document.getElementById('noteModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        resetNoteForm();
+    }
+}
+
+function closeNoteModal() {
+    const modal = document.getElementById('noteModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function resetNoteForm() {
+    document.getElementById('noteTitle').value = '';
+    document.getElementById('noteSubject').value = '';
+    document.getElementById('noteDescription').value = '';
+    document.getElementById('noteText').value = '';
+    
+    // Очищаем холст
+    const canvas = document.getElementById('drawingCanvas');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    
+    // Очищаем загруженные файлы
+    document.getElementById('uploadedFiles').innerHTML = '';
+    
+    // Переключаемся на первую вкладку
+    switchContentTab('drawing');
+}
+
+function initContentTabs() {
+    const tabs = document.querySelectorAll('.content-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const targetTab = tab.getAttribute('data-tab');
+            switchContentTab(targetTab);
+        });
+    });
+}
+
+function switchContentTab(tabName) {
+    // Убираем активный класс со всех вкладок и панелей
+    document.querySelectorAll('.content-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelectorAll('.content-panel').forEach(panel => {
+        panel.classList.remove('active');
+    });
+    
+    // Добавляем активный класс к выбранной вкладке и панели
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    document.getElementById(`${tabName}Panel`).classList.add('active');
+}
+
+// Функции для рисования
+let isDrawing = false;
+let currentTool = 'pen';
+let currentColor = '#000000';
+let currentSize = 3;
+
+function initDrawingCanvas() {
+    const canvas = document.getElementById('drawingCanvas');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Инициализация инструментов
+    const toolBtns = document.querySelectorAll('.tool-btn[data-tool]');
+    toolBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            currentTool = btn.getAttribute('data-tool');
+            toolBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+    
+    // Цвет
+    const colorPicker = document.getElementById('colorPicker');
+    if (colorPicker) {
+        colorPicker.addEventListener('change', (e) => {
+            currentColor = e.target.value;
+        });
+    }
+    
+    // Размер кисти
+    const brushSize = document.getElementById('brushSize');
+    if (brushSize) {
+        brushSize.addEventListener('change', (e) => {
+            currentSize = parseInt(e.target.value);
+        });
+    }
+    
+    // Очистка холста
+    const clearBtn = document.getElementById('clearCanvas');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+    }
+    
+    // События мыши
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+    
+    // События касания для мобильных
+    canvas.addEventListener('touchstart', handleTouch);
+    canvas.addEventListener('touchmove', handleTouch);
+    canvas.addEventListener('touchend', stopDrawing);
+}
+
+function startDrawing(e) {
+    isDrawing = true;
+    draw(e);
+}
+
+function draw(e) {
+    if (!isDrawing) return;
+    
+    const canvas = document.getElementById('drawingCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    ctx.lineWidth = currentSize;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = currentTool === 'eraser' ? '#ffffff' : currentColor;
+    
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+}
+
+function stopDrawing() {
+    isDrawing = false;
+    const canvas = document.getElementById('drawingCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.beginPath();
+}
+
+function handleTouch(e) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 
+                                    e.type === 'touchmove' ? 'mousemove' : 'mouseup', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+    });
+    canvas.dispatchEvent(mouseEvent);
+}
+
+// Функции для загрузки файлов
+function initFileUpload() {
+    const fileInput = document.getElementById('fileInput');
+    const uploadZone = document.getElementById('uploadZone');
+    
+    if (fileInput) {
+        fileInput.addEventListener('change', handleFileSelect);
+    }
+    
+    if (uploadZone) {
+        uploadZone.addEventListener('dragover', handleDragOver);
+        uploadZone.addEventListener('drop', handleDrop);
+    }
+}
+
+function handleFileSelect(e) {
+    const files = Array.from(e.target.files);
+    addFilesToList(files);
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.currentTarget.style.borderColor = '#a3e635';
+    e.currentTarget.style.background = '#f0fdf4';
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    e.currentTarget.style.borderColor = '#e2e8f0';
+    e.currentTarget.style.background = 'transparent';
+    
+    const files = Array.from(e.dataTransfer.files);
+    addFilesToList(files);
+}
+
+function addFilesToList(files) {
+    const uploadedFiles = document.getElementById('uploadedFiles');
+    
+    files.forEach(file => {
+        const fileItem = document.createElement('div');
+        fileItem.className = 'file-item';
+        fileItem.innerHTML = `
+            <i class="fas fa-file"></i>
+            <span class="file-name">${file.name}</span>
+            <button class="remove-file" onclick="removeFile(this)">Удалить</button>
+        `;
+        uploadedFiles.appendChild(fileItem);
+    });
+}
+
+function removeFile(btn) {
+    btn.parentElement.remove();
+}
+
+// Функции для сохранения конспекта
+function saveNote() {
+    const title = document.getElementById('noteTitle').value;
+    const subject = document.getElementById('noteSubject').value;
+    const description = document.getElementById('noteDescription').value;
+    
+    if (!title || !subject) {
+        showToast('Заполните обязательные поля', 'warning');
+        return;
+    }
+    
+    // Получаем данные с активной вкладки
+    let content = '';
+    const activeTab = document.querySelector('.content-tab.active').getAttribute('data-tab');
+    
+    switch (activeTab) {
+        case 'drawing':
+            const canvas = document.getElementById('drawingCanvas');
+            content = canvas.toDataURL();
+            break;
+        case 'text':
+            content = document.getElementById('noteText').value;
+            break;
+        case 'upload':
+            const files = document.querySelectorAll('.file-item .file-name');
+            content = Array.from(files).map(f => f.textContent).join(', ');
+            break;
+    }
+    
+    console.log('Сохранение конспекта:', { title, subject, description, content, type: activeTab });
+    
+    // Здесь будет отправка на сервер
+    showToast('Конспект сохранен успешно', 'success');
+    closeNoteModal();
+    
+    // Перезагружаем список конспектов
+    loadTeacherNotes();
+}
+
+// Функция для отправки сообщения ученику
+function sendMessage(studentId) {
+    console.log('Отправка сообщения ученику:', studentId);
+    showToast('Функция сообщений будет реализована позже', 'info');
+}
+
+// Функция для просмотра профиля ученика
+function viewStudentProfile(studentId) {
+    console.log('Просмотр профиля ученика:', studentId);
+    showToast('Функция просмотра профиля будет реализована позже', 'info');
+}
+
+// Инициализация модального окна конспектов
+document.addEventListener('DOMContentLoaded', function() {
+    // Привязываем обработчики для модального окна конспектов
+    const addNoteBtn = document.getElementById('addNoteBtn');
+    if (addNoteBtn) {
+        addNoteBtn.addEventListener('click', openNoteModal);
+    }
+    
+    // Привязываем обработчики для модального окна
+    const noteModal = document.getElementById('noteModal');
+    if (noteModal) {
+        const closeBtn = noteModal.querySelector('.modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeNoteModal);
+        }
+        
+        // Закрытие по клику вне модального окна
+        noteModal.addEventListener('click', (e) => {
+            if (e.target === noteModal) {
+                closeNoteModal();
+            }
+        });
+    }
+    
+    // Инициализация вкладок контента
+    initContentTabs();
+    
+    // Инициализация холста для рисования
+    initDrawingCanvas();
+    
+    // Инициализация загрузки файлов
+    initFileUpload();
+});
+
 
 // Инициализация бокового меню
 function initSidebar() {
@@ -807,12 +1237,7 @@ function updateDashboardStats(data) {
             суммаШтрафов: stats.totalUnpaidPenalty
         });
         
-        // Если есть неоплаченные штрафы, показываем уведомление
-        if (stats.unpaidPenaltiesCount > 0) {
-            setTimeout(() => {
-                showToast(`У вас есть ${stats.unpaidPenaltiesCount} неоплаченных штрафов на сумму ${stats.totalUnpaidPenalty}₽`, 'warning');
-            }, 2000);
-        }
+        // Уведомление о штрафах убрано по требованию пользователя
     }
 }
 
@@ -2350,6 +2775,22 @@ function initTabSwitching() {
             // Если переключаемся на проверку оборудования, инициализируем
             if (targetTab === 'equipment-tab') {
                 initEquipmentCheck();
+            }
+            
+            // Если переключаемся на конспекты, загружаем их
+            if (targetTab === 'notes-tab') {
+                loadTeacherNotes();
+            }
+            
+            // Если переключаемся на учеников, загружаем их
+            if (targetTab === 'students-tab') {
+                loadTeacherStudents();
+            }
+            
+            // Если переключаемся на систему вознаграждений
+            if (targetTab === 'rewards-tab') {
+                // Вкладка система вознаграждений не требует дополнительной загрузки данных
+                // так как содержит статическую информацию
             }
             
             // Закрываем сайдбар на мобильных устройствах
