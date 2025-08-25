@@ -18,6 +18,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Загружаем данные преподавателя
     loadTeacherData();
     loadTeacherLessons();
+    
+    // Инициализируем навигацию базы знаний
+    initKnowledgeBaseNavigation();
 });
 // Инициализация проверки оборудования
 let activeMediaStream = null;
@@ -1399,12 +1402,22 @@ function createCurrentLessonActions(lesson, status) {
         `;
         
         if (canJoin) {
-            buttons += `
-                <button class="lesson-btn primary" onclick="joinLesson(${lesson.id})">
-                    <i class="fas fa-video"></i>
-                    Подключиться к уроку
-                </button>
-            `;
+            // Проверяем, вошел ли уже преподаватель в урок
+            if (lesson.teacherJoinedAt) {
+                buttons += `
+                    <button class="lesson-btn success" disabled>
+                        <i class="fas fa-check"></i>
+                        В уроке
+                    </button>
+                `;
+            } else {
+                buttons += `
+                    <button class="lesson-btn primary" onclick="joinLesson(${lesson.id})">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Войти в урок
+                    </button>
+                `;
+            }
         } else if (now < twoHoursBefore) {
             buttons += `
                 <button class="lesson-btn disabled" disabled>
@@ -1652,9 +1665,30 @@ function showNoPastLessonsMessage() {
 
 // Функции для действий с уроками
 function joinLesson(lessonId) {
-    console.log('Подключение к уроку:', lessonId);
-    showToast('Подключение к уроку...', 'info');
-    // Здесь будет логика подключения к уроку
+    console.log('Вход в урок:', lessonId);
+    showToast('Вход в урок...', 'info');
+    
+    // Вызываем API для входа в урок
+    fetch(`/api/lessons/${lessonId}/join`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Успешно вошли в урок!', 'success');
+            // Обновляем отображение урока
+            loadTeacherLessons();
+        } else {
+            showToast(data.message || 'Не удалось войти в урок', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка при входе в урок:', error);
+        showToast('Ошибка при входе в урок', 'error');
+    });
 }
 
 function rescheduleLesson(lessonId) {
@@ -3741,4 +3775,37 @@ function startLessonFromSchedule(lessonId) {
 window.testSchedule = function() {
     console.log('Тестирование загрузки расписания...');
     loadTeacherSchedule();
-}; 
+};
+
+/**
+ * Инициализация навигации по разделам базы знаний
+ */
+function initKnowledgeBaseNavigation() {
+    const navItems = document.querySelectorAll('.nav-item');
+    const contentSections = document.querySelectorAll('.content-section');
+    
+    navItems.forEach(item => {
+        item.addEventListener('click', function() {
+            const targetSection = this.getAttribute('data-section');
+            
+            // Убираем активный класс со всех элементов
+            navItems.forEach(nav => nav.classList.remove('active'));
+            contentSections.forEach(section => section.classList.remove('active'));
+            
+            // Добавляем активный класс к выбранному элементу
+            this.classList.add('active');
+            
+            // Показываем соответствующий раздел
+            const targetContent = document.getElementById(targetSection);
+            if (targetContent) {
+                targetContent.classList.add('active');
+                
+                // Плавная прокрутка к началу контента
+                targetContent.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+            }
+        });
+    });
+} 

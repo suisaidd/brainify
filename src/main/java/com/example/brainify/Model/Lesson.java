@@ -55,6 +55,12 @@ public class Lesson {
     @Column(name = "auto_completed")
     private Boolean autoCompleted = false;
     
+    @Column(name = "teacher_joined_at")
+    private LocalDateTime teacherJoinedAt;
+    
+    @Column(name = "auto_penalty_applied")
+    private Boolean autoPenaltyApplied = false;
+    
     public enum LessonStatus {
         SCHEDULED,
         COMPLETED,
@@ -168,5 +174,21 @@ public class Lesson {
     
     public void setAutoCompleted(Boolean autoCompleted) {
         this.autoCompleted = autoCompleted;
+    }
+    
+    public LocalDateTime getTeacherJoinedAt() {
+        return teacherJoinedAt;
+    }
+    
+    public void setTeacherJoinedAt(LocalDateTime teacherJoinedAt) {
+        this.teacherJoinedAt = teacherJoinedAt;
+    }
+    
+    public Boolean getAutoPenaltyApplied() {
+        return autoPenaltyApplied;
+    }
+    
+    public void setAutoPenaltyApplied(Boolean autoPenaltyApplied) {
+        this.autoPenaltyApplied = autoPenaltyApplied;
     }
 } 

@@ -1,11 +1,14 @@
 package com.example.brainify.Controllers;
 
 import com.example.brainify.DTO.PayrollSummaryDTO;
+import com.example.brainify.Model.User;
 import com.example.brainify.Service.PayrollService;
+import com.example.brainify.Config.SessionManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpSession;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -15,20 +18,30 @@ public class PayrollController {
 
     @Autowired
     private PayrollService payrollService;
+    
+    @Autowired
+    private SessionManager sessionManager;
 
     @GetMapping
     public ResponseEntity<?> getPayrollData(
             @RequestParam int year,
             @RequestParam int month,
-            @RequestParam String type) {
+            @RequestParam String type,
+            HttpSession session) {
         
         try {
-            // В реальном приложении нужно получить ID преподавателя из сессии
-            // Пока используем тестовый ID
-            Long teacherId = 1L; // TODO: Получить из аутентификации
+            // Получаем ID преподавателя из сессии
+            User currentUser = sessionManager.getCurrentUser(session);
+            if (currentUser == null) {
+                Map<String, String> error = new HashMap<>();
+                error.put("error", "Пользователь не авторизован");
+                return ResponseEntity.status(401).body(error);
+            }
+            
+            Long teacherId = currentUser.getId();
             
             // Логирование для отладки
-            System.out.println("Запрос сметы: год=" + year + ", месяц=" + month + ", тип=" + type);
+            System.out.println("Запрос сметы: год=" + year + ", месяц=" + month + ", тип=" + type + ", преподаватель=" + teacherId);
             
             PayrollSummaryDTO payrollData = payrollService.getPayrollData(teacherId, year, month, type);
             

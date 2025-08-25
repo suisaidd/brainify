@@ -69,4 +69,10 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     
     // Найти уроки по статусу и дате (для автоматического завершения)
     List<Lesson> findByStatusAndLessonDateBefore(Lesson.LessonStatus status, LocalDateTime date);
+    
+    // Найти запланированные уроки для автоматического завершения
+    @Query("SELECT l FROM Lesson l WHERE l.status = 'SCHEDULED' AND " +
+           "l.lessonDate < :now AND l.autoPenaltyApplied = false " +
+           "ORDER BY l.lessonDate ASC")
+    List<Lesson> findScheduledLessonsForAutoCompletion(@Param("now") LocalDateTime now);
 } 

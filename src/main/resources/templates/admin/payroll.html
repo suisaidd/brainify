@@ -8,6 +8,7 @@
     <!-- Подключение стилей -->
     <link rel="stylesheet" th:href="@{/css/main.css}">
     <link rel="stylesheet" th:href="@{/css/admin.css}">
+    <link rel="stylesheet" th:href="@{/css/admin-payroll.css}">
     
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -17,106 +18,224 @@
         <!-- Заголовок -->
         <header class="admin-header">
             <div class="header-content">
-                <h1>Управление сметами преподавателей</h1>
-                <a href="/admin" class="back-btn">
-                    <i class="fas fa-arrow-left"></i>
-                    Назад к админ панели
-                </a>
+                <div class="header-left">
+                    <h1>
+                        <i class="fas fa-calculator"></i>
+                        Управление сметами преподавателей
+                    </h1>
+                    <p class="header-subtitle">
+                        Формирование и управление зарплатными ведомостями
+                        <span th:if="${selectedShift == 'current-payroll'}">• Период 17-31</span>
+                        <span th:if="${selectedShift == 'past-payroll'}">• Период 1-16</span>
+                    </p>
+                </div>
+                <div class="header-right">
+                    <a href="/admin-role" class="admin-btn admin-btn-secondary">
+                        <i class="fas fa-users-cog"></i>
+                        Управление пользователями
+                    </a>
+                    <a href="/admin/lessons" class="admin-btn admin-btn-secondary">
+                        <i class="fas fa-chalkboard"></i>
+                        Управление занятиями
+                    </a>
+                    <a href="/admin" class="back-btn">
+                        <i class="fas fa-arrow-left"></i>
+                        Назад к админ панели
+                    </a>
+                </div>
             </div>
         </header>
 
         <!-- Основной контент -->
         <main class="admin-main">
-            <!-- Выбор месяца -->
-            <div class="month-selector">
-                <form id="monthForm" method="get">
-                    <div class="form-group">
-                        <label for="year">Год:</label>
-                        <select id="year" name="year">
-                            <option value="2024">2024</option>
-                            <option value="2025" selected>2025</option>
-                            <option value="2026">2026</option>
-                        </select>
+            <!-- Статистические карточки -->
+            <div class="payroll-stats">
+                <div class="stat-card payroll-stat">
+                    <div class="stat-icon total-payroll">
+                        <i class="fas fa-ruble-sign"></i>
                     </div>
-                    <div class="form-group">
-                        <label for="month">Месяц:</label>
-                        <select id="month" name="month">
-                            <option value="1" th:selected="${selectedMonth == 1}">Январь</option>
-                            <option value="2" th:selected="${selectedMonth == 2}">Февраль</option>
-                            <option value="3" th:selected="${selectedMonth == 3}">Март</option>
-                            <option value="4" th:selected="${selectedMonth == 4}">Апрель</option>
-                            <option value="5" th:selected="${selectedMonth == 5}">Май</option>
-                            <option value="6" th:selected="${selectedMonth == 6}">Июнь</option>
-                            <option value="7" th:selected="${selectedMonth == 7}">Июль</option>
-                            <option value="8" th:selected="${selectedMonth == 8}">Август</option>
-                            <option value="9" th:selected="${selectedMonth == 9}">Сентябрь</option>
-                            <option value="10" th:selected="${selectedMonth == 10}">Октябрь</option>
-                            <option value="11" th:selected="${selectedMonth == 11}">Ноябрь</option>
-                            <option value="12" th:selected="${selectedMonth == 12}">Декабрь</option>
-                        </select>
+                    <div class="stat-info">
+                        <span class="stat-value" id="totalPayroll">0 ₽</span>
+                        <span class="stat-label">Общая сумма смет</span>
                     </div>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-search"></i>
-                        Показать
-                    </button>
-                </form>
+                </div>
+                <div class="stat-card payroll-stat">
+                    <div class="stat-icon paid-amount">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="totalPaid">0 ₽</span>
+                        <span class="stat-label">Выплачено</span>
+                    </div>
+                </div>
+                <div class="stat-card payroll-stat">
+                    <div class="stat-icon pending-amount">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="totalPending">0 ₽</span>
+                        <span class="stat-label">Ожидает выплаты</span>
+                    </div>
+                </div>
+                <div class="stat-card payroll-stat">
+                    <div class="stat-icon teachers-count">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="teachersCount">0</span>
+                        <span class="stat-label">Преподавателей</span>
+                    </div>
+                </div>
             </div>
 
-            <!-- Кнопки управления -->
-            <div class="admin-actions">
-                <button id="createPayrollBtn" class="btn btn-success">
-                    <i class="fas fa-file-excel"></i>
-                    Сформировать смету
-                </button>
-                <button id="markPaidBtn" class="btn btn-warning" style="display: none;">
-                    <i class="fas fa-check"></i>
-                    Отметить как оплачено
-                </button>
+            <!-- Панель управления -->
+            <div class="control-panel">
+                <!-- Выбор месяца -->
+                <div class="month-selector">
+                    <h3>
+                        <i class="fas fa-calendar-alt"></i>
+                        Выбор периода
+                    </h3>
+                    <form id="monthForm" method="get" class="month-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="year">Год:</label>
+                                <select id="year" name="year" class="form-select">
+                                    <option value="2024">2024</option>
+                                    <option value="2025" selected>2025</option>
+                                    <option value="2026">2026</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="month">Месяц:</label>
+                                <select id="month" name="month" class="form-select">
+                                    <option value="1" th:selected="${selectedMonth == 1}">Январь</option>
+                                    <option value="2" th:selected="${selectedMonth == 2}">Февраль</option>
+                                    <option value="3" th:selected="${selectedMonth == 3}">Март</option>
+                                    <option value="4" th:selected="${selectedMonth == 4}">Апрель</option>
+                                    <option value="5" th:selected="${selectedMonth == 5}">Май</option>
+                                    <option value="6" th:selected="${selectedMonth == 6}">Июнь</option>
+                                    <option value="7" th:selected="${selectedMonth == 7}">Июль</option>
+                                    <option value="8" th:selected="${selectedMonth == 8}">Август</option>
+                                    <option value="9" th:selected="${selectedMonth == 9}">Сентябрь</option>
+                                    <option value="10" th:selected="${selectedMonth == 10}">Октябрь</option>
+                                    <option value="11" th:selected="${selectedMonth == 11}">Ноябрь</option>
+                                    <option value="12" th:selected="${selectedMonth == 12}">Декабрь</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="shift">Смена:</label>
+                                <select id="shift" name="shift" class="form-select">
+                                    <option value="current-payroll" th:selected="${selectedShift == 'current-payroll'}">17-31</option>
+                                    <option value="past-payroll" th:selected="${selectedShift == 'past-payroll'}">1-16</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i>
+                                Показать данные
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Кнопки управления -->
+                <div class="admin-actions">
+                    <button id="createPayrollBtn" class="btn btn-success">
+                        <i class="fas fa-file-excel"></i>
+                        Сформировать смету
+                    </button>
+                    <button id="markAllPaidBtn" class="btn btn-warning" style="display: none;">
+                        <i class="fas fa-check-double"></i>
+                        Отметить все как оплачено
+                    </button>
+                    <button id="exportBtn" class="btn btn-info" style="display: none;">
+                        <i class="fas fa-download"></i>
+                        Экспорт в Excel
+                    </button>
+                </div>
             </div>
 
             <!-- Таблица преподавателей -->
-            <div class="teachers-table-container">
-                <table class="teachers-table">
-                    <thead>
-                        <tr>
-                            <th>№</th>
-                            <th>ФИО</th>
-                            <th>Email</th>
-                            <th>Телефон</th>
-                            <th>Текущая смета</th>
-                            <th>Выплачено</th>
-                            <th>Статус</th>
-                            <th>Действия</th>
-                        </tr>
-                    </thead>
-                    <tbody id="teachersTableBody">
-                        <tr th:each="teacher, stat : ${teachersData}">
-                            <td th:text="${stat.count}">1</td>
-                            <td th:text="${teacher.teacherName}">Иванов И.И.</td>
-                            <td th:text="${teacher.teacherEmail}">ivanov@example.com</td>
-                            <td th:text="${teacher.teacherPhone}">+79001234567</td>
-                            <td class="amount-cell" th:text="${#numbers.formatDecimal(teacher.currentPayrollAmount, 0, 'COMMA', 0, 'POINT')} + ' ₽'">0 ₽</td>
-                            <td class="amount-cell" th:text="${#numbers.formatDecimal(teacher.paidAmount, 0, 'COMMA', 0, 'POINT')} + ' ₽'">0 ₽</td>
-                            <td>
-                                <span class="status-badge" th:classappend="${teacher.paymentStatus == 'paid' ? 'paid' : teacher.paymentStatus == 'pending' ? 'pending' : 'none'}"
-                                      th:text="${teacher.paymentStatus == 'paid' ? 'Оплачено' : teacher.paymentStatus == 'pending' ? 'Ожидает' : 'Нет сметы'}">
-                                    Нет сметы
-                                </span>
-                            </td>
-                            <td>
-                                <button th:if="${teacher.paymentStatus == 'pending'}" 
-                                        class="btn btn-sm btn-warning mark-paid-btn" 
-                                        th:data-payment-id="${teacher.paymentId}">
-                                    <i class="fas fa-check"></i>
-                                    Оплачено
-                                </button>
-                                <span th:if="${teacher.paymentStatus == 'paid'" class="text-success">
-                                    <i class="fas fa-check-circle"></i>
-                                </span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="teachers-section">
+                <div class="section-header">
+                    <h2>
+                        <i class="fas fa-users"></i>
+                        Сметы преподавателей
+                    </h2>
+                    <div class="table-controls">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="teacherSearch" placeholder="Поиск по имени преподавателя..." class="search-input">
+                        </div>
+                        <div class="status-filter">
+                            <select id="statusFilter" class="form-select">
+                                <option value="">Все статусы</option>
+                                <option value="none">Нет сметы</option>
+                                <option value="pending">Ожидает выплаты</option>
+                                <option value="paid">Оплачено</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="teachers-table-container">
+                    <table class="teachers-table">
+                        <thead>
+                            <tr>
+                                <th>№</th>
+                                <th>ФИО</th>
+                                <th>Email</th>
+                                <th>Телефон</th>
+                                <th>Текущая смета</th>
+                                <th>Выплачено</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="teachersTableBody">
+                            <tr th:each="teacher, stat : ${teachersData}">
+                                <td th:text="${stat.count}">1</td>
+                                <td>
+                                    <div class="teacher-info">
+                                        <span class="teacher-name" th:text="${teacher.teacherName}">Иванов И.И.</span>
+                                    </div>
+                                </td>
+                                <td th:text="${teacher.teacherEmail}">ivanov@example.com</td>
+                                <td th:text="${teacher.teacherPhone}">+79001234567</td>
+                                <td class="amount-cell">
+                                    <span class="amount" th:text="${#numbers.formatDecimal(teacher.currentPayrollAmount, 0, 'COMMA', 0, 'POINT')} + ' ₽'">0 ₽</span>
+                                </td>
+                                <td class="amount-cell">
+                                    <span class="amount" th:text="${#numbers.formatDecimal(teacher.paidAmount, 0, 'COMMA', 0, 'POINT')} + ' ₽'">0 ₽</span>
+                                </td>
+                                <td>
+                                    <span class="status-badge" th:classappend="${teacher.paymentStatus == 'paid' ? 'paid' : teacher.paymentStatus == 'pending' ? 'pending' : 'none'}"
+                                          th:text="${teacher.paymentStatus == 'paid' ? 'Оплачено' : teacher.paymentStatus == 'pending' ? 'Ожидает' : 'Нет сметы'}">
+                                        Нет сметы
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button th:if="${teacher.paymentStatus == 'pending'}" 
+                                                class="btn btn-sm btn-warning mark-paid-btn" 
+                                                th:data-payment-id="${teacher.paymentId}"
+                                                title="Отметить как оплачено">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <span th:if="${teacher.paymentStatus == 'paid'}" class="text-success">
+                                            <i class="fas fa-check-circle"></i>
+                                        </span>
+                                        <button class="btn btn-sm btn-info view-details-btn" 
+                                                th:data-teacher-id="${teacher.teacherId}"
+                                                title="Подробности">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Сообщение об ошибке -->
@@ -125,6 +244,32 @@
                 <span th:text="${error}">Ошибка</span>
             </div>
         </main>
+    </div>
+
+    <!-- Модальное окно с подробностями -->
+    <div id="detailsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>
+                    <i class="fas fa-info-circle"></i>
+                    Подробности сметы
+                </h3>
+                <button class="modal-close" onclick="closeDetailsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="teacherDetails">
+                    <!-- Детали будут загружены через JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDetailsModal()">
+                    <i class="fas fa-times"></i>
+                    Закрыть
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Подключение скриптов -->

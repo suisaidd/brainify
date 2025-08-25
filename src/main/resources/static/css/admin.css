@@ -148,6 +148,108 @@ body {
     padding: 2rem;
 }
 
+/* Панель навигации */
+.admin-navigation {
+    margin-bottom: 2rem;
+}
+
+.nav-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.nav-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+    overflow: hidden;
+}
+
+.nav-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(159, 122, 234, 0.1));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.nav-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
+.nav-card:hover::before {
+    opacity: 1;
+}
+
+.nav-card:hover .nav-arrow {
+    transform: translateX(5px);
+}
+
+.nav-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: white;
+    position: relative;
+    z-index: 1;
+}
+
+.payroll-card .nav-icon {
+    background: linear-gradient(135deg, #48bb78, #38a169);
+}
+
+.lessons-card .nav-icon {
+    background: linear-gradient(135deg, #4299e1, #3182ce);
+}
+
+.nav-content {
+    flex: 1;
+    position: relative;
+    z-index: 1;
+}
+
+.nav-content h3 {
+    color: #2d3748;
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.nav-content p {
+    color: #718096;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.nav-arrow {
+    color: #a0aec0;
+    font-size: 1.25rem;
+    transition: transform 0.3s ease;
+    position: relative;
+    z-index: 1;
+}
+
 /* Статистические карточки */
 .stats-grid {
     display: grid;
@@ -689,6 +791,31 @@ body {
 
     .admin-main {
         padding: 1rem;
+    }
+
+    .nav-cards {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .nav-card {
+        flex-direction: column;
+        text-align: center;
+        padding: 1.5rem;
+    }
+
+    .nav-icon {
+        width: 60px;
+        height: 60px;
+        font-size: 1.5rem;
+    }
+
+    .nav-content h3 {
+        font-size: 1.125rem;
+    }
+
+    .nav-content p {
+        font-size: 0.8rem;
     }
 
     .stats-grid {

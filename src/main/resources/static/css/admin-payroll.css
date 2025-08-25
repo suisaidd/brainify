@@ -1,0 +1,694 @@
+/* CSS для страницы управления сметами преподавателей */
+
+/* Заголовок страницы */
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.header-left h1 {
+    color: #4c51bf;
+    font-size: 1.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.header-left h1 i {
+    color: #9f7aea;
+}
+
+.header-subtitle {
+    color: #718096;
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.admin-btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    font-size: 0.875rem;
+}
+
+.admin-btn-secondary {
+    background: linear-gradient(135deg, #a0aec0, #718096);
+    color: white;
+}
+
+.admin-btn-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(160, 174, 192, 0.4);
+}
+
+.back-btn {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.back-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+}
+
+/* Статистические карточки */
+.payroll-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.payroll-stat {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.payroll-stat:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
+.stat-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: white;
+}
+
+.total-payroll {
+    background: linear-gradient(135deg, #48bb78, #38a169);
+}
+
+.paid-amount {
+    background: linear-gradient(135deg, #4299e1, #3182ce);
+}
+
+.pending-amount {
+    background: linear-gradient(135deg, #ed8936, #dd6b20);
+}
+
+.teachers-count {
+    background: linear-gradient(135deg, #9f7aea, #805ad5);
+}
+
+.stat-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #2d3748;
+    line-height: 1;
+}
+
+.stat-label {
+    color: #718096;
+    font-weight: 600;
+    margin-top: 0.25rem;
+}
+
+/* Панель управления */
+.control-panel {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.month-selector h3 {
+    color: #2d3748;
+    font-size: 1.25rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.month-selector h3 i {
+    color: #667eea;
+}
+
+.month-form {
+    margin-bottom: 2rem;
+}
+
+.form-row {
+    display: flex;
+    align-items: end;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-group label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #4a5568;
+}
+
+.form-select {
+    padding: 0.75rem 1rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 150px;
+}
+
+.form-select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.admin-actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.btn-info {
+    background: linear-gradient(135deg, #4299e1, #3182ce);
+    color: white;
+}
+
+.btn-info:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(66, 153, 225, 0.4);
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.btn:disabled:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Секция преподавателей */
+.teachers-section {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    overflow: hidden;
+}
+
+.section-header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #f7fafc, #edf2f7);
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.section-header h2 {
+    color: #2d3748;
+    font-size: 1.5rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.section-header h2 i {
+    color: #667eea;
+}
+
+.table-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-box i {
+    position: absolute;
+    left: 1rem;
+    color: #a0aec0;
+    z-index: 1;
+}
+
+.search-input {
+    padding: 0.75rem 1rem 0.75rem 2.75rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    min-width: 300px;
+    transition: all 0.3s ease;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.status-filter {
+    min-width: 150px;
+}
+
+/* Таблица преподавателей */
+.teachers-table-container {
+    overflow-x: auto;
+}
+
+.teachers-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.teachers-table th {
+    background: linear-gradient(135deg, #f7fafc, #edf2f7);
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: #4a5568;
+    border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
+}
+
+.teachers-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+}
+
+.teachers-table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.teachers-table tbody tr:hover {
+    background-color: #f7fafc;
+}
+
+.teacher-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.teacher-name {
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.amount-cell {
+    text-align: right;
+}
+
+.amount {
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.status-badge.paid {
+    background: linear-gradient(135deg, #c6f6d5, #9ae6b4);
+    color: #276749;
+}
+
+.status-badge.pending {
+    background: linear-gradient(135deg, #fef5e7, #feebc8);
+    color: #c05621;
+}
+
+.status-badge.none {
+    background: linear-gradient(135deg, #fed7d7, #feb2b2);
+    color: #c53030;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.btn-sm {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    border-radius: 8px;
+}
+
+.text-success {
+    color: #48bb78;
+    font-size: 1.25rem;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .header-content {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch;
+    }
+
+    .header-right {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .admin-btn {
+        justify-content: center;
+    }
+
+    .payroll-stats {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .control-panel {
+        padding: 1rem;
+    }
+
+    .form-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+
+    .form-select {
+        min-width: auto;
+        width: 100%;
+    }
+
+    .admin-actions {
+        flex-direction: column;
+    }
+
+    .section-header {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1rem;
+    }
+
+    .table-controls {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .search-input {
+        min-width: auto;
+        width: 100%;
+    }
+
+    .status-filter {
+        min-width: auto;
+        width: 100%;
+    }
+
+    .teachers-table {
+        font-size: 0.875rem;
+    }
+
+    .teachers-table th,
+    .teachers-table td {
+        padding: 0.75rem 0.5rem;
+    }
+
+    .action-buttons {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+}
+
+/* Анимации */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.payroll-stat {
+    animation: fadeInUp 0.6s ease forwards;
+}
+
+.payroll-stat:nth-child(1) { animation-delay: 0.1s; }
+.payroll-stat:nth-child(2) { animation-delay: 0.2s; }
+.payroll-stat:nth-child(3) { animation-delay: 0.3s; }
+.payroll-stat:nth-child(4) { animation-delay: 0.4s; }
+
+/* Стили для модального окна */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    animation: modalFadeIn 0.3s ease;
+}
+
+.modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.modal-content {
+    background: white;
+    border-radius: 16px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #f7fafc, #edf2f7);
+}
+
+.modal-header h3 {
+    color: #2d3748;
+    font-size: 1.25rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.modal-header h3 i {
+    color: #667eea;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    color: #a0aec0;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.modal-close:hover {
+    background: #e2e8f0;
+    color: #4a5568;
+}
+
+.modal-body {
+    padding: 2rem;
+}
+
+.modal-footer {
+    padding: 1.5rem 2rem;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    background: #f7fafc;
+}
+
+/* Стили для модального окна с подробностями */
+.teacher-details {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.detail-section {
+    background: #f7fafc;
+    border-radius: 8px;
+    padding: 1rem;
+    border-left: 4px solid #667eea;
+}
+
+.detail-section h4 {
+    color: #2d3748;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.detail-section h4 i {
+    color: #667eea;
+}
+
+.detail-section p {
+    margin-bottom: 0.5rem;
+    color: #4a5568;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.detail-section p:last-child {
+    margin-bottom: 0;
+}
+
+.detail-section p strong {
+    color: #2d3748;
+    font-weight: 600;
+}
+
+/* Toast уведомления */
+.toast {
+    position: fixed;
+    top: 2rem;
+    right: 2rem;
+    background: white;
+    padding: 1rem 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    animation: toastSlideIn 0.3s ease;
+    max-width: 400px;
+}
+
+.toast.success {
+    border-left: 4px solid #48bb78;
+}
+
+.toast.error {
+    border-left: 4px solid #f56565;
+}
+
+.toast.info {
+    border-left: 4px solid #4299e1;
+}
+
+@keyframes toastSlideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}

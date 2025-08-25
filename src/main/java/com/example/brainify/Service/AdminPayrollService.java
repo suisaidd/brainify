@@ -20,6 +20,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -37,49 +38,80 @@ public class AdminPayrollService {
     private PayrollPaymentRepository payrollPaymentRepository;
 
     /**
-     * Получить список всех преподавателей с их сметами за указанный месяц
+     * Получить список всех преподавателей с их сметами за указанный месяц и смену
      */
-    public List<TeacherPayrollDTO> getTeachersPayrollData(int year, int month) {
+    public List<TeacherPayrollDTO> getTeachersPayrollData(int year, int month, String shift) {
         List<User> teachers = userRepository.findByRole(UserRole.TEACHER);
         
+        if (teachers.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
         return teachers.stream().map(teacher -> {
-            // Получаем текущую смету преподавателя
-            BigDecimal currentPayrollAmount = payrollService.getPayrollData(
-                teacher.getId(), year, month, "current-payroll").getExpected();
-            
-            // Проверяем, есть ли уже созданный платеж
-            Optional<PayrollPayment> existingPayment = payrollPaymentRepository
-                .findPendingPaymentByTeacherAndYearAndMonthAndType(teacher, year, month, "current-payroll");
-            
-            BigDecimal paidAmount = BigDecimal.ZERO;
-            String paymentStatus = "none";
-            Long paymentId = null;
-            
-            if (existingPayment.isPresent()) {
-                PayrollPayment payment = existingPayment.get();
-                paidAmount = payment.getPaidAmount();
-                paymentStatus = payment.getPaymentStatus();
-                paymentId = payment.getId();
+            try {
+                // Получаем смету преподавателя для указанной смены
+                BigDecimal currentPayrollAmount = payrollService.getPayrollData(
+                    teacher.getId(), year, month, shift).getExpected();
+                
+                // Проверяем, есть ли уже созданные платежи для этой смены
+                List<PayrollPayment> existingPayments = payrollPaymentRepository
+                    .findAllPaymentsByTeacherAndYearAndMonthAndType(teacher, year, month, shift);
+                
+                BigDecimal paidAmount = BigDecimal.ZERO;
+                String paymentStatus = "none";
+                Long paymentId = null;
+                BigDecimal alreadyAccountedAmount = BigDecimal.ZERO;
+                
+                // Обрабатываем все существующие платежи
+                for (PayrollPayment payment : existingPayments) {
+                    if ("paid".equals(payment.getPaymentStatus())) {
+                        paidAmount = paidAmount.add(payment.getPaidAmount());
+                        paymentStatus = "paid";
+                        paymentId = payment.getId();
+                    } else if ("pending".equals(payment.getPaymentStatus())) {
+                        paymentStatus = "pending";
+                        paymentId = payment.getId();
+                    }
+                    alreadyAccountedAmount = alreadyAccountedAmount.add(payment.getExpectedAmount());
+                }
+                
+                // Вычитаем уже учтенные уроки
+                BigDecimal newPayrollAmount = currentPayrollAmount.subtract(alreadyAccountedAmount);
+                if (newPayrollAmount.compareTo(BigDecimal.ZERO) < 0) {
+                    newPayrollAmount = BigDecimal.ZERO;
+                }
+                
+                return new TeacherPayrollDTO(
+                    teacher.getId(),
+                    teacher.getName(),
+                    teacher.getEmail(),
+                    teacher.getPhone(),
+                    newPayrollAmount, // Только новые уроки
+                    paidAmount,
+                    paymentStatus,
+                    paymentId
+                );
+            } catch (Exception e) {
+                // В случае ошибки возвращаем данные с нулевыми суммами
+                return new TeacherPayrollDTO(
+                    teacher.getId(),
+                    teacher.getName(),
+                    teacher.getEmail(),
+                    teacher.getPhone(),
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    "error",
+                    null
+                );
             }
-            
-            return new TeacherPayrollDTO(
-                teacher.getId(),
-                teacher.getName(),
-                teacher.getEmail(),
-                teacher.getPhone(),
-                currentPayrollAmount,
-                paidAmount,
-                paymentStatus,
-                paymentId
-            );
         }).collect(Collectors.toList());
     }
 
     /**
-     * Создать смету для всех преподавателей за указанный месяц
+     * Создать смету для всех преподавателей за указанный месяц и смену
      */
-    public String createPayrollForAllTeachers(int year, int month) throws IOException {
-        List<TeacherPayrollDTO> teachersData = getTeachersPayrollData(year, month);
+    public String createPayrollForAllTeachers(int year, int month, String shift) throws IOException {
+        List<TeacherPayrollDTO> teachersData = getTeachersPayrollData(year, month, shift);
         
         // Фильтруем только тех, у кого есть смета
         List<TeacherPayrollDTO> teachersWithPayroll = teachersData.stream()
@@ -87,23 +119,54 @@ public class AdminPayrollService {
             .collect(Collectors.toList());
         
         if (teachersWithPayroll.isEmpty()) {
-            throw new RuntimeException("Нет преподавателей с сметами за указанный месяц");
+            throw new RuntimeException("Нет преподавателей с сметами за указанный месяц и смену");
         }
         
-        // Создаем записи о платежах
+        // Создаем записи о платежах или обновляем существующие
         for (TeacherPayrollDTO teacherData : teachersWithPayroll) {
             User teacher = userRepository.findById(teacherData.getTeacherId()).orElse(null);
             if (teacher != null) {
-                PayrollPayment payment = new PayrollPayment(
-                    teacher, year, month, "current-payroll", 
-                    teacherData.getCurrentPayrollAmount(), BigDecimal.ZERO
-                );
-                payrollPaymentRepository.save(payment);
+                // Проверяем, есть ли уже платежи для этой смены
+                List<PayrollPayment> existingPayments = payrollPaymentRepository
+                    .findAllPaymentsByTeacherAndYearAndMonthAndType(teacher, year, month, shift);
+                
+                if (existingPayments.isEmpty()) {
+                    // Создаем новый платеж
+                    PayrollPayment payment = new PayrollPayment(
+                        teacher, year, month, shift, 
+                        teacherData.getCurrentPayrollAmount(), BigDecimal.ZERO
+                    );
+                    payrollPaymentRepository.save(payment);
+                } else {
+                    // Проверяем, есть ли уже оплаченные платежи
+                    boolean hasPaidPayment = existingPayments.stream()
+                        .anyMatch(payment -> "paid".equals(payment.getPaymentStatus()));
+                    
+                    if (hasPaidPayment) {
+                        throw new RuntimeException("Смета для преподавателя " + teacher.getName() + " уже оплачена и не может быть изменена");
+                    }
+                    
+                    // Обновляем последний ожидающий платеж или создаем новый
+                    PayrollPayment lastPayment = existingPayments.get(0); // Первый в списке (самый новый)
+                    if ("pending".equals(lastPayment.getPaymentStatus())) {
+                        // Добавляем новые уроки к существующему платежу
+                        BigDecimal newTotal = lastPayment.getExpectedAmount().add(teacherData.getCurrentPayrollAmount());
+                        lastPayment.setExpectedAmount(newTotal);
+                        payrollPaymentRepository.save(lastPayment);
+                    } else {
+                        // Создаем новый платеж
+                        PayrollPayment payment = new PayrollPayment(
+                            teacher, year, month, shift, 
+                            teacherData.getCurrentPayrollAmount(), BigDecimal.ZERO
+                        );
+                        payrollPaymentRepository.save(payment);
+                    }
+                }
             }
         }
         
-        // Создаем Excel файл
-        String fileName = createExcelFile(teachersWithPayroll, year, month);
+        // Создаем Excel файл с правильным именем
+        String fileName = createExcelFile(teachersWithPayroll, year, month, shift);
         
         return fileName;
     }
@@ -125,7 +188,7 @@ public class AdminPayrollService {
     /**
      * Создать Excel файл со сметами
      */
-    private String createExcelFile(List<TeacherPayrollDTO> teachersData, int year, int month) throws IOException {
+    private String createExcelFile(List<TeacherPayrollDTO> teachersData, int year, int month, String shift) throws IOException {
         Workbook workbook = new XSSFWorkbook();
         Sheet sheet = workbook.createSheet("Смета преподавателей");
         
@@ -165,8 +228,8 @@ public class AdminPayrollService {
         }
         
         // Сохраняем файл
-        String fileName = String.format("payroll_%d_%02d_%s.xlsx", 
-            year, month, LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")));
+        String fileName = String.format("payroll_%d_%02d_%s_%s.xlsx", 
+            year, month, shift, LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")));
         
         Path uploadDir = Paths.get("uploads", "payroll");
         if (!Files.exists(uploadDir)) {

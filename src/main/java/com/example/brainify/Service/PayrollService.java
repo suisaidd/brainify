@@ -119,6 +119,17 @@ public class PayrollService {
         BigDecimal expected = calculateExpectedAmount(payrollData);
         // Получаем реальные выплаты из базы данных
         BigDecimal paid = getPaidAmount(teacherId, year, month, type);
+        
+        // Если есть ожидающие платежи, добавляем их к ожидаемой сумме
+        List<PayrollPayment> pendingPayments = payrollPaymentRepository
+            .findAllPaymentsByTeacherAndYearAndMonthAndType(userRepository.findById(teacherId).orElse(null), year, month, type);
+        
+        for (PayrollPayment payment : pendingPayments) {
+            if ("pending".equals(payment.getPaymentStatus())) {
+                // Добавляем ожидающий платеж к общей ожидаемой сумме
+                expected = expected.add(payment.getExpectedAmount());
+            }
+        }
 
         // Логирование для отладки
         System.out.println("=== ОТЛАДКА PAYROLL ===");
@@ -293,14 +304,18 @@ public class PayrollService {
             return BigDecimal.ZERO;
         }
         
-        // Ищем оплаченные платежи
-        Optional<PayrollPayment> payment = payrollPaymentRepository
-            .findPendingPaymentByTeacherAndYearAndMonthAndType(teacher, year, month, type);
+        // Ищем все платежи (pending или paid) для этого периода
+        List<PayrollPayment> payments = payrollPaymentRepository
+            .findAllPaymentsByTeacherAndYearAndMonthAndType(teacher, year, month, type);
         
-        if (payment.isPresent() && "paid".equals(payment.get().getPaymentStatus())) {
-            return payment.get().getPaidAmount();
+        // Суммируем все оплаченные платежи
+        BigDecimal totalPaid = BigDecimal.ZERO;
+        for (PayrollPayment payment : payments) {
+            if ("paid".equals(payment.getPaymentStatus())) {
+                totalPaid = totalPaid.add(payment.getPaidAmount());
+            }
         }
         
-        return BigDecimal.ZERO;
+        return totalPaid;
     }
 }

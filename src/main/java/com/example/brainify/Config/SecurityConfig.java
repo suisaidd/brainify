@@ -56,8 +56,10 @@ public class SecurityConfig {
                         "/", "/main", "/private-lessons", "/test",
                         "/auth/**", 
                         "/css/**", "/js/**", "/images/**", "/static/**",
-                        "/api/auth/status"
+                        "/api/auth/status",
+                        "/admin/payroll/test"
                 ).permitAll()
+                .requestMatchers("/admin/**").hasAnyAuthority("ADMIN")
                 .requestMatchers("/admin-role/**").hasAnyAuthority("ADMIN", "MANAGER")
                 .requestMatchers("/dashboard", "/student-dashboard").authenticated()
                 .anyRequest().authenticated()

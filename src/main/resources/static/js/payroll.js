@@ -177,11 +177,14 @@ class PayrollManager {
         // Обновляем период сметы
         this.updatePeriodInfo(isCurrentSection, isMonthlyView);
         
-        // Обновляем сводку - данные приходят напрямую в объекте data
+        // Обновляем сводку - используем реальные данные из API
         this.updateSummary({
             expected: data.expected,
-            paid: 0 // Выплаты пока не реализованы
+            paid: data.paid // Используем реальные данные о выплатах из API
         }, isCurrentSection, isMonthlyView);
+        
+        // Обновляем заголовок раздела с информацией о статусе
+        this.updateSectionHeader(data.paid, data.expected, isCurrentSection, isMonthlyView);
         
         // Обновляем таблицу
         this.updateTable(data.lessons, isCurrentSection, isMonthlyView);
@@ -207,14 +210,14 @@ class PayrollManager {
         } else if (isCurrentSection) {
             // Текущая смета: с 17 по последний день месяца
             const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
-            const periodText = `Период сметы: 17.${month}.${year} - ${lastDay}.${month}.${year}`;
+            const periodText = `Период: 17.${month}.${year} - ${lastDay}.${month}.${year}`;
             const element = document.getElementById('currentPeriodText');
             if (element) {
                 element.textContent = periodText;
             }
         } else {
             // Прошлая смета: с 1 по 16 число
-            const periodText = `Период сметы: 01.${month}.${year} - 16.${month}.${year}`;
+            const periodText = `Период: 01.${month}.${year} - 16.${month}.${year}`;
             const element = document.getElementById('pastPeriodText');
             if (element) {
                 element.textContent = periodText;
@@ -260,8 +263,79 @@ class PayrollManager {
         if (paidElement) {
             paidElement.textContent = this.formatCurrency(paid);
             console.log('Обновлен элемент выплаченной суммы:', paidElement.textContent);
+            
+            // Добавляем визуальный индикатор статуса выплат
+            this.updatePaymentStatus(paidElement, paid, expected);
         }
         console.log('========================');
+    }
+
+    updatePaymentStatus(paidElement, paid, expected) {
+        // Удаляем предыдущие классы статуса
+        paidElement.classList.remove('payment-paid', 'payment-partial', 'payment-pending');
+        
+        // Определяем, какой прогресс-бар использовать
+        const isCurrentSection = this.currentSection === 'current-payroll' || this.currentSection === 'monthly-payroll';
+        const progressContainer = isCurrentSection ? 
+            document.getElementById('paymentProgress') : 
+            document.getElementById('pastPaymentProgress');
+        const progressFill = isCurrentSection ? 
+            document.getElementById('progressFill') : 
+            document.getElementById('pastProgressFill');
+        const progressText = isCurrentSection ? 
+            document.getElementById('progressText') : 
+            document.getElementById('pastProgressText');
+        
+        if (paid > 0) {
+            if (paid >= expected) {
+                // Полностью оплачено
+                paidElement.classList.add('payment-paid');
+                paidElement.title = 'Смета полностью оплачена';
+                
+                // Показываем прогресс-бар
+                if (progressContainer && progressFill && progressText) {
+                    progressContainer.style.display = 'block';
+                    progressFill.style.width = '100%';
+                    progressFill.className = 'progress-fill completed';
+                    progressText.textContent = '100%';
+                }
+            } else {
+                // Частично оплачено
+                paidElement.classList.add('payment-partial');
+                const remaining = expected - paid;
+                const percentage = Math.round((paid / expected) * 100);
+                paidElement.title = `Частично оплачено. Остаток к выплате: ${this.formatCurrency(remaining)}`;
+                
+                // Показываем прогресс-бар
+                if (progressContainer && progressFill && progressText) {
+                    progressContainer.style.display = 'block';
+                    progressFill.style.width = `${percentage}%`;
+                    progressFill.className = 'progress-fill partial';
+                    progressText.textContent = `${percentage}%`;
+                }
+            }
+        } else if (expected > 0) {
+            // Есть ожидаемые выплаты, но ничего не оплачено
+            paidElement.classList.add('payment-pending');
+            paidElement.title = 'Ожидает выплаты';
+            
+            // Показываем прогресс-бар с 0%
+            if (progressContainer && progressFill && progressText) {
+                progressContainer.style.display = 'block';
+                progressFill.style.width = '0%';
+                progressFill.className = 'progress-fill';
+                progressText.textContent = '0%';
+            }
+        } else {
+            // Нет ни ожидаемых, ни выплаченных сумм
+            paidElement.classList.add('payment-pending');
+            paidElement.title = 'Нет данных о выплатах';
+            
+            // Скрываем прогресс-бар
+            if (progressContainer) {
+                progressContainer.style.display = 'none';
+            }
+        }
     }
 
     updateTable(lessons, isCurrentSection, isMonthlyView) {
@@ -367,6 +441,36 @@ class PayrollManager {
             return '0 ₽';
         }
         return `${Number(amount).toLocaleString('ru-RU')} ₽`;
+    }
+
+    updateSectionHeader(paid, expected, isCurrentSection, isMonthlyView) {
+        let headerElement;
+        
+        if (isMonthlyView || isCurrentSection) {
+            headerElement = document.getElementById('currentPeriodText');
+        } else {
+            headerElement = document.getElementById('pastPeriodText');
+        }
+        
+        if (!headerElement) return;
+        
+        // Получаем базовый текст периода
+        const baseText = headerElement.textContent;
+        
+        // Добавляем информацию о статусе выплат
+        let statusText = '';
+        if (paid > 0) {
+            if (paid >= expected) {
+                statusText = ' • Полностью оплачено';
+            } else {
+                const remaining = expected - paid;
+                statusText = ` • Частично оплачено (остаток: ${this.formatCurrency(remaining)})`;
+            }
+        } else {
+            statusText = ' • Ожидает выплаты';
+        }
+        
+        headerElement.textContent = baseText + statusText;
     }
 }
 

@@ -29,6 +29,20 @@ public interface PayrollPaymentRepository extends JpaRepository<PayrollPayment, 
                                                                               @Param("month") Integer month, 
                                                                               @Param("type") String type);
     
+    // Найти любой платеж (pending или paid) преподавателя за определенный месяц и тип
+    @Query("SELECT pp FROM PayrollPayment pp WHERE pp.teacher = :teacher AND pp.paymentYear = :year AND pp.paymentMonth = :month AND pp.paymentType = :type")
+    Optional<PayrollPayment> findAnyPaymentByTeacherAndYearAndMonthAndType(@Param("teacher") User teacher, 
+                                                                          @Param("year") Integer year, 
+                                                                          @Param("month") Integer month, 
+                                                                          @Param("type") String type);
+    
+    // Найти все платежи (pending или paid) преподавателя за определенный месяц и тип
+    @Query("SELECT pp FROM PayrollPayment pp WHERE pp.teacher = :teacher AND pp.paymentYear = :year AND pp.paymentMonth = :month AND pp.paymentType = :type ORDER BY pp.createdAt DESC")
+    List<PayrollPayment> findAllPaymentsByTeacherAndYearAndMonthAndType(@Param("teacher") User teacher, 
+                                                                       @Param("year") Integer year, 
+                                                                       @Param("month") Integer month, 
+                                                                       @Param("type") String type);
+    
     // Найти все ожидающие платежи за определенный месяц
     @Query("SELECT pp FROM PayrollPayment pp WHERE pp.paymentYear = :year AND pp.paymentMonth = :month AND pp.paymentStatus = 'pending'")
     List<PayrollPayment> findPendingPaymentsByYearAndMonth(@Param("year") Integer year, 
