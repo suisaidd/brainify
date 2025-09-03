@@ -236,7 +236,6 @@ public class AuthController {
         Map<String, Object> response = new HashMap<>();
         try {
             String email = request.get("email");
-            String password = request.get("password");
             
             // Разрешенные email для автоматического входа в режиме разработки
             String[] allowedEmails = {

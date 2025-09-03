@@ -18,6 +18,10 @@ import jakarta.servlet.http.HttpSession;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
+import com.example.brainify.Model.OnlineLessonSession;
+import com.example.brainify.Model.Lesson;
+import com.example.brainify.Service.OnlineLessonService;
+import java.util.ArrayList;
 
 @Controller
 @RequestMapping("/admin-role")
@@ -28,6 +32,9 @@ public class AdminController {
     
     @Autowired
     private SessionManager sessionManager;
+
+    @Autowired
+    private OnlineLessonService onlineLessonService;
 
     // Отображение админ панели
     @GetMapping
@@ -257,6 +264,108 @@ public class AdminController {
             response.put("status", "error");
             
             return ResponseEntity.status(500).body(response);
+        }
+    }
+
+    /**
+     * Страница активных онлайн-уроков для администратора
+     */
+    @GetMapping("/active-lessons")
+    public String adminActiveLessonsPage(Model model, HttpSession session) {
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null) {
+            return "redirect:/login";
+        }
+
+        // Проверяем, что пользователь является администратором
+        if (!currentUser.getRole().equals(UserRole.ADMIN)) {
+            return "redirect:/dashboard?error=access_denied";
+        }
+
+        model.addAttribute("currentUser", currentUser);
+        return "admin/active-lessons";
+    }
+
+    /**
+     * API для получения активных онлайн-уроков
+     */
+    @GetMapping("/api/active-lessons")
+    public ResponseEntity<?> getActiveLessons(HttpSession session) {
+        try {
+            User currentUser = sessionManager.getCurrentUser(session);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Пользователь не авторизован"));
+            }
+
+            if (!currentUser.getRole().equals(UserRole.ADMIN)) {
+                return ResponseEntity.status(403).body(Map.of("error", "Доступ запрещен"));
+            }
+
+            // Получаем все активные онлайн-уроки
+            List<OnlineLessonSession> activeSessions = onlineLessonService.getActiveSessions();
+            
+            List<Map<String, Object>> sessionsData = new ArrayList<>();
+            for (OnlineLessonSession sessionData : activeSessions) {
+                Lesson lesson = sessionData.getLesson();
+                
+                Map<String, Object> sessionInfo = new HashMap<>();
+                sessionInfo.put("sessionId", sessionData.getId());
+                sessionInfo.put("roomId", sessionData.getRoomId());
+                sessionInfo.put("roomKey", sessionData.getRoomKey());
+                sessionInfo.put("status", sessionData.getStatus());
+                sessionInfo.put("sessionStartedAt", sessionData.getSessionStartedAt());
+                sessionInfo.put("teacherJoinedAt", sessionData.getTeacherJoinedAt());
+                sessionInfo.put("studentJoinedAt", sessionData.getStudentJoinedAt());
+                
+                // Данные урока
+                Map<String, Object> lessonInfo = new HashMap<>();
+                lessonInfo.put("id", lesson.getId());
+                lessonInfo.put("lessonDate", lesson.getLessonDate());
+                lessonInfo.put("subject", lesson.getSubject().getName());
+                lessonInfo.put("teacher", lesson.getTeacher().getName());
+                lessonInfo.put("student", lesson.getStudent().getName());
+                sessionInfo.put("lesson", lessonInfo);
+                
+                sessionsData.add(sessionInfo);
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("sessions", sessionsData);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Ошибка при получении активных уроков: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Ручной запуск автоматического завершения уроков (для тестирования)
+     */
+    @PostMapping("/api/complete-expired-lessons")
+    public ResponseEntity<?> completeExpiredLessons(HttpSession session) {
+        try {
+            User currentUser = sessionManager.getCurrentUser(session);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "Пользователь не авторизован"));
+            }
+
+            if (!currentUser.getRole().equals(UserRole.ADMIN)) {
+                return ResponseEntity.status(403).body(Map.of("error", "Доступ запрещен"));
+            }
+
+            // Запускаем автоматическое завершение
+            onlineLessonService.autoCompleteExpiredLessons();
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Автоматическое завершение уроков выполнено");
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Ошибка при завершении уроков: " + e.getMessage()));
         }
     }
 } 

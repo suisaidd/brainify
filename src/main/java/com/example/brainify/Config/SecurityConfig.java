@@ -57,7 +57,9 @@ public class SecurityConfig {
                         "/auth/**", 
                         "/css/**", "/js/**", "/images/**", "/static/**",
                         "/api/auth/status",
-                        "/admin/payroll/test"
+                        "/admin/payroll/test",
+                        "/ws/**", "/topic/**", "/app/**",
+                        "/api/board/**"
                 ).permitAll()
                 .requestMatchers("/admin/**").hasAnyAuthority("ADMIN")
                 .requestMatchers("/admin-role/**").hasAnyAuthority("ADMIN", "MANAGER")

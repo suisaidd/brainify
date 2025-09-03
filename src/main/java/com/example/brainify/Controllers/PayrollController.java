@@ -77,6 +77,7 @@ public class PayrollController {
             testData.put("summary", summary);
             
             // Тестовые уроки
+            @SuppressWarnings("unchecked")
             Map<String, Object>[] lessons = new Map[5];
             
             lessons[0] = new HashMap<>();

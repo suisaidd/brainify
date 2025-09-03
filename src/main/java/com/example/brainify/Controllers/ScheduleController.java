@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpSession;
 import java.time.*;
-import java.time.format.DateTimeFormatter;
+
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -32,8 +32,7 @@ public class ScheduleController {
     @Autowired
     private UserRepository userRepository;
 
-    @Autowired
-    private SubjectRepository subjectRepository;
+
 
     @Autowired
     private StudentTeacherRepository studentTeacherRepository;

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Проверка оборудования - Brainify</title>
+    
+    <!-- Подключение стилей -->
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/equipment-check.css}">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="equipment-check-body">
+    <!-- Хедер -->
+    <header class="check-header">
+        <div class="header-left">
+            <a href="/dashboard" class="back-btn">
+                <i class="fas fa-arrow-left"></i>
+                Вернуться в кабинет
+            </a>
+            <div class="lesson-info">
+                <h1 id="lessonTitle">Проверка оборудования</h1>
+                <div class="lesson-details">
+                    <span id="lessonSubject">Предмет</span>
+                    <span class="separator">•</span>
+                    <span id="lessonStudent">Ученик</span>
+                    <span class="separator">•</span>
+                    <span id="lessonTime">Время</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="header-right">
+            <div class="connection-status" id="connectionStatus">
+                <i class="fas fa-circle"></i>
+                <span>Проверка соединения...</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Основной контент -->
+    <main class="check-main">
+        <div class="check-container">
+            <div class="stage-header">
+                <h2><i class="fas fa-desktop"></i> Проверка оборудования</h2>
+                <p>Проверьте работу камеры, микрофона и интернет-соединения перед началом урока</p>
+            </div>
+            
+            <div class="equipment-check-container">
+                <div class="video-preview-section">
+                    <div class="video-frame" id="videoFrame">
+                        <video id="cameraPreview" autoplay playsinline muted></video>
+                        <div class="video-overlay" id="videoOverlay">
+                            <i class="fas fa-video-slash"></i>
+                            <span>Нет доступа к камере</span>
+                        </div>
+                    </div>
+                    <div class="video-controls">
+                        <button class="control-btn" id="switchCameraBtn" title="Переключить камеру">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button class="control-btn" id="muteVideoBtn" title="Выключить видео">
+                            <i class="fas fa-video"></i>
+                        </button>
+                        <button class="control-btn" id="muteAudioBtn" title="Выключить микрофон">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="equipment-status">
+                    <div class="status-grid">
+                        <div class="status-box" id="cameraStatus">
+                            <div class="status-icon">
+                                <i class="fas fa-video"></i>
+                            </div>
+                            <div class="status-content">
+                                <div class="status-title">Камера</div>
+                                <div class="status-text">Проверка...</div>
+                            </div>
+                        </div>
+                        
+                        <div class="status-box" id="micStatus">
+                            <div class="status-icon">
+                                <i class="fas fa-microphone"></i>
+                            </div>
+                            <div class="status-content">
+                                <div class="status-title">Микрофон</div>
+                                <div class="status-text">Проверка...</div>
+                            </div>
+                        </div>
+                        
+                        <div class="status-box" id="networkStatus">
+                            <div class="status-icon">
+                                <i class="fas fa-wifi"></i>
+                            </div>
+                            <div class="status-content">
+                                <div class="status-title">Интернет</div>
+                                <div class="status-text">Проверка...</div>
+                            </div>
+                        </div>
+                        
+                        <div class="status-box" id="browserStatus">
+                            <div class="status-icon">
+                                <i class="fas fa-globe"></i>
+                            </div>
+                            <div class="status-content">
+                                <div class="status-title">Браузер</div>
+                                <div class="status-text">Проверка...</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="equipment-actions">
+                        <button class="action-btn secondary" id="retryCheckBtn">
+                            <i class="fas fa-redo"></i>
+                            Повторить проверку
+                        </button>
+                        <button class="action-btn primary" id="continueToLessonBtn" disabled>
+                            <i class="fas fa-play"></i>
+                            Подключиться к уроку
+                        </button>
+                        <button class="action-btn warning" id="continueAnywayBtn" style="display: none;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Продолжить в любом случае
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Подключение скриптов -->
+    <script th:src="@{/js/equipment-check.js}"></script>
+</body>
+</html>

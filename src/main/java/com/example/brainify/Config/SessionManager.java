@@ -163,4 +163,14 @@ public class SessionManager {
     public boolean isAuthenticated(HttpServletRequest request) {
         return getCurrentUser(request) != null;
     }
+    
+    /**
+     * Получить пользователя по ID сессии (для WebSocket)
+     */
+    public User getUserBySessionId(String sessionId) {
+        if (sessionId == null) {
+            return null;
+        }
+        return activeSessions.get(sessionId);
+    }
 } 

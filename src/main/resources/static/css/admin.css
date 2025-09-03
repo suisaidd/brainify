@@ -775,6 +775,11 @@ body {
     font-weight: 600;
 }
 
+/* Активные уроки карточка */
+.active-lessons-card .nav-icon {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
 /* Адаптивность */
 @media (max-width: 768px) {
     .admin-header {

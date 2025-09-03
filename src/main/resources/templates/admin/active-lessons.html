@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Активные уроки - Админ панель</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/admin.css}">
+    <link rel="stylesheet" th:href="@{/css/admin-active-lessons.css}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="admin-body">
+    <!-- Header -->
+    <header class="admin-header">
+        <div class="header-content">
+            <div class="header-left">
+                <h1><i class="fas fa-video"></i> Активные онлайн-уроки</h1>
+                <p>Мониторинг и поддержка текущих уроков</p>
+            </div>
+            <div class="header-right">
+                <div class="admin-info">
+                    <span th:text="${currentUser.name}">Администратор</span>
+                    <a href="/logout" class="logout-btn">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Выйти
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="admin-nav">
+        <div class="nav-content">
+            <a href="/admin" class="nav-item">
+                <i class="fas fa-tachometer-alt"></i>
+                Панель управления
+            </a>
+            <a href="/admin/lessons" class="nav-item">
+                <i class="fas fa-calendar-alt"></i>
+                Уроки
+            </a>
+            <a href="/admin/payroll" class="nav-item">
+                <i class="fas fa-money-bill-wave"></i>
+                Зарплата
+            </a>
+            <a href="/admin-role/active-lessons" class="nav-item active">
+                <i class="fas fa-video"></i>
+                Активные уроки
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+        <div class="content-header">
+            <div class="header-left">
+                <h2>Текущие онлайн-уроки</h2>
+                <p>Здесь отображаются все активные онлайн-уроки. Вы можете присоединиться к любому уроку для технической поддержки.</p>
+            </div>
+            <div class="header-right">
+                <button class="refresh-btn" id="refreshBtn">
+                    <i class="fas fa-sync-alt"></i>
+                    Обновить
+                </button>
+                <button class="complete-btn" id="completeExpiredBtn" title="Завершить просроченные уроки">
+                    <i class="fas fa-clock"></i>
+                    Завершить просроченные
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-video"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-number" id="totalActiveLessons">0</div>
+                    <div class="stat-label">Активных уроков</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-number" id="totalParticipants">0</div>
+                    <div class="stat-label">Участников</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-number" id="avgSessionTime">0</div>
+                    <div class="stat-label">Среднее время (мин)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Lessons List -->
+        <div class="lessons-container">
+            <div class="lessons-header">
+                <h3>Список активных уроков</h3>
+                <div class="filter-controls">
+                    <select id="subjectFilter" class="filter-select">
+                        <option value="">Все предметы</option>
+                    </select>
+                    <select id="statusFilter" class="filter-select">
+                        <option value="">Все статусы</option>
+                        <option value="ACTIVE">Активные</option>
+                        <option value="WAITING">Ожидание</option>
+                        <option value="EXPIRED">Просроченные</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="lessons-grid" id="lessonsGrid">
+                <!-- Уроки будут загружены динамически -->
+                <div class="loading-placeholder">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Загрузка активных уроков...</p>
+                </div>
+            </div>
+
+            <div class="no-lessons" id="noLessons" style="display: none;">
+                <i class="fas fa-video-slash"></i>
+                <h3>Нет активных уроков</h3>
+                <p>В данный момент нет активных онлайн-уроков.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Join Lesson Modal -->
+    <div class="modal" id="joinLessonModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Присоединиться к уроку</h3>
+                <button class="close-btn" id="closeModalBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="lesson-info" id="modalLessonInfo">
+                    <!-- Информация об уроке будет загружена динамически -->
+                </div>
+                <div class="warning-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Вы присоединяетесь к уроку как технический помощник. Убедитесь, что ваше присутствие необходимо.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn secondary" id="cancelJoinBtn">Отмена</button>
+                <button class="btn primary" id="confirmJoinBtn">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Присоединиться
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Scripts -->
+    <script th:src="@{/js/admin-active-lessons.js}"></script>
+</body>
+</html>

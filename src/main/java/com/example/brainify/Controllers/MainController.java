@@ -299,6 +299,7 @@ public class MainController {
                 }
                 
                 // Добавляем предмет
+                @SuppressWarnings("unchecked")
                 List<String> subjects = (List<String>) studentsMap.get(studentId).get("subjects");
                 subjects.add(st.getSubject().getName());
             }

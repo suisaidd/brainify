@@ -159,7 +159,8 @@ function createLessonCard(lesson) {
 function getLessonStatus(lesson) {
     const now = new Date();
     const lessonDate = new Date(lesson.lessonDate);
-    const lessonEndDate = new Date(lessonDate.getTime() + 90 * 60000); // 90 минут
+    const fifteenMinutesBefore = new Date(lessonDate.getTime() - (15 * 60 * 1000)); // 15 минут до урока
+    const oneHourAfter = new Date(lessonDate.getTime() + (60 * 60 * 1000)); // 1 час после урока
     
     if (lesson.status === 'COMPLETED') {
         return 'completed';
@@ -167,7 +168,7 @@ function getLessonStatus(lesson) {
         return 'cancelled';
     } else if (lesson.status === 'MISSED') {
         return 'missed';
-    } else if (now >= lessonDate && now <= lessonEndDate) {
+    } else if (now >= fifteenMinutesBefore && now <= oneHourAfter) {
         return 'ongoing';
     } else if (now < lessonDate) {
         const diffDays = Math.floor((lessonDate - now) / (1000 * 60 * 60 * 24));
@@ -247,16 +248,58 @@ function formatTime(date) {
 
 // Функция для получения действий урока
 function getLessonActions(status, lesson) {
+    const now = new Date();
+    const lessonDate = new Date(lesson.lessonDate);
+    const fifteenMinutesBefore = new Date(lessonDate.getTime() - (15 * 60 * 1000));
+    const oneHourAfter = new Date(lessonDate.getTime() + (60 * 60 * 1000));
+    
     switch (status) {
         case 'ongoing':
-            return `
-                <div class="lesson-actions">
-                    <button class="lesson-btn primary" onclick="joinLesson(${lesson.id})">
-                        Присоединиться
-                    </button>
-                </div>
-            `;
+            if (now < lessonDate) {
+                // Еще не начался, но можно присоединиться
+                return `
+                    <div class="lesson-actions">
+                        <button class="lesson-btn primary" onclick="joinLesson(${lesson.id})">
+                            Присоединиться
+                        </button>
+                    </div>
+                `;
+            } else if (now <= oneHourAfter) {
+                // Урок идет
+                return `
+                    <div class="lesson-actions">
+                        <button class="lesson-btn primary" onclick="joinLesson(${lesson.id})">
+                            Присоединиться
+                        </button>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="lesson-actions">
+                        <button class="lesson-btn disabled" disabled>
+                            Урок завершен
+                        </button>
+                    </div>
+                `;
+            }
         case 'today':
+            if (now < fifteenMinutesBefore) {
+                return `
+                    <div class="lesson-actions">
+                        <button class="lesson-btn disabled" disabled>
+                            Доступно за 15 минут
+                        </button>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="lesson-actions">
+                        <button class="lesson-btn secondary" onclick="prepareForLesson(${lesson.id})">
+                            Подготовиться
+                        </button>
+                    </div>
+                `;
+            }
         case 'tomorrow':
         case 'scheduled':
             return `
@@ -287,11 +330,9 @@ function updateLessonsCount(count) {
 
 // Функция для присоединения к уроку
 function joinLesson(lessonId) {
-    showStudentToast('Присоединяемся к уроку...', 'info');
-    // Здесь можно добавить логику для присоединения к уроку
-    setTimeout(() => {
-        showStudentToast('Вы успешно присоединились к уроку!', 'success');
-    }, 1000);
+    showStudentToast('Переход к проверке оборудования...', 'info');
+    // Перенаправляем на страницу проверки оборудования
+    window.location.href = `/equipment-check?lessonId=${lessonId}`;
 }
 
 // Функция для подготовки к уроку

@@ -1385,9 +1385,22 @@ function createNewLessonCard(lesson, type) {
 function createCurrentLessonActions(lesson, status) {
     const lessonDate = createDateFromInput(lesson.lessonDate);
     const now = new Date();
-    const twoHoursBefore = new Date(lessonDate.getTime() - (2 * 60 * 60 * 1000)); // 2 часа до урока
+    const fifteenMinutesBefore = new Date(lessonDate.getTime() - (15 * 60 * 1000)); // 15 минут до урока
     const oneHourAfter = new Date(lessonDate.getTime() + (60 * 60 * 1000)); // 1 час после урока
-    const canJoin = now >= twoHoursBefore && now <= oneHourAfter; // 3 часа активности (2 часа до + 1 час во время)
+    const canJoin = now >= fifteenMinutesBefore && now <= oneHourAfter; // Активность: 15 минут до + 1 час после
+    
+    console.log('createCurrentLessonActions для урока', lesson.id, {
+        status: status,
+        lessonDate: lessonDate,
+        now: now,
+        fifteenMinutesBefore: fifteenMinutesBefore,
+        oneHourAfter: oneHourAfter,
+        canJoin: canJoin,
+        nowTime: now.getTime(),
+        lessonDateTime: lessonDate.getTime(),
+        fifteenMinutesBeforeTime: fifteenMinutesBefore.getTime(),
+        oneHourAfterTime: oneHourAfter.getTime()
+    });
     
     if (status === 'today') {
         let buttons = `
@@ -1414,15 +1427,15 @@ function createCurrentLessonActions(lesson, status) {
                 buttons += `
                     <button class="lesson-btn primary" onclick="joinLesson(${lesson.id})">
                         <i class="fas fa-sign-in-alt"></i>
-                        Войти в урок
+                        Подключиться к уроку
                     </button>
                 `;
             }
-        } else if (now < twoHoursBefore) {
+        } else if (now < fifteenMinutesBefore) {
             buttons += `
                 <button class="lesson-btn disabled" disabled>
                     <i class="fas fa-clock"></i>
-                    Доступно за 2 часа
+                    Доступно за 15 минут
                 </button>
             `;
         } else if (now > oneHourAfter) {
@@ -1470,22 +1483,44 @@ function createPastLessonActions(lesson, status) {
 function getLessonStatus(lesson) {
     const now = new Date();
     const lessonDate = createDateFromInput(lesson.lessonDate);
+    const oneHourAfter = new Date(lessonDate.getTime() + (60 * 60 * 1000)); // 1 час после урока
     
     if (!lessonDate) {
+        console.log('getLessonStatus: нет даты урока', lesson.id);
         return 'scheduled'; // По умолчанию, если дата не может быть обработана
     }
+    
+    console.log('getLessonStatus для урока', lesson.id, {
+        lessonStatus: lesson.status,
+        lessonDate: lessonDate,
+        now: now,
+        oneHourAfter: oneHourAfter,
+        isToday: isToday(lessonDate),
+        nowTime: now.getTime(),
+        lessonDateTime: lessonDate.getTime(),
+        oneHourAfterTime: oneHourAfter.getTime()
+    });
     
     if (lesson.status === 'COMPLETED') {
         return 'completed';
     } else if (lesson.status === 'CANCELLED') {
         return 'cancelled';
-    } else if (lessonDate < now) {
+    } else if (now <= oneHourAfter && isToday(lessonDate)) {
+        // Урок сегодня и еще не прошел час после начала
+        console.log('getLessonStatus: возвращаем today (урок сегодня, не прошел час)');
+        return 'today';
+    } else if (lessonDate < now && now > oneHourAfter) {
+        // Урок прошел больше часа назад
+        console.log('getLessonStatus: возвращаем overdue (урок прошел больше часа назад)');
         return 'overdue';
     } else if (isToday(lessonDate)) {
+        console.log('getLessonStatus: возвращаем today (урок сегодня)');
         return 'today';
     } else if (isTomorrow(lessonDate)) {
+        console.log('getLessonStatus: возвращаем tomorrow');
         return 'tomorrow';
     } else {
+        console.log('getLessonStatus: возвращаем scheduled');
         return 'scheduled';
     }
 }
@@ -1666,9 +1701,9 @@ function showNoPastLessonsMessage() {
 // Функции для действий с уроками
 function joinLesson(lessonId) {
     console.log('Вход в урок:', lessonId);
-    showToast('Вход в урок...', 'info');
+    showToast('Переход к проверке оборудования...', 'info');
     
-    // Вызываем API для входа в урок
+    // Сначала отмечаем вход в урок
     fetch(`/api/lessons/${lessonId}/join`, {
         method: 'POST',
         headers: {
@@ -1678,9 +1713,8 @@ function joinLesson(lessonId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showToast('Успешно вошли в урок!', 'success');
-            // Обновляем отображение урока
-            loadTeacherLessons();
+            // Перенаправляем на страницу проверки оборудования
+            window.location.href = `/equipment-check?lessonId=${lessonId}`;
         } else {
             showToast(data.message || 'Не удалось войти в урок', 'error');
         }

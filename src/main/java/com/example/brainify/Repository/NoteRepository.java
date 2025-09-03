@@ -34,3 +34,4 @@ public interface NoteRepository extends JpaRepository<Note, Long> {
     // Подсчитать количество конспектов по предмету
     long countByTeacherIdAndSubjectIdAndIsActive(Long teacherId, Long subjectId, Boolean isActive);
 }
+

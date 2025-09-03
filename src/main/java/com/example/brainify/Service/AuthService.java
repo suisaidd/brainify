@@ -19,7 +19,7 @@ import java.util.Optional;
 public class AuthService {
     
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
-    private static final int MAX_ATTEMPTS_PER_HOUR = 1000; // Практически нет лимита
+
     
     @Autowired
     private UserRepository userRepository;

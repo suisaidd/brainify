@@ -2,7 +2,7 @@ package com.example.brainify.Controllers;
 
 import com.example.brainify.Model.*;
 import com.example.brainify.Repository.*;
-import com.example.brainify.Service.UserService;
+
 import com.example.brainify.Config.SessionManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -14,7 +14,7 @@ import jakarta.servlet.http.HttpSession;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
+
 import java.util.*;
 import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,8 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequestMapping("/admin-lessons")
 public class AdminLessonsController {
 
-    @Autowired
-    private UserService userService;
+
     
     @Autowired
     private SessionManager sessionManager;
@@ -426,7 +425,7 @@ public class AdminLessonsController {
                     LocalTime startTime = LocalTime.parse(startTimeStr);
                     
                     // Находим уроки преподавателя на это время
-                    LocalDateTime lessonDateTime = getDateFromDayAndHour(dayOfWeekStr, startTimeStr.split(":")[0], 0);
+                    LocalDateTime lessonDateTime = getDateFromDayAndHour(dayOfWeek.toString(), String.valueOf(startTime.getHour()), 0);
                     List<Lesson> lessons = lessonRepository.findByTeacherAndLessonDateBetween(
                         teacher,
                         lessonDateTime,

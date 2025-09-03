@@ -2,10 +2,10 @@ package com.example.brainify.Service;
 
 import com.example.brainify.Model.Lesson;
 import com.example.brainify.Model.LessonCancellation;
-import com.example.brainify.Model.User;
+
 import com.example.brainify.Repository.LessonRepository;
 import com.example.brainify.Repository.LessonCancellationRepository;
-import com.example.brainify.Repository.UserRepository;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -22,9 +22,6 @@ public class LessonAutoCompletionService {
 
     @Autowired
     private LessonCancellationRepository lessonCancellationRepository;
-
-    @Autowired
-    private UserRepository userRepository;
 
     /**
      * Отметить вход преподавателя в урок
@@ -108,6 +105,7 @@ public class LessonAutoCompletionService {
         cancellation.setLesson(lesson);
         cancellation.setCancelledBy(lesson.getTeacher());
         cancellation.setCancellationDate(LocalDateTime.now());
+        cancellation.setCreatedAt(LocalDateTime.now());
         cancellation.setCancellationReason("Автоматический штраф: преподаватель не вошел в урок");
         cancellation.setPenaltyAmount(600.0);
         cancellation.setPenaltyReason("Неявка преподавателя на урок");
