@@ -1,0 +1,355 @@
+// Professional Board Brush Optimizer - Оптимизация кисти высокого уровня
+// Сглаживание, throttling, и оптимизация точек для плавного рисования
+
+class BrushOptimizer {
+    constructor(board) {
+        this.board = board;
+        this.isEnabled = true;
+        
+        // Настройки сглаживания
+        this.smoothing = {
+            enabled: true,
+            strength: 0.7, // Сила сглаживания (0-1)
+            velocityThreshold: 10, // Порог скорости для адаптивного сглаживания
+            maxPoints: 500, // Максимальное количество точек в штрихе
+            minDistance: 2, // Минимальное расстояние между точками
+            adaptiveSmoothing: true
+        };
+        
+        // Настройки throttling
+        this.throttling = {
+            enabled: true,
+            interval: 8, // Интервал обработки в мс (125 FPS макс)
+            adaptiveInterval: true,
+            performanceThreshold: 30 // FPS ниже которого увеличиваем интервал
+        };
+        
+        // Состояние рисования
+        this.drawingState = {
+            isDrawing: false,
+            currentStroke: null,
+            lastPoint: null,
+            lastTime: 0,
+            velocity: 0,
+            pressure: 1,
+            smoothedPoints: [],
+            throttleTimer: null
+        };
+        
+        // Буфер точек для сглаживания
+        this.pointBuffer = [];
+        this.maxBufferSize = 5;
+        
+        console.log('🖌️ BrushOptimizer инициализирован');
+    }
+    
+    // Начало рисования
+    startDrawing(point, options = {}) {
+        if (!this.isEnabled) return false;
+        
+        console.log('🎨 Начало оптимизированного рисования');
+        
+        this.drawingState.isDrawing = true;
+        this.drawingState.lastPoint = point;
+        this.drawingState.lastTime = performance.now();
+        this.drawingState.velocity = 0;
+        this.drawingState.pressure = options.pressure || 1;
+        
+        // Очистка буферов
+        this.pointBuffer = [point];
+        this.drawingState.smoothedPoints = [point];
+        
+        // Создание нового штриха
+        this.drawingState.currentStroke = {
+            id: Date.now() + '_' + Math.random(),
+            points: [point],
+            color: options.color || '#000000',
+            brushSize: options.brushSize || 3,
+            opacity: options.opacity || 1,
+            tool: options.tool || 'brush',
+            timestamp: Date.now()
+        };
+        
+        return true;
+    }
+    
+    // Добавление точки в процессе рисования
+    addPoint(point, options = {}) {
+        if (!this.isEnabled || !this.drawingState.isDrawing) return false;
+        
+        const currentTime = performance.now();
+        const deltaTime = currentTime - this.drawingState.lastTime;
+        
+        // Throttling - пропускаем точки если они приходят слишком часто
+        if (this.throttling.enabled && deltaTime < this.getAdaptiveInterval()) {
+            return false;
+        }
+        
+        // Вычисление скорости
+        const distance = this.calculateDistance(this.drawingState.lastPoint, point);
+        this.drawingState.velocity = distance / Math.max(deltaTime, 1);
+        
+        // Проверка минимального расстояния
+        if (distance < this.smoothing.minDistance) {
+            return false;
+        }
+        
+        // Добавление в буфер
+        this.pointBuffer.push(point);
+        if (this.pointBuffer.length > this.maxBufferSize) {
+            this.pointBuffer.shift();
+        }
+        
+        // Сглаживание точки
+        const smoothedPoint = this.smoothing.enabled ? 
+            this.smoothPoint(point) : point;
+        
+        // Добавление адаптивного давления
+        smoothedPoint.pressure = this.calculateAdaptivePressure(options.pressure);
+        
+        // Добавление в штрих
+        this.drawingState.currentStroke.points.push(smoothedPoint);
+        this.drawingState.smoothedPoints.push(smoothedPoint);
+        
+        // Оптимизация количества точек
+        if (this.drawingState.currentStroke.points.length > this.smoothing.maxPoints) {
+            this.optimizeStrokePoints();
+        }
+        
+        // Обновление состояния
+        this.drawingState.lastPoint = point;
+        this.drawingState.lastTime = currentTime;
+        
+        return smoothedPoint;
+    }
+    
+    // Завершение рисования
+    finishDrawing() {
+        if (!this.isEnabled || !this.drawingState.isDrawing) return null;
+        
+        console.log('✅ Завершение оптимизированного рисования');
+        
+        // Финальная оптимизация штриха
+        const finalStroke = this.finalizeStroke();
+        
+        // Очистка состояния
+        this.drawingState.isDrawing = false;
+        this.drawingState.currentStroke = null;
+        this.pointBuffer = [];
+        this.drawingState.smoothedPoints = [];
+        
+        return finalStroke;
+    }
+    
+    // Сглаживание точки
+    smoothPoint(point) {
+        if (!this.smoothing.enabled || this.pointBuffer.length < 2) {
+            return point;
+        }
+        
+        const smoothingStrength = this.getAdaptiveSmoothingStrength();
+        
+        // Простое усреднение с предыдущими точками
+        let avgX = point.x;
+        let avgY = point.y;
+        let weight = 1;
+        
+        for (let i = this.pointBuffer.length - 2; i >= 0; i--) {
+            const prevPoint = this.pointBuffer[i];
+            const distance = this.calculateDistance(point, prevPoint);
+            const pointWeight = Math.exp(-distance / 20) * smoothingStrength;
+            
+            avgX += prevPoint.x * pointWeight;
+            avgY += prevPoint.y * pointWeight;
+            weight += pointWeight;
+        }
+        
+        return {
+            x: avgX / weight,
+            y: avgY / weight,
+            timestamp: point.timestamp
+        };
+    }
+    
+    // Адаптивная сила сглаживания на основе скорости
+    getAdaptiveSmoothingStrength() {
+        if (!this.smoothing.adaptiveSmoothing) {
+            return this.smoothing.strength;
+        }
+        
+        // Чем быстрее движение, тем меньше сглаживание
+        const velocityFactor = Math.min(this.drawingState.velocity / this.smoothing.velocityThreshold, 1);
+        return this.smoothing.strength * (1 - velocityFactor * 0.5);
+    }
+    
+    // Адаптивный интервал throttling
+    getAdaptiveInterval() {
+        if (!this.throttling.adaptiveInterval) {
+            return this.throttling.interval;
+        }
+        
+        // Получение FPS от PerformanceManager
+        const currentFPS = this.board.modules.performance ? 
+            this.board.modules.performance.getCurrentFPS() : 60;
+        
+        if (currentFPS < this.throttling.performanceThreshold) {
+            // Увеличиваем интервал при низком FPS
+            return this.throttling.interval * 2;
+        }
+        
+        return this.throttling.interval;
+    }
+    
+    // Вычисление адаптивного давления
+    calculateAdaptivePressure(pressure = 1) {
+        // Адаптация давления на основе скорости
+        const velocityFactor = Math.min(this.drawingState.velocity / 50, 1);
+        const adaptedPressure = pressure * (0.7 + velocityFactor * 0.3);
+        
+        return Math.max(0.1, Math.min(1, adaptedPressure));
+    }
+    
+    // Оптимизация точек в штрихе
+    optimizeStrokePoints() {
+        if (!this.drawingState.currentStroke.points.length) return;
+        
+        const points = this.drawingState.currentStroke.points;
+        const optimizedPoints = [points[0]]; // Всегда сохраняем первую точку
+        
+        // Алгоритм Douglas-Peucker для упрощения линии
+        const tolerance = 2; // Пиксели
+        
+        for (let i = 1; i < points.length - 1; i++) {
+            const prev = points[i - 1];
+            const current = points[i];
+            const next = points[i + 1];
+            
+            // Вычисляем расстояние от точки до линии между соседними точками
+            const distance = this.pointToLineDistance(current, prev, next);
+            
+            if (distance > tolerance) {
+                optimizedPoints.push(current);
+            }
+        }
+        
+        // Всегда сохраняем последнюю точку
+        if (points.length > 1) {
+            optimizedPoints.push(points[points.length - 1]);
+        }
+        
+        this.drawingState.currentStroke.points = optimizedPoints;
+        
+        console.log(`🔧 Оптимизация: ${points.length} → ${optimizedPoints.length} точек`);
+    }
+    
+    // Финализация штриха
+    finalizeStroke() {
+        if (!this.drawingState.currentStroke) return null;
+        
+        // Последняя оптимизация
+        this.optimizeStrokePoints();
+        
+        // Добавление метаданных
+        const finalStroke = {
+            ...this.drawingState.currentStroke,
+            optimized: true,
+            originalPointCount: this.drawingState.smoothedPoints.length,
+            finalPointCount: this.drawingState.currentStroke.points.length,
+            averageVelocity: this.calculateAverageVelocity(),
+            duration: Date.now() - this.drawingState.currentStroke.timestamp
+        };
+        
+        console.log('📊 Статистика штриха:', {
+            points: finalStroke.finalPointCount,
+            original: finalStroke.originalPointCount,
+            velocity: finalStroke.averageVelocity.toFixed(2),
+            duration: finalStroke.duration + 'ms'
+        });
+        
+        return finalStroke;
+    }
+    
+    // Вспомогательные функции
+    calculateDistance(p1, p2) {
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    pointToLineDistance(point, lineStart, lineEnd) {
+        const A = point.x - lineStart.x;
+        const B = point.y - lineStart.y;
+        const C = lineEnd.x - lineStart.x;
+        const D = lineEnd.y - lineStart.y;
+        
+        const dot = A * C + B * D;
+        const lenSq = C * C + D * D;
+        let param = -1;
+        
+        if (lenSq !== 0) {
+            param = dot / lenSq;
+        }
+        
+        let xx, yy;
+        
+        if (param < 0) {
+            xx = lineStart.x;
+            yy = lineStart.y;
+        } else if (param > 1) {
+            xx = lineEnd.x;
+            yy = lineEnd.y;
+        } else {
+            xx = lineStart.x + param * C;
+            yy = lineStart.y + param * D;
+        }
+        
+        const dx = point.x - xx;
+        const dy = point.y - yy;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    calculateAverageVelocity() {
+        if (!this.drawingState.currentStroke.points.length) return 0;
+        
+        let totalDistance = 0;
+        const points = this.drawingState.currentStroke.points;
+        
+        for (let i = 1; i < points.length; i++) {
+            totalDistance += this.calculateDistance(points[i - 1], points[i]);
+        }
+        
+        const duration = this.drawingState.currentStroke.duration || 1;
+        return totalDistance / duration;
+    }
+    
+    // Настройки
+    updateSettings(newSettings) {
+        this.smoothing = { ...this.smoothing, ...newSettings.smoothing };
+        this.throttling = { ...this.throttling, ...newSettings.throttling };
+        
+        console.log('⚙️ Настройки BrushOptimizer обновлены:', newSettings);
+    }
+    
+    // Включение/выключение
+    setEnabled(enabled) {
+        this.isEnabled = enabled;
+        console.log(`🖌️ BrushOptimizer ${enabled ? 'включен' : 'выключен'}`);
+    }
+    
+    // Получение статистики
+    getStats() {
+        return {
+            isEnabled: this.isEnabled,
+            isDrawing: this.drawingState.isDrawing,
+            bufferSize: this.pointBuffer.length,
+            currentVelocity: this.drawingState.velocity,
+            adaptiveInterval: this.getAdaptiveInterval(),
+            smoothingStrength: this.getAdaptiveSmoothingStrength()
+        };
+    }
+}
+
+// Экспорт для использования в других модулях
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = BrushOptimizer;
+}

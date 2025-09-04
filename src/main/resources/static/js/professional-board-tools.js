@@ -109,16 +109,33 @@ class PenTool extends BaseTool {
         this.lastPoint = pos;
         this.points = [pos];
         
-        // Создание нового штриха
-        this.currentStroke = {
-            type: 'stroke',
-            points: [{ x: pos.x, y: pos.y }],
-            color: this.board.state.selectedColor,
-            brushSize: this.board.state.brushSize,
-            opacity: this.board.state.opacity,
-            tool: 'pen',
-            timestamp: Date.now()
-        };
+        // Используем BrushOptimizer если доступен
+        if (this.board.modules.brushOptimizer) {
+            const success = this.board.modules.brushOptimizer.startDrawing(pos, {
+                color: this.board.state.selectedColor,
+                brushSize: this.board.state.brushSize,
+                opacity: this.board.state.opacity || 1,
+                tool: 'pen',
+                pressure: event.pressure || 1
+            });
+            
+            if (success) {
+                this.currentStroke = this.board.modules.brushOptimizer.drawingState.currentStroke;
+                console.log('🎨 BrushOptimizer активирован для рисования');
+            }
+        } else {
+            // Fallback: создание нового штриха как обычно
+            this.currentStroke = {
+                type: 'stroke',
+                points: [{ x: pos.x, y: pos.y }],
+                color: this.board.state.selectedColor,
+                brushSize: this.board.state.brushSize,
+                opacity: this.board.state.opacity,
+                tool: 'pen',
+                timestamp: Date.now()
+            };
+            console.log('⚠️ BrushOptimizer недоступен, используем fallback');
+        }
         
         console.log('🎯 СОЗДАН НОВЫЙ ШТРИХ:', this.currentStroke);
         
@@ -129,31 +146,54 @@ class PenTool extends BaseTool {
     onMouseMove(pos, event) {
         if (!this.isDrawing || !this.currentStroke) return;
         
-        // Расчёт расстояния для оптимизации
-        const distance = Math.sqrt(
-            Math.pow(pos.x - this.lastPoint.x, 2) +
-            Math.pow(pos.y - this.lastPoint.y, 2)
-        );
+        let optimizedPoint = null;
         
-        // Добавление точки только если расстояние достаточное
-        if (distance > this.board.state.brushSize * 0.1) {
-            console.log('🖱️ СОБЫТИЕ МЫШИ: onMouseMove - новая точка:', pos, 'расстояние:', distance);
+        // Используем BrushOptimizer если доступен
+        if (this.board.modules.brushOptimizer) {
+            optimizedPoint = this.board.modules.brushOptimizer.addPoint(pos, {
+                pressure: event.pressure || 1
+            });
             
-            // Сглаживание линии
-            const smoothedPoint = this.smoothPoint(pos);
-            this.currentStroke.points.push(smoothedPoint);
-            this.points.push(smoothedPoint);
+            if (optimizedPoint) {
+                console.log('🎨 Оптимизированная точка добавлена:', optimizedPoint);
+                // Синхронизируем локальные точки с оптимизированными
+                this.points.push(optimizedPoint);
+            } else {
+                // Точка была отфильтрована оптимизатором (throttling/distance)
+                return;
+            }
+        } else {
+            // Fallback: ручная оптимизация расстояния
+            const distance = Math.sqrt(
+                Math.pow(pos.x - this.lastPoint.x, 2) +
+                Math.pow(pos.y - this.lastPoint.y, 2)
+            );
             
-            console.log('🎨 ДОБАВЛЕНА ТОЧКА К ШТРИХУ:', smoothedPoint, 'всего точек:', this.currentStroke.points.length);
-            
-            // Отправка события рисования
-            this.board.emit('drawing', smoothedPoint);
-            
-            // Немедленный рендер для отзывчивости
-            this.renderCurrentStroke();
-            
-            this.lastPoint = pos;
+            // Добавление точки только если расстояние достаточное
+            if (distance > this.board.state.brushSize * 0.1) {
+                console.log('🖱️ СОБЫТИЕ МЫШИ: onMouseMove - новая точка:', pos, 'расстояние:', distance);
+                
+                // Сглаживание линии
+                const smoothedPoint = this.smoothPoint(pos);
+                this.currentStroke.points.push(smoothedPoint);
+                this.points.push(smoothedPoint);
+                optimizedPoint = smoothedPoint;
+                
+                console.log('⚠️ Fallback оптимизация, точек:', this.currentStroke.points.length);
+            } else {
+                return; // Пропускаем слишком близкие точки
+            }
         }
+        
+        console.log('🎨 ДОБАВЛЕНА ТОЧКА К ШТРИХУ:', optimizedPoint, 'всего точек:', this.currentStroke.points.length);
+        
+        // Отправка события рисования
+        this.board.emit('drawing', optimizedPoint);
+        
+        // Немедленный рендер для отзывчивости
+        this.renderCurrentStroke();
+        
+        this.lastPoint = pos;
     }
     
     onMouseUp(pos, event) {
@@ -162,16 +202,32 @@ class PenTool extends BaseTool {
         console.log('🖱️ СОБЫТИЕ МЫШИ: onMouseUp - финальная позиция:', pos);
         this.isDrawing = false;
         
-        // Оптимизация точек (уменьшение количества)
-        this.currentStroke.points = this.optimizePoints(this.currentStroke.points);
+        let finalStroke = this.currentStroke;
         
-        console.log('🏁 ЗАВЕРШЕНИЕ ШТРИХА - итоговое количество точек:', this.currentStroke.points.length);
+        // Используем BrushOptimizer для финализации если доступен
+        if (this.board.modules.brushOptimizer) {
+            const optimizedStroke = this.board.modules.brushOptimizer.finishDrawing();
+            if (optimizedStroke) {
+                finalStroke = optimizedStroke;
+                console.log('🎨 BrushOptimizer финализировал штрих:', {
+                    originalPoints: optimizedStroke.originalPointCount,
+                    finalPoints: optimizedStroke.finalPointCount,
+                    efficiency: ((optimizedStroke.originalPointCount - optimizedStroke.finalPointCount) / optimizedStroke.originalPointCount * 100).toFixed(1) + '%'
+                });
+            }
+        } else {
+            // Fallback: ручная оптимизация точек
+            finalStroke.points = this.optimizePoints(this.currentStroke.points);
+            console.log('⚠️ Fallback оптимизация точек');
+        }
+        
+        console.log('🏁 ЗАВЕРШЕНИЕ ШТРИХА - итоговое количество точек:', finalStroke.points.length);
         
         // Добавление объекта на доску
-        this.board.addObject(this.currentStroke);
+        this.board.addObject(finalStroke);
         
         // Отправка события завершения рисования
-        this.board.emit('drawEnd', this.currentStroke);
+        this.board.emit('drawEnd', finalStroke);
         
         // Очистка
         this.currentStroke = null;
@@ -320,36 +376,263 @@ class EraserTool extends BaseTool {
         this.cursor = 'crosshair';
         this.isErasing = false;
         this.eraserSize = 20;
+        this.eraserMode = 'stroke'; // 'stroke' | 'pixel' | 'object'
+        this.erasedObjects = []; // Для undo/redo
+        this.previewCursor = null;
+        
+        // Настройки производительности
+        this.throttleInterval = 16; // ~60 FPS
+        this.lastEraseTime = 0;
+    }
+    
+    activate() {
+        super.activate();
+        this.setupEraserCursor();
+        console.log('🧹 Ластик активирован, размер:', this.eraserSize);
+    }
+    
+    deactivate() {
+        super.deactivate();
+        this.hidePreviewCursor();
     }
     
     onMouseDown(pos, event) {
+        console.log('🧹 Начало стирания в позиции:', pos);
         this.isErasing = true;
+        this.erasedObjects = []; // Сброс для новой операции стирания
         this.eraseAt(pos);
+        
+        // Отправка события начала стирания
+        this.board.emit('eraseStart', { pos, eraserSize: this.eraserSize });
     }
     
     onMouseMove(pos, event) {
+        // Показ preview курсора всегда
+        this.showPreviewCursor(pos);
+        
         if (!this.isErasing) return;
+        
+        // Throttling для производительности
+        const now = performance.now();
+        if (now - this.lastEraseTime < this.throttleInterval) {
+            return;
+        }
+        this.lastEraseTime = now;
+        
         this.eraseAt(pos);
     }
     
     onMouseUp(pos, event) {
+        if (!this.isErasing) return;
+        
+        console.log('🧹 Завершение стирания, удалено объектов:', this.erasedObjects.length);
         this.isErasing = false;
+        
+        // Отправка события завершения стирания для синхронизации
+        if (this.erasedObjects.length > 0) {
+            this.board.emit('eraseComplete', { 
+                erasedObjects: this.erasedObjects.slice(),
+                eraserSize: this.eraserSize,
+                mode: this.eraserMode
+            });
+            
+            // Отправка через синхронизацию
+            this.board.sendDrawingOperation({
+                type: 'erase_complete',
+                erasedObjects: this.erasedObjects.slice(),
+                eraserSize: this.eraserSize
+            });
+        }
+        
+        // Добавление в историю для undo/redo
+        if (this.erasedObjects.length > 0) {
+            this.board.addToHistory({
+                type: 'erase',
+                objects: this.erasedObjects.slice()
+            });
+        }
     }
     
     eraseAt(pos) {
         const eraserRadius = this.eraserSize / 2;
         const objectsToRemove = [];
         
-        // Проверка пересечения с объектами
+        // Проверка пересечения с объектами в зависимости от режима
         this.board.objects.forEach((object, id) => {
             if (this.intersectsWithEraser(object, pos, eraserRadius)) {
-                objectsToRemove.push(id);
+                if (this.eraserMode === 'stroke' && object.type === 'stroke') {
+                    // Для штрихов - частичное стирание по сегментам
+                    this.eraseStrokeSegments(object, pos, eraserRadius);
+                } else {
+                    // Полное удаление объекта
+                    objectsToRemove.push(id);
+                    this.erasedObjects.push({
+                        id: id,
+                        object: object,
+                        action: 'removed'
+                    });
+                }
             }
         });
         
         // Удаление объектов
         if (objectsToRemove.length > 0) {
-            this.board.removeObjects(objectsToRemove);
+            objectsToRemove.forEach(id => {
+                this.board.objects.delete(id);
+            });
+            
+            // Немедленный рендеринг
+            this.board.render();
+            
+            // Отправка операции стирания для real-time синхронизации
+            this.board.sendDrawingOperation({
+                type: 'erase_operation',
+                objectIds: objectsToRemove,
+                position: pos,
+                eraserSize: this.eraserSize
+            });
+        }
+    }
+    
+    // Улучшенное частичное стирание штрихов
+    eraseStrokeSegments(stroke, eraserPos, eraserRadius) {
+        if (!stroke.points || stroke.points.length < 2) return;
+        
+        const newSegments = [];
+        let currentSegment = [];
+        
+        for (let i = 0; i < stroke.points.length; i++) {
+            const point = stroke.points[i];
+            const distance = Math.sqrt(
+                Math.pow(point.x - eraserPos.x, 2) +
+                Math.pow(point.y - eraserPos.y, 2)
+            );
+            
+            if (distance > eraserRadius + stroke.brushSize / 2) {
+                // Точка вне зоны стирания
+                currentSegment.push(point);
+            } else {
+                // Точка в зоне стирания
+                if (currentSegment.length > 1) {
+                    // Сохраняем текущий сегмент как новый штрих
+                    newSegments.push(currentSegment);
+                }
+                currentSegment = [];
+            }
+        }
+        
+        // Добавляем последний сегмент
+        if (currentSegment.length > 1) {
+            newSegments.push(currentSegment);
+        }
+        
+        if (newSegments.length > 0) {
+            // Удаляем оригинальный штрих
+            this.board.objects.delete(stroke.id);
+            this.erasedObjects.push({
+                id: stroke.id,
+                object: stroke,
+                action: 'segmented'
+            });
+            
+            // Добавляем новые сегменты
+            newSegments.forEach((segment, index) => {
+                const newStroke = {
+                    ...stroke,
+                    id: stroke.id + '_segment_' + index,
+                    points: segment
+                };
+                this.board.objects.set(newStroke.id, newStroke);
+                this.erasedObjects.push({
+                    id: newStroke.id,
+                    object: newStroke,
+                    action: 'created'
+                });
+            });
+        } else {
+            // Весь штрих стерт
+            this.board.objects.delete(stroke.id);
+            this.erasedObjects.push({
+                id: stroke.id,
+                object: stroke,
+                action: 'removed'
+            });
+        }
+    }
+    
+    // Настройка курсора ластика
+    setupEraserCursor() {
+        // Создаем canvas для кастомного курсора
+        const cursorCanvas = document.createElement('canvas');
+        const size = Math.max(this.eraserSize, 16);
+        cursorCanvas.width = size;
+        cursorCanvas.height = size;
+        
+        const ctx = cursorCanvas.getContext('2d');
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(size/2, size/2, size/2 - 2, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Крестик в центре
+        ctx.beginPath();
+        ctx.moveTo(size/2 - 4, size/2);
+        ctx.lineTo(size/2 + 4, size/2);
+        ctx.moveTo(size/2, size/2 - 4);
+        ctx.lineTo(size/2, size/2 + 4);
+        ctx.stroke();
+        
+        const cursorUrl = cursorCanvas.toDataURL();
+        this.board.canvas.style.cursor = `url(${cursorUrl}) ${size/2} ${size/2}, crosshair`;
+    }
+    
+    // Показ preview курсора
+    showPreviewCursor(pos) {
+        if (!this.previewCursor) {
+            this.previewCursor = document.createElement('div');
+            this.previewCursor.style.position = 'fixed';
+            this.previewCursor.style.border = '2px solid rgba(255, 0, 0, 0.7)';
+            this.previewCursor.style.borderRadius = '50%';
+            this.previewCursor.style.pointerEvents = 'none';
+            this.previewCursor.style.zIndex = '10000';
+            this.previewCursor.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+            document.body.appendChild(this.previewCursor);
+        }
+        
+        const rect = this.board.canvas.getBoundingClientRect();
+        const screenPos = {
+            x: rect.left + pos.x * this.board.state.zoom + this.board.state.panX,
+            y: rect.top + pos.y * this.board.state.zoom + this.board.state.panY
+        };
+        
+        const size = this.eraserSize * this.board.state.zoom;
+        this.previewCursor.style.width = size + 'px';
+        this.previewCursor.style.height = size + 'px';
+        this.previewCursor.style.left = (screenPos.x - size/2) + 'px';
+        this.previewCursor.style.top = (screenPos.y - size/2) + 'px';
+        this.previewCursor.style.display = 'block';
+    }
+    
+    // Скрытие preview курсора
+    hidePreviewCursor() {
+        if (this.previewCursor) {
+            this.previewCursor.style.display = 'none';
+        }
+    }
+    
+    // Установка размера ластика
+    setEraserSize(size) {
+        this.eraserSize = Math.max(5, Math.min(100, size));
+        this.setupEraserCursor();
+        console.log('🧹 Размер ластика изменен на:', this.eraserSize);
+    }
+    
+    // Установка режима ластика
+    setEraserMode(mode) {
+        if (['stroke', 'pixel', 'object'].includes(mode)) {
+            this.eraserMode = mode;
+            console.log('🧹 Режим ластика изменен на:', mode);
         }
     }
     

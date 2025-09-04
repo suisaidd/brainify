@@ -151,10 +151,11 @@ public class OnlineLessonController {
         model.addAttribute("isAdmin", isAdmin);
         model.addAttribute("isViewOnly", false);
         
-        System.out.println("Возвращаем шаблон: professional-board-new");
+        System.out.println("Перенаправляем на Excalidraw доску");
         System.out.println("=== ОНЛАЙН УРОК ЗАПРОС ЗАВЕРШЕН ===");
         
-        return "professional-board-new";
+        // Временно перенаправляем на Excalidraw доску
+        return "redirect:/excalidraw-board?lessonId=" + lessonId;
     }
 
     /**

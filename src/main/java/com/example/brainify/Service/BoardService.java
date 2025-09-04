@@ -262,6 +262,14 @@ public class BoardService {
     }
     
     /**
+     * Загрузить состояние доски как строку (для Excalidraw)
+     */
+    public String loadBoardStateAsString(Long lessonId) {
+        Optional<BoardState> boardState = boardStateRepository.findActiveByLessonId(lessonId);
+        return boardState.map(BoardState::getBoardContent).orElse(null);
+    }
+    
+    /**
      * Отправить обновление доски всем участникам
      */
     public void broadcastBoardUpdate(Long lessonId, String boardContent, String userId) {

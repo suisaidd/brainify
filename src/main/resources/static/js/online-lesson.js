@@ -346,10 +346,22 @@ function drawGrid() {
     ctx.restore();
 }
 
-// Инициализация доски
+// Инициализация доски (упрощенная версия для совместимости)
 function initializeBoard() {
-    console.log('🎨 === ИНИЦИАЛИЗАЦИЯ ДОСКИ ===');
-    console.log('🔍 Поиск canvas элемента...');
+    console.log('🎨 === ИНИЦИАЛИЗАЦИЯ ДОСКИ (Online Lesson) ===');
+    console.log('🔍 Проверка наличия ProfessionalBoard...');
+    
+    // Если используется ProfessionalBoard, не инициализируем заново
+    if (window.professionalBoardInstance || window.board) {
+        console.log('✅ ProfessionalBoard уже инициализирована, пропускаем базовую инициализацию');
+        canvas = document.getElementById('boardCanvas');
+        if (canvas && window.professionalBoardInstance) {
+            ctx = canvas.getContext('2d');
+        }
+        return;
+    }
+    
+    console.log('🔍 Поиск canvas элемента для базовой инициализации...');
     
     canvas = document.getElementById('boardCanvas');
     if (!canvas) {

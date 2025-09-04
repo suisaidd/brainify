@@ -443,18 +443,31 @@ class Canvas2DRenderer extends BaseRenderer {
     }
     
     init() {
-        // Создание offscreen canvas для оптимизации
-        this.offscreenCanvas = document.createElement('canvas');
-        this.offscreenCanvas.width = this.config.width;
-        this.offscreenCanvas.height = this.config.height;
-        this.offscreenCtx = this.offscreenCanvas.getContext('2d', {
-            alpha: true,
-            desynchronized: true
-        });
+        // Проверяем наличие контекста
+        if (!this.ctx) {
+            console.warn('⚠️ Canvas контекст не доступен в Canvas2DRenderer, пропускаем инициализацию');
+            return;
+        }
         
-        // Настройка контекста
-        this.setupContext(this.ctx);
-        this.setupContext(this.offscreenCtx);
+        try {
+            // Создание offscreen canvas для оптимизации
+            this.offscreenCanvas = document.createElement('canvas');
+            this.offscreenCanvas.width = this.config.width;
+            this.offscreenCanvas.height = this.config.height;
+            this.offscreenCtx = this.offscreenCanvas.getContext('2d', {
+                alpha: true,
+                desynchronized: true
+            });
+            
+            // Настройка контекста
+            this.setupContext(this.ctx);
+            if (this.offscreenCtx) {
+                this.setupContext(this.offscreenCtx);
+            }
+            console.log('✅ Canvas2DRenderer инициализирован');
+        } catch (error) {
+            console.error('❌ Ошибка инициализации Canvas2DRenderer:', error);
+        }
     }
     
     setupContext(ctx) {
@@ -591,23 +604,49 @@ class Canvas2DRenderer extends BaseRenderer {
     }
     
     renderStroke(stroke, ctx) {
-        if (stroke.points.length < 2) return;
+        if (!stroke.points || stroke.points.length < 2) return;
         
-        ctx.strokeStyle = stroke.color;
-        ctx.lineWidth = stroke.brushSize;
+        ctx.save();
+        ctx.strokeStyle = stroke.color || '#000000';
+        ctx.lineWidth = stroke.brushSize || 3;
         ctx.globalAlpha = stroke.opacity || 1;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
-        ctx.beginPath();
-        ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+        // Оптимизированное рисование с сглаживанием
+        const points = stroke.points;
         
-        // Простое рисование линий для отладки
-        for (let i = 1; i < stroke.points.length; i++) {
-            ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+        if (points.length === 2) {
+            // Прямая линия
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            ctx.lineTo(points[1].x, points[1].y);
+            ctx.stroke();
+        } else {
+            // Сглаженная кривая Безье
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            
+            for (let i = 1; i < points.length - 2; i++) {
+                const xc = (points[i].x + points[i + 1].x) / 2;
+                const yc = (points[i].y + points[i + 1].y) / 2;
+                ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+            }
+            
+            // Завершение кривой
+            if (points.length > 2) {
+                ctx.quadraticCurveTo(
+                    points[points.length - 2].x,
+                    points[points.length - 2].y,
+                    points[points.length - 1].x,
+                    points[points.length - 1].y
+                );
+            }
+            
+            ctx.stroke();
         }
         
-        ctx.stroke();
+        ctx.restore();
     }
     
     renderShape(shape, ctx) {
@@ -825,6 +864,27 @@ class Canvas2DRenderer extends BaseRenderer {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
     
+    // Методы для удаленной синхронизации  
+    startRemoteStroke(stroke, userId) {
+        console.log('🌐 Начало удаленного штриха от пользователя:', userId);
+        // Добавляем в объекты доски
+        this.board.objects.set(stroke.id, stroke);
+    }
+    
+    addRemotePoint(strokeId, point, userId) {
+        console.log('🌐 Добавление удаленной точки для штриха:', strokeId);
+        const stroke = this.board.objects.get(strokeId);
+        if (stroke) {
+            stroke.points.push(point);
+        }
+    }
+    
+    endRemoteStroke(strokeId, userId) {
+        console.log('🌐 Завершение удаленного штриха:', strokeId);
+        // Штрих уже в объектах, просто перерисовываем
+        this.render();
+    }
+
     destroy() {
         // Очистка ресурсов
         this.offscreenCanvas = null;

@@ -10,6 +10,7 @@
     
     <!-- Стили -->
     <link rel="stylesheet" th:href="@{/css/professional-board-new.css}">
+    <link rel="stylesheet" th:href="@{/css/professional-board-modern.css}">
     
     <!-- Иконки -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -436,6 +437,14 @@
         <span class="sync-text">Подключение...</span>
     </div>
     
+    <!-- Индикатор производительности -->
+    <div class="performance-indicator" id="performanceIndicator" style="position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 6px; font-family: monospace; font-size: 12px; z-index: 9999; display: none;">
+        <div>FPS: <span id="fpsValue">60</span></div>
+        <div>Objects: <span id="objectsValue">0</span></div>
+        <div>Points: <span id="pointsValue">0</span></div>
+        <div>Render: <span id="renderTimeValue">0</span>ms</div>
+    </div>
+    
     <!-- Тост уведомления -->
     <div class="toast-container" id="toastContainer"></div>
     
@@ -445,11 +454,17 @@
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js"></script>
     
     <!-- Основные модули доски -->
+    <script th:src="@{/js/professional-board-performance.js}"></script>
+    <script th:src="@{/js/professional-board-brush-optimizer.js}"></script>
+    <script th:src="@{/js/professional-board-sync.js}"></script>
     <script th:src="@{/js/professional-board-core.js}"></script>
     <script th:src="@{/js/professional-board-renderer.js}"></script>
     <script th:src="@{/js/professional-board-tools.js}"></script>
     <script th:src="@{/js/professional-board-modules.js}"></script>
-    <script th:src="@{/js/professional-board.js}"></script>
+    <!-- <script th:src="@{/js/professional-board.js}"></script> -->
+    
+    <!-- Минимальная рабочая версия -->
+    <script th:src="@{/js/professional-board-minimal.js}"></script>
     
     <!-- Инициализация -->
     <script th:inline="javascript">
@@ -495,6 +510,15 @@
         window.isAdmin = isAdmin;
         window.isViewOnly = isViewOnly;
         window.lessonId = lessonId;
+        
+        // Определение пользователя для синхронизации
+        const currentUserId = currentUser ? currentUser.id : (lessonData ? lessonData.currentUserId : 1);
+        const currentUserName = currentUser ? currentUser.name : (currentUser ? currentUser.firstName + ' ' + currentUser.lastName : 'Пользователь');
+        
+        window.currentUserId = currentUserId;
+        window.currentUserName = currentUserName;
+        
+        console.log('👤 Пользователь определен:', { currentUserId, currentUserName });
         
         // 🎨 Функция автоматического появления области рисования
         function showDrawingAreaImmediately() {
@@ -615,6 +639,89 @@
             console.log('✅ Область рисования активирована');
         }
 
+        // Функция настройки мониторинга производительности
+        function setupPerformanceMonitoring() {
+            console.log('📊 Настройка мониторинга производительности...');
+            
+            // Показать индикатор производительности в режиме разработки
+            const isDebugMode = window.location.hostname === 'localhost' || window.location.search.includes('debug=true');
+            
+            if (isDebugMode) {
+                const performanceIndicator = document.getElementById('performanceIndicator');
+                if (performanceIndicator) {
+                    performanceIndicator.style.display = 'block';
+                }
+                
+                // Обновление метрик каждую секунду
+                setInterval(() => {
+                    updatePerformanceUI();
+                }, 1000);
+            }
+            
+            // Горячие клавиши для управления
+            document.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.shiftKey) {
+                    switch (e.key) {
+                        case 'P': // Ctrl+Shift+P - показать/скрыть индикатор производительности
+                            e.preventDefault();
+                            togglePerformanceIndicator();
+                            break;
+                        case 'M': // Ctrl+Shift+M - принудительная очистка памяти
+                            e.preventDefault();
+                            forceMemoryCleanup();
+                            break;
+                    }
+                }
+            });
+        }
+        
+        function updatePerformanceUI() {
+            const boardInstance = getBoard();
+            if (!boardInstance || !boardInstance.modules.performance) return;
+            
+            const metrics = boardInstance.modules.performance.getMetrics();
+            
+            // Обновление значений в UI
+            const fpsValue = document.getElementById('fpsValue');
+            const objectsValue = document.getElementById('objectsValue');
+            const pointsValue = document.getElementById('pointsValue');
+            const renderTimeValue = document.getElementById('renderTimeValue');
+            
+            if (fpsValue) fpsValue.textContent = metrics.fps || '60';
+            if (objectsValue) objectsValue.textContent = metrics.objectCount || '0';
+            if (pointsValue) pointsValue.textContent = metrics.pointCount || '0';
+            if (renderTimeValue) renderTimeValue.textContent = (metrics.renderTime || 0).toFixed(1);
+            
+            // Цветовая индикация производительности
+            const performanceIndicator = document.getElementById('performanceIndicator');
+            if (performanceIndicator && metrics.fps) {
+                if (metrics.fps >= 50) {
+                    performanceIndicator.style.borderLeft = '4px solid #10b981'; // Зеленый
+                } else if (metrics.fps >= 30) {
+                    performanceIndicator.style.borderLeft = '4px solid #f59e0b'; // Желтый
+                } else {
+                    performanceIndicator.style.borderLeft = '4px solid #ef4444'; // Красный
+                }
+            }
+        }
+        
+        function togglePerformanceIndicator() {
+            const performanceIndicator = document.getElementById('performanceIndicator');
+            if (performanceIndicator) {
+                const isVisible = performanceIndicator.style.display !== 'none';
+                performanceIndicator.style.display = isVisible ? 'none' : 'block';
+                showToast(isVisible ? 'Индикатор производительности скрыт' : 'Индикатор производительности показан', 'info');
+            }
+        }
+        
+        function forceMemoryCleanup() {
+            const boardInstance = getBoard();
+            if (boardInstance && boardInstance.modules.memory) {
+                boardInstance.modules.memory.forceCleanup();
+                showToast('Принудительная очистка памяти выполнена', 'success');
+            }
+        }
+        
         // Функция для показа уведомлений (должна быть доступна сразу)
         function showToast(message, type = 'info') {
             console.log(`Toast [${type}]: ${message}`);
@@ -752,15 +859,25 @@
                 console.log('  - Canvas ID: boardCanvas');
                 console.log('  - Canvas element:', !!document.getElementById('boardCanvas'));
                 
-                const realBoard = new ProfessionalBoard('boardCanvas', {
-                    renderer: 'canvas2d',
-                    antialiasing: true,
-                    gridEnabled: true,
-                    gridSize: 20,
-                    snapToGrid: false,
-                    virtualScrolling: true,
-                    maxHistorySize: 50
-                });
+                // Используем MinimalBoard для гарантированной работы
+                let realBoard;
+                if (typeof MinimalBoard !== 'undefined') {
+                    console.log('✅ Создаем MinimalBoard');
+                    realBoard = new MinimalBoard('boardCanvas');
+                } else if (typeof ProfessionalBoard !== 'undefined') {
+                    console.log('✅ Создаем ProfessionalBoard');
+                    realBoard = new ProfessionalBoard('boardCanvas', {
+                        renderer: 'canvas2d',
+                        antialiasing: true,
+                        gridEnabled: true,
+                        gridSize: 20,
+                        snapToGrid: false,
+                        virtualScrolling: true,
+                        maxHistorySize: 50
+                    });
+                } else {
+                    throw new Error('Ни один класс доски не найден');
+                }
                 
                 console.log('✅ Конструктор ProfessionalBoard завершен');
                 
@@ -810,17 +927,41 @@
                 // 🎨 ПРИНУДИТЕЛЬНО ДЕЛАЕМ ОБЛАСТЬ РИСОВАНИЯ АКТИВНОЙ
                 makeDrawingAreaActive();
                 
-                // Инициализируем доску
+                // Настройка мониторинга производительности
+                setupPerformanceMonitoring();
+                
+                // Инициализируем доску (только если конструктор не инициализировал)
                 console.log('🔧 Инициализируем доску...');
                 try {
-                    realBoard.init();
-                    console.log('✅ Доска инициализирована успешно');
-                    
-                    // Принудительно рисуем сетку если доска готова
-                    if (realBoard.modules && realBoard.modules.renderer) {
-                        console.log('🔲 Принудительно рендерим доску с сеткой...');
-                        realBoard.render();
-                    }
+                    // Используем отложенную инициализацию для корректной работы с canvas
+                    setTimeout(() => {
+                        console.log('⏰ Отложенная инициализация доски...');
+                        const initResult = realBoard.init();
+                        console.log('✅ Доска инициализирована:', initResult);
+                        
+                        // Принудительно рисуем сетку если доска готова
+                        setTimeout(() => {
+                            if (realBoard.modules && realBoard.modules.renderer) {
+                                console.log('🔲 Принудительно рендерим доску с сеткой...');
+                                realBoard.render();
+                            }
+                        }, 200);
+                        
+                        // Инициализация синхронизации
+                        setTimeout(async () => {
+                            if (lessonData && lessonData.id && currentUserId && currentUserName) {
+                                console.log('🔄 Инициализация синхронизации...');
+                                try {
+                                    await realBoard.initSync(lessonData.id, currentUserId, currentUserName);
+                                    console.log('✅ Синхронизация инициализирована');
+                                } catch (error) {
+                                    console.error('❌ Ошибка инициализации синхронизации:', error);
+                                }
+                            } else {
+                                console.warn('⚠️ Данные для синхронизации недоступны:', { lessonData, currentUserId, currentUserName });
+                            }
+                        }, 400);
+                    }, 200);
                 } catch (error) {
                     console.error('❌ Ошибка инициализации доски:', error);
                     showToast('Ошибка инициализации доски: ' + error.message, 'error');

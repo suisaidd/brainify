@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brainify Excalidraw Test</title>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #f8f9fa;
+        }
+        
+        .test-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .test-header {
+            background: white;
+            padding: 10px 20px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .test-title {
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .test-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 6px 12px;
+            border: 1px solid #dee2e6;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .btn:hover {
+            background: #f8f9fa;
+        }
+        
+        .excalidraw-container {
+            flex: 1;
+            position: relative;
+        }
+        
+        .status {
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+        
+        .fallback-canvas {
+            width: 100%;
+            height: 100%;
+            border: 1px solid #ddd;
+            cursor: crosshair;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <div class="test-title">🧠 Brainify Excalidraw Test</div>
+            <div class="test-controls">
+                <button class="btn" onclick="testSave()">💾 Test Save</button>
+                <button class="btn" onclick="testLoad()">📋 Test Load</button>
+                <button class="btn" onclick="clearBoard()">🗑️ Clear</button>
+                <button class="btn" onclick="location.reload()">🔄 Reload</button>
+            </div>
+        </div>
+        
+        <div class="excalidraw-container" id="excalidraw-container">
+            <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #6c757d;">
+                🔄 Загрузка Excalidraw...
+            </div>
+        </div>
+        
+        <div class="status" id="status">Инициализация...</div>
+    </div>
+
+    <!-- React библиотеки -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Excalidraw библиотеки -->
+    <script src="https://unpkg.com/@excalidraw/excalidraw@0.17.0/dist/excalidraw.production.min.js"></script>
+
+    <script>
+        let excalidrawAPI = null;
+        
+        // Обновление статуса
+        function updateStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.style.background = type === 'error' ? 'rgba(220, 53, 69, 0.9)' : 
+                                   type === 'success' ? 'rgba(40, 167, 69, 0.9)' : 
+                                   'rgba(0, 0, 0, 0.8)';
+        }
+        
+        // Ожидание загрузки библиотек
+        function waitForLibraries() {
+            return new Promise((resolve, reject) => {
+                let attempts = 0;
+                const maxAttempts = 150;
+                
+                const check = () => {
+                    attempts++;
+                    
+                    const excalidrawAvailable = window.ExcalidrawLib || window.Excalidraw || 
+                                               (window.ExcalidrawPackage && window.ExcalidrawPackage.Excalidraw);
+                    const reactAvailable = window.React;
+                    const reactDOMAvailable = window.ReactDOM;
+                    
+                    console.log(`Attempt ${attempts}: Excalidraw=${!!excalidrawAvailable}, React=${!!reactAvailable}, ReactDOM=${!!reactDOMAvailable}`);
+                    
+                    if (excalidrawAvailable && reactAvailable && reactDOMAvailable) {
+                        if (!window.ExcalidrawLib) {
+                            window.ExcalidrawLib = window.Excalidraw || window.ExcalidrawPackage;
+                        }
+                        resolve();
+                    } else if (attempts >= maxAttempts) {
+                        reject(new Error('Библиотеки не загружены'));
+                    } else {
+                        setTimeout(check, 100);
+                    }
+                };
+                
+                check();
+            });
+        }
+        
+        // Инициализация Excalidraw
+        async function initializeExcalidraw() {
+            updateStatus('Ожидание библиотек...');
+            
+            try {
+                const container = document.getElementById('excalidraw-container');
+                
+                // Ждем загрузки библиотек
+                await waitForLibraries();
+                updateStatus('Библиотеки загружены, инициализация...');
+                
+                // Пробуем инициализировать настоящий Excalidraw
+                try {
+                    const ExcalidrawLib = window.ExcalidrawLib || window.Excalidraw;
+                    const { Excalidraw } = ExcalidrawLib;
+                    
+                    // Создаем React-элемент
+                    const excalidrawElement = React.createElement(Excalidraw, {
+                        initialData: {
+                            elements: [],
+                            appState: { 
+                                viewBackgroundColor: "#ffffff",
+                                gridSize: null
+                            }
+                        },
+                        onChange: (elements, appState, files) => {
+                            console.log('Excalidraw changed:', elements.length, 'elements');
+                        },
+                        ref: (api) => {
+                            if (api) {
+                                excalidrawAPI = api;
+                                updateStatus('✅ Excalidraw готов!', 'success');
+                                console.log('✅ Excalidraw API ready');
+                            }
+                        }
+                    });
+                    
+                    // Очищаем контейнер и рендерим
+                    container.innerHTML = '';
+                    ReactDOM.render(excalidrawElement, container);
+                    
+                } catch (excalidrawError) {
+                    console.error('Ошибка инициализации Excalidraw:', excalidrawError);
+                    throw excalidrawError;
+                }
+                
+            } catch (error) {
+                console.error('Fallback to simple canvas:', error);
+                updateStatus('Fallback: простая доска', 'info');
+                
+                // Fallback к простому canvas
+                const container = document.getElementById('excalidraw-container');
+                container.innerHTML = '';
+                
+                const canvas = document.createElement('canvas');
+                canvas.className = 'fallback-canvas';
+                canvas.width = container.offsetWidth || 800;
+                canvas.height = container.offsetHeight || 600;
+                
+                const ctx = canvas.getContext('2d');
+                
+                // Простая логика рисования
+                let isDrawing = false;
+                let lastX = 0;
+                let lastY = 0;
+                
+                canvas.addEventListener('mousedown', (e) => {
+                    isDrawing = true;
+                    [lastX, lastY] = [e.offsetX, e.offsetY];
+                });
+                
+                canvas.addEventListener('mousemove', (e) => {
+                    if (!isDrawing) return;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(lastX, lastY);
+                    ctx.lineTo(e.offsetX, e.offsetY);
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    [lastX, lastY] = [e.offsetX, e.offsetY];
+                });
+                
+                canvas.addEventListener('mouseup', () => {
+                    isDrawing = false;
+                });
+                
+                container.appendChild(canvas);
+                
+                excalidrawAPI = {
+                    canvas: canvas,
+                    getSceneElements: () => [],
+                    getAppState: () => ({ viewBackgroundColor: '#ffffff' }),
+                    getFiles: () => ({}),
+                    updateScene: () => console.log('Canvas updateScene called'),
+                    exportToCanvas: () => Promise.resolve(canvas)
+                };
+            }
+        }
+        
+        // Тестовые функции
+        function testSave() {
+            if (!excalidrawAPI) {
+                updateStatus('API не готов', 'error');
+                return;
+            }
+            
+            try {
+                const elements = excalidrawAPI.getSceneElements();
+                const appState = excalidrawAPI.getAppState();
+                const files = excalidrawAPI.getFiles();
+                
+                const data = {
+                    elements: elements || [],
+                    appState: appState || {},
+                    files: files || {}
+                };
+                
+                localStorage.setItem('excalidraw_test', JSON.stringify(data));
+                updateStatus('✅ Сохранено в localStorage', 'success');
+                console.log('Saved data:', data);
+                
+            } catch (error) {
+                updateStatus('❌ Ошибка сохранения', 'error');
+                console.error('Save error:', error);
+            }
+        }
+        
+        function testLoad() {
+            if (!excalidrawAPI) {
+                updateStatus('API не готов', 'error');
+                return;
+            }
+            
+            try {
+                const saved = localStorage.getItem('excalidraw_test');
+                if (!saved) {
+                    updateStatus('Нет сохраненных данных', 'info');
+                    return;
+                }
+                
+                const data = JSON.parse(saved);
+                excalidrawAPI.updateScene({
+                    elements: data.elements || [],
+                    appState: data.appState || {},
+                    files: data.files || {}
+                });
+                
+                updateStatus('✅ Загружено из localStorage', 'success');
+                console.log('Loaded data:', data);
+                
+            } catch (error) {
+                updateStatus('❌ Ошибка загрузки', 'error');
+                console.error('Load error:', error);
+            }
+        }
+        
+        function clearBoard() {
+            if (!excalidrawAPI) {
+                updateStatus('API не готов', 'error');
+                return;
+            }
+            
+            try {
+                if (excalidrawAPI.canvas) {
+                    // Простой canvas
+                    const ctx = excalidrawAPI.canvas.getContext('2d');
+                    ctx.clearRect(0, 0, excalidrawAPI.canvas.width, excalidrawAPI.canvas.height);
+                } else {
+                    // Excalidraw
+                    excalidrawAPI.updateScene({
+                        elements: [],
+                        appState: { viewBackgroundColor: '#ffffff' },
+                        files: {}
+                    });
+                }
+                
+                updateStatus('✅ Доска очищена', 'success');
+                
+            } catch (error) {
+                updateStatus('❌ Ошибка очистки', 'error');
+                console.error('Clear error:', error);
+            }
+        }
+        
+        // Запуск после загрузки
+        window.addEventListener('load', () => {
+            setTimeout(initializeExcalidraw, 100);
+        });
+    </script>
+</body>
+</html>

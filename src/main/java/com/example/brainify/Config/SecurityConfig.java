@@ -59,7 +59,8 @@ public class SecurityConfig {
                         "/api/auth/status",
                         "/admin/payroll/test",
                         "/ws/**", "/topic/**", "/app/**",
-                        "/api/board/**"
+                        "/api/board/**", "/api/excalidraw/**",
+                        "/excalidraw-test"
                 ).permitAll()
                 .requestMatchers("/admin/**").hasAnyAuthority("ADMIN")
                 .requestMatchers("/admin-role/**").hasAnyAuthority("ADMIN", "MANAGER")

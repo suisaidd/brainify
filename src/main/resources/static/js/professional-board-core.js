@@ -64,16 +64,18 @@ class ProfessionalBoard {
             export: null,
             collaboration: null,
             formula: null,
-            recognition: null
+            recognition: null,
+            performance: null,
+            memory: null,
+            brushOptimizer: null,
+            sync: null
         };
         
         // События
         this.eventListeners = new Map();
         
-        // Инициализация
-        console.log('🚀 Запуск инициализации...');
-        this.init();
-        console.log('✅ === КОНСТРУКТОР PROFESSIONALBOARD ЗАВЕРШЕН ===');
+        // НЕ вызываем инициализацию в конструкторе - она будет вызвана снаружи
+        console.log('✅ === КОНСТРУКТОР PROFESSIONALBOARD ЗАВЕРШЕН (без инициализации) ===');
     }
     
     // Проверка поддержки WebGL
@@ -91,10 +93,15 @@ class ProfessionalBoard {
     init() {
         console.log('🔧 === ИНИЦИАЛИЗАЦИЯ PROFESSIONAL BOARD ===');
         
+        if (!this.canvas) {
+            console.error('❌ Canvas не найден, инициализация невозможна!');
+            return false;
+        }
+        
         // Настройка canvas
         console.log('1️⃣ Настройка canvas...');
-        this.setupCanvas();
-        console.log('✅ Canvas настроен');
+        const canvasReady = this.setupCanvas();
+        console.log('✅ Canvas настроен:', canvasReady);
         
         // Инициализация рендерера
         console.log('2️⃣ Инициализация рендерера...');
@@ -116,72 +123,97 @@ class ProfessionalBoard {
         this.setupEventHandlers();
         console.log('✅ События настроены');
         
-        // Первый рендер
+        // Первый рендер (отложенный)
         console.log('6️⃣ Первый рендер...');
-        this.render();
-        console.log('✅ Первый рендер выполнен');
+        setTimeout(() => {
+            this.render();
+            console.log('✅ Первый рендер выполнен');
+        }, 150);
         
         console.log('🎉 === PROFESSIONAL BOARD ИНИЦИАЛИЗИРОВАНА УСПЕШНО! ===');
         console.log('📊 Финальные размеры canvas:', this.canvas?.width, 'x', this.canvas?.height);
         console.log('📊 CSS размеры:', this.canvas?.style.width, 'x', this.canvas?.style.height);
+        
+        return true;
     }
     
     // Настройка canvas
     setupCanvas() {
+        if (!this.canvas) {
+            console.error('❌ Canvas элемент не найден!');
+            return false;
+        }
+        
         // Установка размеров
         const container = this.canvas.parentElement;
         if (!container) {
-            console.error('Контейнер canvas не найден!');
-            return;
+            console.error('❌ Контейнер canvas не найден!');
+            return false;
         }
         
         console.log('🔍 Контейнер canvas найден:', container);
         console.log('🔍 Контейнер classList:', container.classList.toString());
         
-        // Получаем размеры контейнера
-        const rect = container.getBoundingClientRect();
-        console.log('📏 Размеры контейнера:', rect.width, 'x', rect.height);
+        // Ждем, пока контейнер будет готов
+        setTimeout(() => {
+            // Получаем размеры контейнера
+            const rect = container.getBoundingClientRect();
+            console.log('📏 Размеры контейнера:', rect.width, 'x', rect.height);
+            
+            // Если контейнер имеет нулевые размеры, устанавливаем минимальные
+            let width = rect.width || 800;
+            let height = rect.height || 600;
+            
+            if (width === 0 || height === 0) {
+                console.warn('⚠️ Контейнер имеет нулевые размеры, используем fallback');
+                width = 800;
+                height = 600;
+            }
+            
+            // Стили
+            this.canvas.style.touchAction = 'none';
+            this.canvas.style.userSelect = 'none';
+            
+            // Поддержка Retina дисплеев
+            const dpr = window.devicePixelRatio || 1;
+            
+            // Устанавливаем физические размеры canvas
+            this.canvas.width = width * dpr;
+            this.canvas.height = height * dpr;
+            
+            // Устанавливаем CSS размеры
+            this.canvas.style.width = width + 'px';
+            this.canvas.style.height = height + 'px';
+            
+            console.log('📐 Установлены размеры canvas: CSS', width + 'x' + height, 'физические', this.canvas.width + 'x' + this.canvas.height);
+            
+            if (this.config.renderer === 'canvas2d') {
+                try {
+                    this.ctx = this.canvas.getContext('2d', {
+                        alpha: true,
+                        desynchronized: true,
+                        willReadFrequently: false
+                    });
+                    if (this.ctx) {
+                        this.ctx.scale(dpr, dpr);
+                        console.log('✅ Canvas 2D контекст создан успешно');
+                    } else {
+                        console.error('❌ Не удалось создать Canvas 2D контекст');
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('❌ Ошибка создания Canvas 2D контекста:', error);
+                    return false;
+                }
+            }
+            
+            // Сохранение DPR для расчётов
+            this.dpr = dpr;
+            
+            console.log('✅ Canvas настроен:', this.canvas.width, 'x', this.canvas.height, 'DPR:', dpr);
+        }, 100);
         
-        // Если контейнер имеет нулевые размеры, устанавливаем минимальные
-        let width = rect.width || 800;
-        let height = rect.height || 600;
-        
-        if (width === 0 || height === 0) {
-            console.warn('⚠️ Контейнер имеет нулевые размеры, используем fallback');
-            width = 800;
-            height = 600;
-        }
-        
-        // Стили
-        this.canvas.style.touchAction = 'none';
-        this.canvas.style.userSelect = 'none';
-        
-        // Поддержка Retina дисплеев
-        const dpr = window.devicePixelRatio || 1;
-        
-        // Устанавливаем физические размеры canvas
-        this.canvas.width = width * dpr;
-        this.canvas.height = height * dpr;
-        
-        // Устанавливаем CSS размеры
-        this.canvas.style.width = width + 'px';
-        this.canvas.style.height = height + 'px';
-        
-        console.log('📐 Установлены размеры canvas: CSS', width + 'x' + height, 'физические', this.canvas.width + 'x' + this.canvas.height);
-        
-        if (this.config.renderer === 'canvas2d') {
-            this.ctx = this.canvas.getContext('2d', {
-                alpha: true,
-                desynchronized: true,
-                willReadFrequently: false
-            });
-            this.ctx.scale(dpr, dpr);
-        }
-        
-        // Сохранение DPR для расчётов
-        this.dpr = dpr;
-        
-        console.log('Canvas настроен:', this.canvas.width, 'x', this.canvas.height, 'DPR:', dpr);
+        return true;
     }
     
     // Инициализация рендерера
@@ -205,7 +237,7 @@ class ProfessionalBoard {
                     
                     // Очистка
                     ctx.fillStyle = this.config.backgroundColor;
-                    ctx.fillRect(0, 0, this.canvas.width / this.dpr, this.canvas.height / this.dpr);
+                    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
                     
                     // Применение трансформаций
                     ctx.save();
@@ -233,7 +265,7 @@ class ProfessionalBoard {
                 clear: () => {
                     const ctx = this.ctx;
                     if (ctx) {
-                        ctx.clearRect(0, 0, this.canvas.width / this.dpr, this.canvas.height / this.dpr);
+                        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                     }
                 },
                 getObjectBounds: (object) => {
@@ -267,6 +299,38 @@ class ProfessionalBoard {
     // Инициализация модулей
     initModules() {
         try {
+            // Производительность (приоритет - инициализируем первым)
+            if (typeof PerformanceManager !== 'undefined') {
+                this.modules.performance = new PerformanceManager(this);
+                console.log('✅ PerformanceManager инициализирован');
+            } else {
+                console.warn('PerformanceManager не найден');
+            }
+            
+            // Оптимизатор кисти
+            if (typeof BrushOptimizer !== 'undefined') {
+                this.modules.brushOptimizer = new BrushOptimizer(this);
+                console.log('✅ BrushOptimizer инициализирован');
+            } else {
+                console.warn('BrushOptimizer не найден');
+            }
+            
+            // Менеджер синхронизации
+            if (typeof SyncManager !== 'undefined') {
+                this.modules.sync = new SyncManager(this);
+                console.log('✅ SyncManager инициализирован');
+            } else {
+                console.warn('SyncManager не найден');
+            }
+            
+            // Управление памятью
+            if (typeof MemoryManager !== 'undefined') {
+                this.modules.memory = new MemoryManager();
+                console.log('✅ MemoryManager инициализирован');
+            } else {
+                console.warn('MemoryManager не найден');
+            }
+            
             // Инструменты
             if (typeof ToolsManager !== 'undefined') {
                 this.modules.tools = new ToolsManager(this);
@@ -511,7 +575,9 @@ class ProfessionalBoard {
     // Обработка клавиатуры
     handleKeyDown(e) {
         // Передача события активному инструменту
-        this.modules.tools.handleKeyDown(e);
+        if (this.modules.tools && this.modules.tools.handleKeyDown) {
+            this.modules.tools.handleKeyDown(e);
+        }
         
         // Горячие клавиши
         switch (e.key.toLowerCase()) {
@@ -585,13 +651,32 @@ class ProfessionalBoard {
         this.emit('zoomChanged', newZoom);
     }
     
-    // Рендеринг
+    // Рендеринг с оптимизацией производительности
     render() {
         console.log('🎨 render() вызван, renderer готов:', !!this.modules.renderer);
+        
+        // Проверка на необходимость рендеринга через PerformanceManager
+        if (this.modules.performance && !this.modules.performance.shouldRender()) {
+            console.log('⏸️ Рендеринг пропущен (throttling)');
+            return;
+        }
+        
         requestAnimationFrame(() => {
             if (this.modules.renderer) {
                 console.log('🖼️ Выполняем рендеринг...');
+                
+                // Начало мониторинга производительности
+                if (this.modules.performance) {
+                    this.modules.performance.beforeRender();
+                }
+                
                 this.modules.renderer.render();
+                
+                // Завершение мониторинга производительности
+                if (this.modules.performance) {
+                    this.modules.performance.afterRender();
+                }
+                
                 console.log('✅ Рендеринг завершен');
             } else {
                 console.error('❌ Renderer не инициализирован!');
@@ -759,6 +844,27 @@ class ProfessionalBoard {
         }
     }
     
+    // Методы синхронизации
+    sendDrawingOperation(operation) {
+        if (this.modules.sync && this.modules.sync.isEnabled) {
+            this.modules.sync.sendDrawOperation(operation);
+        }
+    }
+    
+    sendDrawingComplete(stroke) {
+        if (this.modules.sync && this.modules.sync.isEnabled) {
+            this.modules.sync.sendDrawComplete(stroke);
+        }
+    }
+    
+    // Инициализация синхронизации (вызывается извне)
+    async initSync(lessonId, userId, userName) {
+        if (this.modules.sync) {
+            await this.modules.sync.initialize(lessonId, userId, userName);
+            console.log('🔄 Синхронизация инициализирована для урока:', lessonId);
+        }
+    }
+    
     // Обработка изменения размера
     handleResize() {
         this.setupCanvas();
@@ -799,6 +905,101 @@ class ProfessionalBoard {
         });
     }
     
+    // Добавление объекта
+    addObject(object, layer = null) {
+        if (!object.id) {
+            object.id = Date.now() + '_' + Math.random();
+        }
+        
+        this.objects.set(object.id, object);
+        
+        if (layer) {
+            object.layer = layer;
+        }
+        
+        this.render();
+        this.emit('objectAdded', object);
+    }
+    
+    // Добавление операции в историю
+    addOperation(operation) {
+        console.log('📝 Добавление операции:', operation.type);
+        
+        // Добавляем в историю
+        this.history.push(operation);
+        this.historyIndex = this.history.length - 1;
+        
+        // Ограничиваем размер истории
+        if (this.history.length > this.config.maxHistorySize) {
+            this.history.shift();
+            this.historyIndex--;
+        }
+        
+        // Отправляем событие
+        this.emit('operationAdded', operation);
+    }
+    
+    // Добавление в историю для undo/redo
+    addToHistory(action) {
+        this.addOperation({
+            type: 'history',
+            action: action,
+            timestamp: Date.now()
+        });
+    }
+    
+    // Удаление объектов
+    removeObjects(objectIds) {
+        const removedObjects = [];
+        
+        objectIds.forEach(id => {
+            const object = this.objects.get(id);
+            if (object) {
+                this.objects.delete(id);
+                removedObjects.push(object);
+            }
+        });
+        
+        if (removedObjects.length > 0) {
+            this.render();
+            this.emit('objectsRemoved', removedObjects);
+        }
+    }
+    
+    // Undo операция
+    undo() {
+        if (this.historyIndex > 0) {
+            this.historyIndex--;
+            const operation = this.history[this.historyIndex];
+            this.applyUndo(operation);
+            this.render();
+            this.emit('undo', operation);
+        }
+    }
+    
+    // Redo операция  
+    redo() {
+        if (this.historyIndex < this.history.length - 1) {
+            this.historyIndex++;
+            const operation = this.history[this.historyIndex];
+            this.applyRedo(operation);
+            this.render();
+            this.emit('redo', operation);
+        }
+    }
+    
+    // Применение undo
+    applyUndo(operation) {
+        // Базовая реализация, может быть расширена
+        console.log('⏪ Undo операции:', operation.type);
+    }
+    
+    // Применение redo
+    applyRedo(operation) {
+        // Базовая реализация, может быть расширена
+        console.log('⏩ Redo операции:', operation.type);
+    }
+
     // Уничтожение доски
     destroy() {
         // Удаление обработчиков событий
