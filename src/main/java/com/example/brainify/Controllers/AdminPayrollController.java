@@ -223,7 +223,7 @@ public class AdminPayrollController {
         
         response.put("status", "success");
         response.put("user", currentUser.getName());
-        response.put("role", currentUser.getRole().toString());
+        response.put("role", currentUser.getRole().name());
         response.put("isAdmin", UserRole.ADMIN.equals(currentUser.getRole()));
         
         return ResponseEntity.ok(response);

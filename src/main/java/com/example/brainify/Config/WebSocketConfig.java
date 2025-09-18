@@ -29,8 +29,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*")
                 .withSockJS()
-                .setHeartbeatTime(25000)
-                .setDisconnectDelay(5000);
+                .setHeartbeatTime(30000)
+                .setDisconnectDelay(10000);
         
         // Также поддерживаем чистый WebSocket
         registry.addEndpoint("/ws")
@@ -39,9 +39,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
-        registration.setMessageSizeLimit(64 * 1024) // 64KB
-                   .setSendBufferSizeLimit(512 * 1024) // 512KB
-                   .setSendTimeLimit(20000); // 20 seconds
+        registration.setMessageSizeLimit(128 * 1024) // 128KB
+                   .setSendBufferSizeLimit(1024 * 1024) // 1MB
+                   .setSendTimeLimit(30000); // 30 seconds
     }
 }
 

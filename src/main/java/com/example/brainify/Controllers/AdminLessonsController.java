@@ -283,8 +283,8 @@ public class AdminLessonsController {
                 return ResponseEntity.status(403).body(Map.of("error", "Доступ запрещен"));
             }
 
-            Long studentId = Long.valueOf(request.get("studentId").toString());
-            Long subjectId = Long.valueOf(request.get("subjectId").toString());
+            Long studentId = Long.valueOf(String.valueOf(request.get("studentId")));
+            Long subjectId = Long.valueOf(String.valueOf(request.get("subjectId")));
 
             // Проверяем существование пользователя и предмета
             User student = userRepository.findById(studentId).orElse(null);
@@ -329,7 +329,7 @@ public class AdminLessonsController {
             for (TeacherSchedule schedule : schedules) {
                 Map<String, Object> scheduleInfo = new HashMap<>();
                 scheduleInfo.put("id", schedule.getId());
-                scheduleInfo.put("dayOfWeek", schedule.getDayOfWeek().toString());
+                scheduleInfo.put("dayOfWeek", schedule.getDayOfWeek().name());
                 scheduleInfo.put("startTime", schedule.getStartTime().toString());
                 scheduleInfo.put("endTime", schedule.getEndTime().toString());
                 scheduleInfo.put("isAvailable", schedule.getIsAvailable());
@@ -474,7 +474,7 @@ public class AdminLessonsController {
     @PostMapping("/api/teacher/{teacherId}/schedule/{scheduleId}/toggle")
     @ResponseBody
     @Transactional
-    public ResponseEntity<Map<String, String>> toggleScheduleSlot(
+    public ResponseEntity<Map<String, Object>> toggleScheduleSlot(
             @PathVariable Long teacherId,
             @PathVariable Long scheduleId,
             HttpSession session) {
@@ -485,7 +485,7 @@ public class AdminLessonsController {
             return ResponseEntity.status(403).build();
         }
 
-        Map<String, String> response = new HashMap<>();
+        Map<String, Object> response = new HashMap<>();
 
         try {
             TeacherSchedule schedule = teacherScheduleRepository.findById(scheduleId).orElse(null);
@@ -519,7 +519,7 @@ public class AdminLessonsController {
 
             response.put("status", "success");
             response.put("message", schedule.getIsAvailable() ? "Слот активирован" : "Слот деактивирован");
-            response.put("isAvailable", schedule.getIsAvailable().toString());
+            response.put("isAvailable", schedule.getIsAvailable());
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -570,7 +570,7 @@ public class AdminLessonsController {
     @PostMapping("/api/create-lesson")
     @ResponseBody
     @Transactional
-    public ResponseEntity<Map<String, String>> createLesson(
+    public ResponseEntity<Map<String, Object>> createLesson(
             @RequestParam Long studentId,
             @RequestParam Long teacherId,
             @RequestParam Long subjectId,
@@ -584,7 +584,7 @@ public class AdminLessonsController {
             return ResponseEntity.status(403).build();
         }
 
-        Map<String, String> response = new HashMap<>();
+        Map<String, Object> response = new HashMap<>();
 
         try {
             User student = userRepository.findById(studentId).orElse(null);
@@ -629,7 +629,7 @@ public class AdminLessonsController {
 
             response.put("status", "success");
             response.put("message", "Урок успешно создан");
-            response.put("lessonId", lesson.getId().toString());
+            response.put("lessonId", lesson.getId());
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -683,8 +683,8 @@ public class AdminLessonsController {
         }
 
         try {
-            Long studentId = Long.valueOf(request.get("studentId").toString());
-            Long subjectId = Long.valueOf(request.get("subjectId").toString());
+            Long studentId = Long.valueOf(String.valueOf(request.get("studentId")));
+            Long subjectId = Long.valueOf(String.valueOf(request.get("subjectId")));
             @SuppressWarnings("unchecked")
             List<String> selectedSlots = (List<String>) request.get("selectedSlots");
             Boolean repeatWeekly = (Boolean) request.get("repeatWeekly");
@@ -786,8 +786,8 @@ public class AdminLessonsController {
         }
 
         try {
-            Long studentId = Long.valueOf(request.get("studentId").toString());
-            Long subjectId = Long.valueOf(request.get("subjectId").toString());
+            Long studentId = Long.valueOf(String.valueOf(request.get("studentId")));
+            Long subjectId = Long.valueOf(String.valueOf(request.get("subjectId")));
             @SuppressWarnings("unchecked")
             List<String> lessonDates = (List<String>) request.get("lessonDates");
             Boolean repeatWeekly = (Boolean) request.get("repeatWeekly");
@@ -1011,7 +1011,7 @@ public class AdminLessonsController {
                 
                 for (TeacherSchedule schedule : teacherSchedules) {
                     Map<String, Object> slot = new HashMap<>();
-                    slot.put("dayOfWeek", schedule.getDayOfWeek().toString());
+                    slot.put("dayOfWeek", schedule.getDayOfWeek().name());
                     slot.put("startTime", schedule.getStartTime().toString());
                     slot.put("endTime", schedule.getEndTime().toString());
                     slot.put("teacherId", teacher.getId());

@@ -10,10 +10,18 @@ public class CorsConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOriginPatterns("*") // Разрешаем все origin для разработки
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedOriginPatterns(
+                    "http://localhost:*",
+                    "https://localhost:*", 
+                    "http://127.0.0.1:*",
+                    "https://127.0.0.1:*",
+                    "http://*.brainify.local:*",
+                    "https://*.brainify.local:*"
+                )
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                 .allowedHeaders("*")
-                .allowCredentials(true) // Важно для сессий
+                .exposedHeaders("Authorization", "Content-Type", "X-Requested-With", "Accept")
+                .allowCredentials(true)
                 .maxAge(3600);
     }
 }

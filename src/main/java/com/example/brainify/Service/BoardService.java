@@ -17,6 +17,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.sql.SQLException;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.dao.ConcurrencyFailureException;
 
 @Service
 public class BoardService {
@@ -32,6 +37,10 @@ public class BoardService {
     
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
+    
+    // Кэш для throttling частых обновлений
+    private final Map<Long, LocalDateTime> lastUpdateTime = new ConcurrentHashMap<>();
+    private static final long UPDATE_THROTTLE_MS = 10; // 10ms между обновлениями для мгновенной синхронизации
     
 
     
@@ -207,6 +216,9 @@ public class BoardService {
      * Деактивировать все состояния доски для урока
      */
     @Transactional
+    @Retryable(value = {ConcurrencyFailureException.class, SQLException.class}, 
+               maxAttempts = 3, 
+               backoff = @Backoff(delay = 100, multiplier = 2))
     public void deactivateBoardStates(Long lessonId) {
         try {
             boardStateRepository.deactivateAllByLessonId(lessonId);
@@ -221,13 +233,16 @@ public class BoardService {
      * Сохранить состояние доски (для полного состояния)
      */
     @Transactional
+    @Retryable(value = {ConcurrencyFailureException.class, SQLException.class}, 
+               maxAttempts = 3, 
+               backoff = @Backoff(delay = 100, multiplier = 2))
     public BoardState saveBoardState(Long lessonId, String boardContent) {
         System.out.println("=== BoardService.saveBoardState НАЧАЛО ===");
         System.out.println("lessonId: " + lessonId);
         System.out.println("boardContent length: " + (boardContent != null ? boardContent.length() : "null"));
         try {
-            // Деактивируем предыдущие состояния
-            boardStateRepository.deactivateAllByLessonId(lessonId);
+            // Деактивируем предыдущие состояния (используем оптимизированный метод)
+            boardStateRepository.deactivateAllByLessonIdOptimized(lessonId);
             
             // Создаем новое состояние
             BoardState boardState = new BoardState(lessonId, boardContent);
@@ -244,7 +259,7 @@ public class BoardService {
             
             messagingTemplate.convertAndSend("/topic/board/" + lessonId, message);
             
-            System.out.println("Board state saved for lesson " + lessonId + ", content size: " + boardContent.length());
+            System.out.println("Board state saved for lesson " + lessonId + ", content size: " + (boardContent != null ? boardContent.length() : "null"));
             
             return boardState;
             
@@ -258,15 +273,117 @@ public class BoardService {
      * Загрузить состояние доски
      */
     public Optional<BoardState> loadBoardState(Long lessonId) {
-        return boardStateRepository.findActiveByLessonId(lessonId);
+        try {
+            // Сначала очищаем дублирующиеся активные состояния
+            boardStateRepository.cleanupDuplicateActiveStates(lessonId);
+            return boardStateRepository.findActiveByLessonId(lessonId);
+        } catch (Exception e) {
+            System.err.println("❌ Ошибка в loadBoardState: " + e.getMessage());
+            e.printStackTrace();
+            return Optional.empty();
+        }
+    }
+    
+    /**
+     * Сохранить состояние доски с оптимизированной логикой (для частых обновлений)
+     * Специально оптимизировано для Excalidraw с мгновенной синхронизацией
+     */
+    @Transactional
+    @Retryable(value = {ConcurrencyFailureException.class, SQLException.class}, 
+               maxAttempts = 3, 
+               backoff = @Backoff(delay = 50, multiplier = 1.5))
+    public BoardState saveBoardStateOptimized(Long lessonId, String boardContent) {
+        System.out.println("=== BoardService.saveBoardStateOptimized НАЧАЛО ===");
+        System.out.println("lessonId: " + lessonId);
+        System.out.println("boardContent length: " + (boardContent != null ? boardContent.length() : "null"));
+        
+        // УМНЫЙ throttling: проверяем, не слишком ли часто обновляется доска
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime lastUpdate = lastUpdateTime.get(lessonId);
+        
+        // Для Excalidraw досок - минимальный throttling для мгновенной синхронизации
+        boolean isExcalidrawBoard = boardContent != null && boardContent.contains("\"elements\"");
+        
+        if (lastUpdate != null && 
+            java.time.Duration.between(lastUpdate, now).toMillis() < UPDATE_THROTTLE_MS) {
+            
+            if (isExcalidrawBoard) {
+                // Для Excalidraw доски - всегда сохраняем с минимальным throttling
+                System.out.println("⚡ Fast update for Excalidraw lesson " + lessonId + " (throttling: " + 
+                    java.time.Duration.between(lastUpdate, now).toMillis() + "ms)");
+                // Не блокируем, а продолжаем с сохранением
+            } else {
+                // Для обычных досок - применяем throttling
+                System.out.println("⚠️ Throttling: слишком частые обновления для урока " + lessonId + ", пропускаем");
+                // Возвращаем существующее состояние
+                Optional<BoardState> existingState = boardStateRepository.findActiveByLessonId(lessonId);
+                if (existingState.isPresent()) {
+                    return existingState.get();
+                }
+            }
+        }
+        
+        // Обновляем время последнего обновления
+        lastUpdateTime.put(lessonId, now);
+        
+        try {
+            // Проверяем, есть ли уже активное состояние
+            Optional<BoardState> existingState = boardStateRepository.findActiveByLessonId(lessonId);
+            
+            if (existingState.isPresent()) {
+                // Обновляем существующее состояние вместо создания нового
+                BoardState boardState = existingState.get();
+                boardState.setBoardContent(boardContent);
+                boardState.setUpdatedAt(LocalDateTime.now());
+                
+                System.out.println("Updating existing board state with ID: " + boardState.getId());
+                boardState = boardStateRepository.save(boardState);
+                System.out.println("Board state updated successfully");
+                
+                return boardState;
+            } else {
+                // Создаем новое состояние только если нет активного
+                BoardState boardState = new BoardState(lessonId, boardContent);
+                System.out.println("Creating new board state...");
+                boardState = boardStateRepository.save(boardState);
+                System.out.println("Board state created successfully with ID: " + boardState.getId());
+                
+                return boardState;
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error saving board state (optimized): " + e.getMessage());
+            throw new RuntimeException("Ошибка сохранения состояния доски", e);
+        }
     }
     
     /**
      * Загрузить состояние доски как строку (для Excalidraw)
      */
     public String loadBoardStateAsString(Long lessonId) {
-        Optional<BoardState> boardState = boardStateRepository.findActiveByLessonId(lessonId);
-        return boardState.map(BoardState::getBoardContent).orElse(null);
+        System.out.println("=== BoardService.loadBoardStateAsString НАЧАЛО ===");
+        System.out.println("lessonId: " + lessonId);
+        
+        try {
+            // Сначала очищаем дублирующиеся активные состояния
+            boardStateRepository.cleanupDuplicateActiveStates(lessonId);
+            
+            Optional<BoardState> boardState = boardStateRepository.findActiveByLessonId(lessonId);
+            
+            if (boardState.isPresent()) {
+                String content = boardState.get().getBoardContent();
+                System.out.println("✅ BoardState найден, размер контента: " + (content != null ? content.length() : "null"));
+                return content;
+            } else {
+                System.out.println("📋 BoardState не найден для урока: " + lessonId);
+                return null;
+            }
+            
+        } catch (Exception e) {
+            System.err.println("❌ Ошибка в loadBoardStateAsString: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Ошибка загрузки состояния доски", e);
+        }
     }
     
     /**

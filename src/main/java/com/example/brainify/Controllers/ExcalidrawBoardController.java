@@ -245,24 +245,62 @@ public class ExcalidrawBoardController {
             String userName = (String) updateData.get("userName");
             Object boardData = updateData.get("boardData");
             
+            // Валидация данных
+            if (userId == null || userName == null) {
+                System.err.println("❌ Некорректные данные обновления доски: userId=" + userId + ", userName=" + userName);
+                return Map.of(
+                    "type", "error",
+                    "message", "Некорректные данные пользователя"
+                );
+            }
+            
             System.out.println("📋 Обновление доски от пользователя: " + userName + " (ID: " + userId + ")");
             
-            // Автоматически сохраняем состояние доски
-            if (boardData != null) {
+            // Автоматически сохраняем состояние доски (только если данные не пустые)
+            if (boardData != null && !boardData.toString().trim().isEmpty()) {
                 try {
-                    boardService.saveBoardState(Long.parseLong(lessonId), boardData.toString());
+                    // Преобразуем boardData в JSON строку
+                    String boardDataJson;
+                    if (boardData instanceof String) {
+                        boardDataJson = (String) boardData;
+                    } else {
+                        // Если это объект, преобразуем в JSON
+                        boardDataJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(boardData);
+                    }
+                    
+                    // Проверяем размер данных перед сохранением
+                    if (boardDataJson.length() > 1024 * 1024) { // 1MB лимит
+                        System.err.println("⚠️ Размер данных доски превышает лимит: " + boardDataJson.length() + " байт");
+                    } else {
+                        // Используем оптимизированный метод для частых обновлений
+                        boardService.saveBoardStateOptimized(Long.parseLong(lessonId), boardDataJson);
+                    }
                 } catch (Exception e) {
                     System.err.println("Ошибка автосохранения доски: " + e.getMessage());
                 }
             }
             
-            // Возвращаем сообщение для рассылки всем участникам
+            // МГНОВЕННО рассылаем обновление всем подключенным пользователям
+            Map<String, Object> broadcastMessage = new HashMap<>();
+            broadcastMessage.put("type", "board_update");
+            broadcastMessage.put("userId", userId);
+            broadcastMessage.put("userName", userName);
+            broadcastMessage.put("boardData", boardData);
+            broadcastMessage.put("timestamp", LocalDateTime.now());
+            broadcastMessage.put("sequenceId", updateData.get("sequenceId"));
+            broadcastMessage.put("clientVersion", updateData.get("clientVersion"));
+            
+            // Отправляем всем подключенным пользователям (кроме отправителя)
+            messagingTemplate.convertAndSend("/topic/excalidraw/" + lessonId, broadcastMessage);
+            
+            System.out.println("📡 Board update broadcasted to all users for lesson: " + lessonId);
+            
+            // Возвращаем подтверждение отправителю
             Map<String, Object> response = new HashMap<>();
-            response.put("type", "board_update");
+            response.put("type", "board_update_confirmed");
             response.put("userId", userId);
-            response.put("userName", userName);
-            response.put("boardData", boardData);
             response.put("timestamp", LocalDateTime.now());
+            response.put("sequenceId", updateData.get("sequenceId"));
             
             return response;
             
@@ -272,8 +310,45 @@ public class ExcalidrawBoardController {
             
             return Map.of(
                 "type", "error",
-                "message", "Ошибка обновления доски"
+                "message", "Ошибка обновления доски: " + e.getMessage()
             );
+        }
+    }
+    
+    /**
+     * WebSocket: Ping для проверки соединения
+     */
+    @MessageMapping("/excalidraw/{lessonId}/ping")
+    public void handlePing(@DestinationVariable String lessonId, 
+                          @Payload Map<String, Object> pingData) {
+        try {
+            // Проверяем что pingData не null
+            if (pingData == null) {
+                System.out.println("📡 Ping received with null data for lesson: " + lessonId);
+                return;
+            }
+            
+            Object userIdObj = pingData.get("userId");
+            String userId = userIdObj != null ? userIdObj.toString() : null;
+            
+            if (userId != null) {
+                // Обновляем время последней активности пользователя
+                Map<String, Map<String, Object>> lessonUsers = activeUsers.get(lessonId);
+                if (lessonUsers != null && lessonUsers.containsKey(userId)) {
+                    // Создаем новую изменяемую Map вместо изменения неизменяемой
+                    Map<String, Object> userData = new HashMap<>(lessonUsers.get(userId));
+                    userData.put("lastPing", LocalDateTime.now());
+                    lessonUsers.put(userId, userData);
+                    System.out.println("📡 Ping processed for user: " + userId + " in lesson: " + lessonId);
+                } else {
+                    System.out.println("📡 Ping received from unknown user: " + userId + " in lesson: " + lessonId);
+                }
+            } else {
+                System.out.println("📡 Ping received without userId for lesson: " + lessonId);
+            }
+        } catch (Exception e) {
+            System.err.println("Ошибка обработки ping: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
@@ -296,26 +371,78 @@ public class ExcalidrawBoardController {
                 String boardContent = boardService.loadBoardStateAsString(Long.parseLong(lessonId));
                 
                 if (boardContent != null && !boardContent.trim().isEmpty()) {
-                    Map<String, Object> stateMessage = Map.of(
-                        "type", "board_state",
-                        "boardData", boardContent,
-                        "timestamp", LocalDateTime.now()
-                    );
+                    // Парсим JSON для валидации
+                    try {
+                        Object boardData = new com.fasterxml.jackson.databind.ObjectMapper().readValue(boardContent, Object.class);
+                        
+                        Map<String, Object> stateMessage = new HashMap<>();
+                        stateMessage.put("type", "board_state");
+                        stateMessage.put("boardData", boardData);
+                        stateMessage.put("timestamp", LocalDateTime.now());
+                        stateMessage.put("lessonId", lessonId);
+                        stateMessage.put("isInitialLoad", true);
+                        
+                        // Отправляем состояние только запросившему пользователю
+                        messagingTemplate.convertAndSendToUser(
+                            headerAccessor.getSessionId(), 
+                            "/queue/board/state", 
+                            stateMessage
+                        );
+                        
+                        System.out.println("📋 Актуальное состояние доски отправлено пользователю: " + userId + " (размер: " + boardContent.length() + " символов)");
+                        
+                    } catch (Exception parseError) {
+                        System.err.println("❌ Ошибка парсинга состояния доски: " + parseError.getMessage());
+                        
+                        // Отправляем пустое состояние при ошибке парсинга
+                        Map<String, Object> errorStateMessage = new HashMap<>();
+                        errorStateMessage.put("type", "board_state");
+                        errorStateMessage.put("boardData", "{}");
+                        errorStateMessage.put("timestamp", LocalDateTime.now());
+                        errorStateMessage.put("lessonId", lessonId);
+                        errorStateMessage.put("message", "Ошибка загрузки состояния доски");
+                        
+                        messagingTemplate.convertAndSendToUser(
+                            headerAccessor.getSessionId(), 
+                            "/queue/board/state", 
+                            errorStateMessage
+                        );
+                    }
+                } else {
+                    System.out.println("📋 Сохраненное состояние доски не найдено для урока: " + lessonId);
                     
-                    // Отправляем состояние только запросившему пользователю
+                    // Отправляем пустое состояние
+                    Map<String, Object> emptyStateMessage = new HashMap<>();
+                    emptyStateMessage.put("type", "board_state");
+                    emptyStateMessage.put("boardData", "{}");
+                    emptyStateMessage.put("timestamp", LocalDateTime.now());
+                    emptyStateMessage.put("lessonId", lessonId);
+                    emptyStateMessage.put("message", "Доска пуста");
+                    emptyStateMessage.put("isInitialLoad", true);
+                    
                     messagingTemplate.convertAndSendToUser(
                         headerAccessor.getSessionId(), 
                         "/queue/board/state", 
-                        stateMessage
+                        emptyStateMessage
                     );
-                    
-                    System.out.println("📋 Состояние доски отправлено пользователю: " + userId);
-                } else {
-                    System.out.println("📋 Сохраненное состояние доски не найдено для урока: " + lessonId);
                 }
                 
             } catch (Exception e) {
-                System.err.println("Ошибка загрузки состояния доски: " + e.getMessage());
+                System.err.println("❌ Ошибка загрузки состояния доски: " + e.getMessage());
+                e.printStackTrace();
+                
+                // Отправляем сообщение об ошибке
+                Map<String, Object> errorMessage = Map.of(
+                    "type", "board_error",
+                    "message", "Ошибка загрузки состояния доски: " + e.getMessage(),
+                    "timestamp", LocalDateTime.now()
+                );
+                
+                messagingTemplate.convertAndSendToUser(
+                    headerAccessor.getSessionId(), 
+                    "/queue/board/state", 
+                    errorMessage
+                );
             }
             
         } catch (Exception e) {
@@ -329,6 +456,10 @@ public class ExcalidrawBoardController {
      * REST API: Сохранение доски
      */
     @PostMapping("/api/excalidraw/save")
+    @CrossOrigin(origins = {"http://localhost:8082", "https://localhost:8082", "http://127.0.0.1:8082", "https://127.0.0.1:8082"}, 
+                 allowCredentials = "true",
+                 methods = {RequestMethod.POST, RequestMethod.OPTIONS},
+                 allowedHeaders = {"*"})
     public ResponseEntity<?> saveBoard(@RequestBody Map<String, Object> request, HttpSession session) {
         try {
             User currentUser = sessionManager.getCurrentUser(session);
@@ -349,7 +480,7 @@ public class ExcalidrawBoardController {
                 if (lessonIdObj instanceof Number) {
                     lessonId = ((Number) lessonIdObj).longValue();
                 } else {
-                    lessonId = Long.parseLong(lessonIdObj.toString());
+                    lessonId = Long.parseLong(String.valueOf(lessonIdObj));
                 }
             } catch (NumberFormatException e) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Некорректный ID урока: " + lessonIdObj));
@@ -387,38 +518,74 @@ public class ExcalidrawBoardController {
         }
     }
     
+    /**
+     * CORS preflight для сохранения доски
+     */
+    @RequestMapping(value = "/api/excalidraw/save", method = RequestMethod.OPTIONS)
+    @CrossOrigin(origins = {"http://localhost:8082", "https://localhost:8082", "http://127.0.0.1:8082", "https://127.0.0.1:8082"}, 
+                 allowCredentials = "true",
+                 methods = {RequestMethod.POST, RequestMethod.OPTIONS},
+                 allowedHeaders = {"*"})
+    public ResponseEntity<?> saveBoardOptions() {
+        return ResponseEntity.ok().build();
+    }
+    
     
     /**
      * REST API: Загрузка доски
      */
     @GetMapping("/api/excalidraw/load/{lessonId}")
+    @CrossOrigin(origins = {"http://localhost:8082", "https://localhost:8082", "http://127.0.0.1:8082", "https://127.0.0.1:8082"}, 
+                 allowCredentials = "true",
+                 methods = {RequestMethod.GET, RequestMethod.OPTIONS},
+                 allowedHeaders = {"*"})
     public ResponseEntity<?> loadBoard(@PathVariable Long lessonId, HttpSession session) {
+        System.out.println("=== EXCALIDRAW LOAD BOARD REQUEST ===");
+        System.out.println("LessonId: " + lessonId);
+        
         try {
             User currentUser = sessionManager.getCurrentUser(session);
             if (currentUser == null) {
+                System.out.println("❌ Пользователь не авторизован");
                 return ResponseEntity.status(401).body(Map.of("error", "Пользователь не авторизован"));
             }
+            
+            System.out.println("✅ Пользователь авторизован: " + currentUser.getName());
             
             // Проверяем права доступа к уроку
             Optional<Lesson> lessonOpt = lessonRepository.findById(lessonId);
             if (lessonOpt.isEmpty()) {
+                System.out.println("❌ Урок не найден: " + lessonId);
                 return ResponseEntity.badRequest().body(Map.of("error", "Урок не найден"));
             }
             
             Lesson lesson = lessonOpt.get();
+            System.out.println("✅ Урок найден: " + lesson.getSubject().getName());
+            
             boolean hasAccess = lesson.getTeacher().getId().equals(currentUser.getId()) ||
                               lesson.getStudent().getId().equals(currentUser.getId()) ||
                               currentUser.getRole().equals(UserRole.ADMIN);
             
             if (!hasAccess) {
+                System.out.println("❌ Нет прав доступа к уроку");
                 return ResponseEntity.status(403).body(Map.of("error", "Нет прав доступа к уроку"));
             }
             
-            // Загружаем состояние доски
-            String content = boardService.loadBoardStateAsString(lessonId);
+            System.out.println("✅ Права доступа подтверждены");
+            
+            // Загружаем состояние доски с дополнительной обработкой ошибок
+            String content = null;
+            try {
+                content = boardService.loadBoardStateAsString(lessonId);
+                System.out.println("📋 BoardService.loadBoardStateAsString completed");
+            } catch (Exception serviceError) {
+                System.err.println("❌ Ошибка в BoardService: " + serviceError.getMessage());
+                serviceError.printStackTrace();
+                return ResponseEntity.status(500).body(Map.of("error", "Ошибка сервиса доски: " + serviceError.getMessage()));
+            }
             
             if (content != null && !content.trim().isEmpty()) {
-                System.out.println("📋 Состояние доски загружено для урока: " + lessonId);
+                System.out.println("📋 Состояние доски загружено для урока: " + lessonId + " (размер: " + content.length() + " символов)");
                 
                 return ResponseEntity.ok(Map.of(
                     "success", true,
@@ -434,9 +601,9 @@ public class ExcalidrawBoardController {
             }
             
         } catch (Exception e) {
-            System.err.println("Ошибка загрузки доски: " + e.getMessage());
+            System.err.println("❌ Критическая ошибка загрузки доски: " + e.getMessage());
             e.printStackTrace();
-            return ResponseEntity.status(500).body(Map.of("error", "Ошибка загрузки доски: " + e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Критическая ошибка загрузки доски: " + e.getMessage()));
         }
     }
     
@@ -545,6 +712,68 @@ public class ExcalidrawBoardController {
             
         } catch (Exception e) {
             System.err.println("Ошибка отправки обновления пользователей: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * WebSocket: Обработка движения мышки
+     */
+    @MessageMapping("/excalidraw/{lessonId}/mouse")
+    @SendTo("/topic/excalidraw/{lessonId}")
+    public Map<String, Object> handleMouseMove(@DestinationVariable String lessonId, 
+                                             @Payload Map<String, Object> mouseData) {
+        try {
+            // Безопасное получение данных
+            Object userIdObj = mouseData.get("userId");
+            String userId = userIdObj != null ? userIdObj.toString() : null;
+            String userName = (String) mouseData.get("userName");
+            String userRole = (String) mouseData.get("userRole");
+            Object xObj = mouseData.get("x");
+            Object yObj = mouseData.get("y");
+            
+            // Валидация данных
+            if (userId == null || userName == null || xObj == null || yObj == null) {
+                System.err.println("❌ Некорректные данные движения мышки");
+                return Map.of(
+                    "type", "error",
+                    "message", "Некорректные данные движения мышки"
+                );
+            }
+            
+            // Преобразование координат
+            double x = 0, y = 0;
+            try {
+                x = xObj instanceof Number ? ((Number) xObj).doubleValue() : Double.parseDouble(xObj.toString());
+                y = yObj instanceof Number ? ((Number) yObj).doubleValue() : Double.parseDouble(yObj.toString());
+            } catch (NumberFormatException e) {
+                System.err.println("❌ Некорректные координаты мышки: x=" + xObj + ", y=" + yObj);
+                return Map.of(
+                    "type", "error",
+                    "message", "Некорректные координаты мышки"
+                );
+            }
+            
+            // Создаем сообщение для рассылки
+            Map<String, Object> mouseMessage = new HashMap<>();
+            mouseMessage.put("type", "mouse_move");
+            mouseMessage.put("userId", userId);
+            mouseMessage.put("userName", userName);
+            mouseMessage.put("userRole", userRole);
+            mouseMessage.put("x", x);
+            mouseMessage.put("y", y);
+            mouseMessage.put("timestamp", LocalDateTime.now());
+            
+            System.out.println("🖱️ Mouse move from " + userName + " (" + userRole + ") at (" + x + ", " + y + ")");
+            
+            return mouseMessage;
+            
+        } catch (Exception e) {
+            System.err.println("Ошибка при обработке движения мышки: " + e.getMessage());
+            e.printStackTrace();
+            return Map.of(
+                "type", "error",
+                "message", "Ошибка обработки движения мышки: " + e.getMessage()
+            );
         }
     }
 }
