@@ -236,7 +236,7 @@ public class AuthService {
     public String getRedirectUrlByRole(UserRole role) {
         switch (role) {
             case STUDENT:
-                return "/student-dashboard";
+                return "/dashboard-student";
             case TEACHER:
                 return "/dashboard";
             case MANAGER:
@@ -244,7 +244,7 @@ public class AuthService {
             case ADMIN:
                 return "/admin-role"; // Админ попадает на админ панель
             default:
-                return "/student-dashboard";
+                return "/dashboard-student";
         }
     }
     

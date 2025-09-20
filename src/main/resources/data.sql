@@ -1,3 +1,12 @@
+-- Добавляем колонку student_joined_at в таблицу lessons, если её нет
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'lessons' AND column_name = 'student_joined_at') THEN
+        ALTER TABLE lessons ADD COLUMN student_joined_at TIMESTAMP;
+    END IF;
+END $$;
+
 -- Инициализация предметов ЕГЭ и ОГЭ
 INSERT INTO subjects (name, description, is_active, created_at) VALUES
 -- Обязательные предметы ЕГЭ
@@ -48,6 +57,12 @@ CREATE TABLE IF NOT EXISTS lessons (
     is_recurring BOOLEAN DEFAULT false,
     recurrence_weeks INTEGER DEFAULT 0,
     original_lesson_id BIGINT,
+    auto_completed BOOLEAN DEFAULT false,
+    teacher_joined_at TIMESTAMP,
+    student_joined_at TIMESTAMP,
+    auto_penalty_applied BOOLEAN DEFAULT false,
+    excalidraw_room_id VARCHAR(255) UNIQUE,
+    excalidraw_secret_key VARCHAR(22),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,

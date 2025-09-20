@@ -25,6 +25,7 @@ public class SecurityConfig {
         return new CustomAuthenticationFilter(sessionManager);
     }
 
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
@@ -67,12 +68,11 @@ public class SecurityConfig {
                         "/api/auth/status",
                         "/admin/payroll/test",
                         "/ws/**", "/topic/**", "/app/**",
-                        "/api/board/**", "/api/excalidraw/**",
-                        "/excalidraw-test"
+"/equipment-check/**"
                 ).permitAll()
                 .requestMatchers("/admin/**").hasAnyAuthority("ADMIN")
                 .requestMatchers("/admin-role/**").hasAnyAuthority("ADMIN", "MANAGER")
-                .requestMatchers("/dashboard", "/student-dashboard").authenticated()
+                .requestMatchers("/dashboard", "/dashboard-student").authenticated()
                 .anyRequest().authenticated()
             )
             .logout(logout -> logout

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface LessonRepository extends JpaRepository<Lesson, Long> {
@@ -75,4 +76,7 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
            "l.lessonDate < :now AND l.autoPenaltyApplied = false " +
            "ORDER BY l.lessonDate ASC")
     List<Lesson> findScheduledLessonsForAutoCompletion(@Param("now") LocalDateTime now);
+    
+    // Найти урок по excalidrawRoomId
+    Optional<Lesson> findByExcalidrawRoomId(String excalidrawRoomId);
 } 

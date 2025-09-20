@@ -157,8 +157,8 @@ function initMobileNavButtons() {
             // Перенаправляем в зависимости от роли
             switch(userRole) {
                 case 'STUDENT':
-                    console.log('Мобильное перенаправление на student-dashboard');
-                    window.location.href = '/student-dashboard';
+                    console.log('Мобильное перенаправление на dashboard-student');
+                    window.location.href = '/dashboard-student';
                     break;
                 case 'TEACHER':
                     console.log('Мобильное перенаправление на dashboard');
@@ -814,8 +814,8 @@ function initNavButtons() {
             // Перенаправляем в зависимости от роли
             switch(userRole) {
                 case 'STUDENT':
-                    console.log('Перенаправление на student-dashboard');
-                    window.location.href = '/student-dashboard';
+                    console.log('Перенаправление на dashboard-student');
+                    window.location.href = '/dashboard-student';
                     break;
                 case 'TEACHER':
                     console.log('Перенаправление на dashboard');

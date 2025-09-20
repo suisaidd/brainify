@@ -747,6 +747,7 @@
     border: 1px solid #e2e8f0;
     position: relative;
     transition: all 0.3s ease;
+    margin-bottom: 1rem;
 }
 
 .lesson-card:hover {
@@ -754,11 +755,46 @@
     transform: translateY(-2px);
 }
 
+/* Специальные стили для карточек уроков ученика */
+.lesson-card .lesson-topic {
+    color: #6b7280;
+    font-size: 0.875rem;
+    margin: 0.5rem 0 1rem 0;
+    line-height: 1.4;
+    font-style: italic;
+}
+
+.lesson-card .lesson-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.lesson-card .lesson-date,
+.lesson-card .lesson-time,
+.lesson-card .lesson-student {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+
+.lesson-card .lesson-student {
+    color: #1e293b;
+    font-weight: 600;
+}
+
+.lesson-card .lesson-student i {
+    color: #a3e635;
+}
+
 /* Длительность урока */
 .lesson-duration {
     position: absolute;
     top: 1rem;
-    right: 1rem;
+    left: 1rem;
     background: #f1f5f9;
     color: #64748b;
     padding: 0.25rem 0.5rem;
@@ -766,6 +802,9 @@
     font-size: 0.75rem;
     font-weight: 500;
     border: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
 }
 
 /* Информация об уроке */
@@ -774,6 +813,7 @@
     flex-direction: column;
     gap: 0.5rem;
     margin-bottom: 1.5rem;
+    margin-top: 2.5rem; /* Отступ для длительности урока */
 }
 
 .lesson-subject {
@@ -885,27 +925,38 @@
 
 /* Статусные бейджи */
 .lesson-status-badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
     padding: 0.25rem 0.75rem;
-    border-radius: 20px;
+    border-radius: 12px;
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.lesson-status-badge.scheduled {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
 }
 
 .lesson-status-badge.completed {
-    background: #dcfce7;
-    color: #166534;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
 }
 
 .lesson-status-badge.cancelled {
-    background: #fef2f2;
-    color: #dc2626;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
 }
 
 .lesson-status-badge.overdue {
-    background: #dcfce7;
-    color: #166534;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
 }
 
 
@@ -3001,6 +3052,14 @@
 
 .legend-color.booked {
     background: #dc2626;
+}
+
+.legend-color.scheduled {
+    background: #3b82f6;
+}
+
+.legend-color.completed {
+    background: #10b981;
 }
 
 .legend-color.cancelled {

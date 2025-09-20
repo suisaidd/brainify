@@ -5,8 +5,170 @@ let lessonData = null;
 let activeMediaStream = null;
 let equipmentCheckPassed = false;
 
+// Функция для принудительной очистки кеша Excalidraw
+async function clearExcalidrawCache() {
+    console.log('Начинаем принудительную очистку кеша Excalidraw...');
+    
+    try {
+        // 1. Очищаем localStorage (особенно важные ключи Excalidraw)
+        const excalidrawKeys = [
+            'excalidraw',
+            'excalidraw-state',
+            'excalidraw-history',
+            'excalidraw-collab',
+            'excalidraw-room',
+            'excalidraw-board',
+            'excalidraw-session',
+            'excalidraw-data',
+            'excalidraw-cache',
+            'excalidraw-storage',
+            'excalidraw-db',
+            'excalidraw-indexeddb',
+            'excalidraw-backup',
+            'excalidraw-temp'
+        ];
+        
+        // Очищаем все ключи, связанные с Excalidraw
+        for (const key of excalidrawKeys) {
+            try {
+                localStorage.removeItem(key);
+                localStorage.removeItem(key + '-state');
+                localStorage.removeItem(key + '-history');
+                localStorage.removeItem(key + '-collab');
+                localStorage.removeItem(key + '-backup');
+                localStorage.removeItem(key + '-temp');
+            } catch (error) {
+                console.log(`Ошибка удаления ключа ${key}:`, error);
+            }
+        }
+        
+        // Агрессивная очистка localStorage (все ключи, не только Excalidraw)
+        try {
+            const allKeys = Object.keys(localStorage);
+            for (const key of allKeys) {
+                try {
+                    localStorage.removeItem(key);
+                    console.log(`✓ Удален ключ localStorage: ${key}`);
+                } catch (error) {
+                    console.log(`Ошибка удаления ключа ${key}:`, error);
+                }
+            }
+        } catch (error) {
+            console.log('Ошибка при очистке localStorage:', error);
+        }
+        
+        console.log('✓ localStorage очищен от данных Excalidraw');
+        
+        // 2. Очищаем sessionStorage (универсально для всех браузеров)
+        try {
+            sessionStorage.clear();
+            console.log('✓ sessionStorage очищен');
+        } catch (error) {
+            console.log('sessionStorage очистка не удалась:', error);
+            // Альтернативный способ
+            try {
+                for (let i = sessionStorage.length - 1; i >= 0; i--) {
+                    const key = sessionStorage.key(i);
+                    if (key) sessionStorage.removeItem(key);
+                }
+                console.log('✓ sessionStorage очищен (альтернативный способ)');
+            } catch (altError) {
+                console.log('Альтернативная очистка sessionStorage не удалась:', altError);
+            }
+        }
+        
+        // 3. Очищаем IndexedDB (Excalidraw может использовать его)
+        if ('indexedDB' in window) {
+            try {
+                const databases = await indexedDB.databases();
+                for (const db of databases) {
+                    if (db.name && (
+                        db.name.toLowerCase().includes('excalidraw') ||
+                        db.name.toLowerCase().includes('board') ||
+                        db.name.toLowerCase().includes('room') ||
+                        db.name.toLowerCase().includes('collab')
+                    )) {
+                        indexedDB.deleteDatabase(db.name);
+                        console.log(`✓ IndexedDB база удалена: ${db.name}`);
+                    }
+                }
+            } catch (error) {
+                console.log('IndexedDB очистка не удалась:', error);
+            }
+        }
+        
+        // 4. Очищаем кеш браузера
+        if ('caches' in window) {
+            try {
+                const cacheNames = await caches.keys();
+                for (const cacheName of cacheNames) {
+                    if (cacheName.toLowerCase().includes('excalidraw') ||
+                        cacheName.toLowerCase().includes('board') ||
+                        cacheName.toLowerCase().includes('room')) {
+                        await caches.delete(cacheName);
+                        console.log(`✓ Кеш удален: ${cacheName}`);
+                    }
+                }
+            } catch (error) {
+                console.log('Кеш очистка не удалась:', error);
+            }
+        }
+        
+        // 5. Очищаем куки, связанные с Excalidraw
+        document.cookie.split(";").forEach(function(c) {
+            const cookieName = c.split("=")[0].trim();
+            if (cookieName.toLowerCase().includes('excalidraw') ||
+                cookieName.toLowerCase().includes('board') ||
+                cookieName.toLowerCase().includes('room') ||
+                cookieName.toLowerCase().includes('collab')) {
+                document.cookie = cookieName + "=;expires=" + new Date().toUTCString() + ";path=/";
+                console.log(`✓ Cookie удален: ${cookieName}`);
+            }
+        });
+        
+        // 6. Принудительно очищаем HTTP-кеш для Excalidraw
+        try {
+            const excalidrawUrls = [
+                'https://excalidraw.com',
+                'https://app.excalidraw.com',
+                window.location.origin + '/excalidraw'
+            ];
+            
+            for (const url of excalidrawUrls) {
+                try {
+                    await fetch(url, {
+                        method: 'HEAD',
+                        headers: {
+                            'Cache-Control': 'no-cache, no-store, must-revalidate',
+                            'Pragma': 'no-cache',
+                            'Expires': '0'
+                        },
+                        cache: 'reload'
+                    });
+                } catch (e) {
+                    // Игнорируем ошибки для внешних URL
+                }
+            }
+            console.log('✓ HTTP-кеш очищен');
+        } catch (error) {
+            console.log('HTTP-кеш очистка не удалась:', error);
+        }
+        
+        console.log('✓ Принудительная очистка кеша Excalidraw завершена');
+        return true;
+        
+    } catch (error) {
+        console.error('Ошибка при очистке кеша Excalidraw:', error);
+        return false;
+    }
+}
+
 // Инициализация при загрузке страницы
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    // Сначала очищаем кеш Excalidraw при загрузке страницы
+    console.log('Очищаем кеш Excalidraw при загрузке страницы проверки оборудования...');
+    await clearExcalidrawCache();
+    
     initializeEquipmentCheck();
     setupEventListeners();
     // Начинаем проверку оборудования
@@ -68,11 +230,31 @@ async function loadLessonData(lessonId) {
         } else {
             console.error('Ошибка в данных урока:', data.message);
             showToast(data.message || 'Ошибка загрузки данных урока', 'error');
+            
+            // Создаем минимальные данные урока для продолжения работы
+            lessonData = {
+                id: lessonId,
+                subject: { name: 'Предмет' },
+                student: { name: 'Студент' },
+                teacher: { name: 'Преподаватель' },
+                lessonDate: new Date().toISOString()
+            };
+            updateLessonInfo();
         }
     } catch (error) {
         console.error('Ошибка загрузки данных урока:', error);
         console.error('Детали ошибки:', error.message, error.stack);
         showToast('Ошибка загрузки данных урока: ' + error.message, 'error');
+        
+        // Создаем минимальные данные урока для продолжения работы
+        lessonData = {
+            id: lessonId,
+            subject: { name: 'Предмет' },
+            student: { name: 'Студент' },
+            teacher: { name: 'Преподаватель' },
+            lessonDate: new Date().toISOString()
+        };
+        updateLessonInfo();
     }
 }
 
@@ -445,6 +627,23 @@ function checkEquipmentResults() {
         updateConnectionStatus('connected', 'Все проверки пройдены');
         showToast('Все проверки пройдены успешно!', 'success');
         console.log('✓ Все проверки пройдены успешно!');
+        
+        // Автоматически создаем сессию и переходим к уроку через 3 секунды
+        // Показываем обратный отсчет
+        let countdown = 3;
+        const countdownInterval = setInterval(() => {
+            showToast(`Автоматический переход к уроку через ${countdown} сек...`, 'info');
+            countdown--;
+            
+            if (countdown < 0) {
+                clearInterval(countdownInterval);
+                autoCreateSessionAndRedirect();
+            }
+        }, 1000);
+        
+        // Сохраняем интервал для возможности отмены
+        window.autoRedirectInterval = countdownInterval;
+        
     } else if (completedChecks === statusBoxes.length) {
         continueBtn.disabled = true;
         continueAnywayBtn.style.display = 'inline-flex';
@@ -550,36 +749,119 @@ function toggleAudio() {
 }
 
 // Переход к уроку
-function continueToLesson() {
+async function continueToLesson() {
     console.log('=== Переход к уроку ===');
-    console.log('lessonData:', lessonData);
     
-    if (!lessonData) {
-        console.error('Данные урока не загружены');
-        showToast('Ошибка: данные урока не загружены', 'error');
-        return;
+    // Отменяем автоматический переход, если он был запущен
+    if (window.autoRedirectInterval) {
+        clearInterval(window.autoRedirectInterval);
+        window.autoRedirectInterval = null;
     }
-    
-    if (!lessonData.id) {
-        console.error('ID урока отсутствует в данных');
-        showToast('Ошибка: ID урока отсутствует', 'error');
-        return;
-    }
-    
-    console.log('ID урока для перехода:', lessonData.id);
-    console.log('Тип ID урока:', typeof lessonData.id);
     
     // Останавливаем медиа стрим
     stopActiveStream();
     
-    // Переходим к странице онлайн-урока
-    const targetUrl = `/online-lesson?lessonId=${lessonData.id}`;
-    console.log('Переходим по URL:', targetUrl);
+    // Получаем ID урока из URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const lessonId = urlParams.get('lessonId');
     
-    // Добавляем небольшую задержку для корректного завершения медиа стрима
+    if (!lessonId) {
+        showToast('Ошибка: ID урока не найден', 'error');
+        setTimeout(() => {
+            window.location.href = '/dashboard';
+        }, 2000);
+        return;
+    }
+    
+    // Показываем сообщение о переходе к доске
+    showToast('Очистка кеша и переход к доске урока...', 'info');
+    
+    // Принудительно очищаем кеш Excalidraw перед переходом
+    console.log('Очищаем кеш Excalidraw перед переходом к доске...');
+    const cacheCleared = await clearExcalidrawCache();
+    
+    if (cacheCleared) {
+        showToast('Кеш очищен! Переход к доске...', 'success');
+    } else {
+        showToast('Переход к доске (очистка кеша не удалась)...', 'warning');
+    }
+    
+    // Открываем доску Excalidraw в новой вкладке
     setTimeout(() => {
-        window.location.href = targetUrl;
-    }, 100);
+        const boardWindow = window.open(`/excalidraw/board/${lessonId}`, '_blank', 'noopener,noreferrer');
+        
+        if (boardWindow) {
+            showToast('Доска урока открыта в новой вкладке', 'success');
+            boardWindow.focus();
+            
+            // Закрываем текущую вкладку проверки оборудования
+            setTimeout(() => {
+                window.close();
+            }, 2000);
+        } else {
+            showToast('Не удалось открыть доску. Проверьте блокировку всплывающих окон.', 'error');
+            // Fallback - перенаправляем в текущей вкладке
+            window.location.href = `/excalidraw/board/${lessonId}`;
+        }
+    }, 1500);
+}
+
+// Автоматическое создание сессии и переход к уроку (новая функция)
+async function autoCreateSessionAndRedirect() {
+    console.log('=== Автоматическое создание сессии ===');
+    
+    // Отменяем интервал обратного отсчета
+    if (window.autoRedirectInterval) {
+        clearInterval(window.autoRedirectInterval);
+        window.autoRedirectInterval = null;
+    }
+    
+    // Останавливаем медиа стрим
+    stopActiveStream();
+    
+    // Получаем ID урока из URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const lessonId = urlParams.get('lessonId');
+    
+    if (!lessonId) {
+        showToast('Ошибка: ID урока не найден', 'error');
+        setTimeout(() => {
+            window.location.href = '/dashboard';
+        }, 2000);
+        return;
+    }
+    
+    // Показываем сообщение о переходе к доске
+    showToast('Очистка кеша и переход к доске урока...', 'info');
+    
+    // Принудительно очищаем кеш Excalidraw перед переходом
+    console.log('Очищаем кеш Excalidraw перед автоматическим переходом к доске...');
+    const cacheCleared = await clearExcalidrawCache();
+    
+    if (cacheCleared) {
+        showToast('Кеш очищен! Переход к доске...', 'success');
+    } else {
+        showToast('Переход к доске (очистка кеша не удалась)...', 'warning');
+    }
+    
+    // Открываем доску Excalidraw в новой вкладке
+    setTimeout(() => {
+        const boardWindow = window.open(`/excalidraw/board/${lessonId}`, '_blank', 'noopener,noreferrer');
+        
+        if (boardWindow) {
+            showToast('Доска урока открыта в новой вкладке', 'success');
+            boardWindow.focus();
+            
+            // Закрываем текущую вкладку проверки оборудования
+            setTimeout(() => {
+                window.close();
+            }, 2000);
+        } else {
+            showToast('Не удалось открыть доску. Проверьте блокировку всплывающих окон.', 'error');
+            // Fallback - перенаправляем в текущей вкладке
+            window.location.href = `/excalidraw/board/${lessonId}`;
+        }
+    }, 1500);
 }
 
 // Остановка активного медиа стрима

@@ -1,7 +1,10 @@
 package com.example.brainify.Controllers;
 
 import com.example.brainify.Model.User;
+import com.example.brainify.Model.Lesson;
 import com.example.brainify.Service.LessonAutoCompletionService;
+import com.example.brainify.Service.ExcalidrawService;
+import com.example.brainify.Repository.LessonRepository;
 import com.example.brainify.Config.SessionManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpSession;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/lessons")
@@ -20,6 +24,12 @@ public class LessonController {
     
     @Autowired
     private SessionManager sessionManager;
+    
+    @Autowired
+    private LessonRepository lessonRepository;
+    
+    @Autowired
+    private ExcalidrawService excalidrawService;
 
     /**
      * Войти в урок (для преподавателя)
@@ -37,6 +47,13 @@ public class LessonController {
             boolean success = lessonAutoCompletionService.joinLesson(lessonId, currentUser.getId());
             
             if (success) {
+                // Генерируем ключи Excalidraw для урока
+                Optional<Lesson> lessonOpt = lessonRepository.findById(lessonId);
+                if (lessonOpt.isPresent()) {
+                    Lesson lesson = lessonOpt.get();
+                    excalidrawService.generateExcalidrawKeys(lesson);
+                }
+                
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", true);
                 response.put("message", "Успешно вошли в урок");
@@ -85,4 +102,5 @@ public class LessonController {
             return ResponseEntity.badRequest().body(error);
         }
     }
+
 }

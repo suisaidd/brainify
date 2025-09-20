@@ -12,6 +12,7 @@ import com.example.brainify.Repository.SubjectRepository;
 import com.example.brainify.Config.SessionManager;
 import com.example.brainify.Service.LessonCancellationService;
 import com.example.brainify.Service.LessonRescheduleService;
+import com.example.brainify.Service.ExcalidrawService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import com.example.brainify.Model.UserRole;
 import com.example.brainify.Utils.TimezoneUtils;
@@ -57,6 +59,9 @@ public class MainController {
     
     @Autowired
     private SubjectRepository subjectRepository;
+    
+    @Autowired
+    private ExcalidrawService excalidrawService;
 
     @GetMapping({"/", "/main"})
     public String mainPage(Model model, HttpSession session) {
@@ -96,7 +101,7 @@ public class MainController {
         // Перенаправляем в зависимости от роли
         switch (currentUser.getRole()) {
             case STUDENT:
-                return "redirect:/student-dashboard";
+                return "redirect:/dashboard-student";
             case TEACHER:
                 model.addAttribute("pageTitle", "Личный кабинет - Brainify");
                 return "dashboard";
@@ -104,21 +109,27 @@ public class MainController {
             case ADMIN:
                 return "redirect:/admin-role";
             default:
-                return "redirect:/student-dashboard";
+                return "redirect:/dashboard-student";
         }
     }
 
-    @GetMapping("/student-dashboard")
-    public String studentDashboardPage(Model model, HttpSession session) {
+
+    @GetMapping("/dashboard-student")
+    public String dashboardStudentPage(Model model, HttpSession session) {
         // Проверяем, авторизован ли пользователь через SessionManager
         User currentUser = sessionManager.getCurrentUser(session);
         if (currentUser == null) {
             return "redirect:/auth/login";
         }
         
+        // Проверяем, что пользователь является учеником
+        if (!currentUser.getRole().equals(UserRole.STUDENT)) {
+            return "redirect:/dashboard";
+        }
+        
         model.addAttribute("pageTitle", "Личный кабинет ученика - Brainify");
         model.addAttribute("currentUser", currentUser);
-        return "student-dashboard";
+        return "dashboard-student";
     }
     
     // API для получения уроков студента
@@ -157,6 +168,85 @@ public class MainController {
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.status(500).build();
+        }
+    }
+    
+    // API для входа ученика в урок
+    @PostMapping("/api/student/lessons/{lessonId}/join")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> joinStudentLesson(
+            @PathVariable Long lessonId, 
+            HttpSession session) {
+        try {
+            User currentUser = sessionManager.getCurrentUser(session);
+            if (currentUser == null) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "Пользователь не авторизован");
+                return ResponseEntity.status(401).body(error);
+            }
+
+            // Проверяем, что пользователь является учеником
+            if (!currentUser.getRole().equals(UserRole.STUDENT)) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "Доступ запрещен");
+                return ResponseEntity.status(403).body(error);
+            }
+
+            // Находим урок
+            Optional<Lesson> lessonOpt = lessonRepository.findById(lessonId);
+            if (lessonOpt.isEmpty()) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "Урок не найден");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            Lesson lesson = lessonOpt.get();
+            
+            // Проверяем, что урок принадлежит этому ученику
+            if (!lesson.getStudent().getId().equals(currentUser.getId())) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "Урок не принадлежит этому ученику");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            // Проверяем статус урока
+            if (!lesson.getStatus().equals(Lesson.LessonStatus.SCHEDULED)) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "Урок не может быть начат. Статус: " + lesson.getStatus());
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            // Проверяем время урока (можно войти за 15 минут до начала)
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime lessonStart = lesson.getLessonDate();
+            LocalDateTime lessonEnd = lessonStart.plusHours(1);
+
+            if (now.isBefore(lessonStart.minusMinutes(15)) || now.isAfter(lessonEnd)) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "Время урока еще не наступило или урок уже завершен");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            // Отмечаем вход ученика
+            lesson.setStudentJoinedAt(now);
+            lessonRepository.save(lesson);
+
+            // Генерируем ключи Excalidraw для урока, если их нет
+            lesson = excalidrawService.generateExcalidrawKeys(lesson);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Успешно вошли в урок");
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Ошибка при входе в урок: " + e.getMessage());
+            return ResponseEntity.badRequest().body(error);
         }
     }
     

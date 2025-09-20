@@ -1701,7 +1701,7 @@ function showNoPastLessonsMessage() {
 // Функции для действий с уроками
 function joinLesson(lessonId) {
     console.log('Вход в урок:', lessonId);
-    showToast('Переход к проверке оборудования...', 'info');
+    showToast('Открытие урока в новой вкладке...', 'info');
     
     // Сначала отмечаем вход в урок
     fetch(`/api/lessons/${lessonId}/join`, {
@@ -1713,8 +1713,27 @@ function joinLesson(lessonId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Перенаправляем на страницу проверки оборудования
-            window.location.href = `/equipment-check?lessonId=${lessonId}`;
+            // Открываем урок в новой вкладке
+            const lessonWindow = window.open(`/equipment-check?lessonId=${lessonId}`, '_blank', 'noopener,noreferrer');
+            
+            if (lessonWindow) {
+                showToast('Урок открыт в новой вкладке', 'success');
+                
+                // Фокусируемся на новой вкладке
+                lessonWindow.focus();
+                
+                // Добавляем обработчик закрытия окна урока
+                const checkClosed = setInterval(() => {
+                    if (lessonWindow.closed) {
+                        clearInterval(checkClosed);
+                        showToast('Урок завершен', 'info');
+                        // Обновляем данные на дашборде
+                        loadTeacherLessons();
+                    }
+                }, 1000);
+            } else {
+                showToast('Не удалось открыть урок. Проверьте блокировку всплывающих окон.', 'error');
+            }
         } else {
             showToast(data.message || 'Не удалось войти в урок', 'error');
         }

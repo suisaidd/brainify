@@ -57,8 +57,18 @@ public class Lesson {
     @Column(name = "teacher_joined_at")
     private LocalDateTime teacherJoinedAt;
     
+    @Column(name = "student_joined_at")
+    private LocalDateTime studentJoinedAt;
+    
     @Column(name = "auto_penalty_applied")
     private Boolean autoPenaltyApplied = false;
+    
+    // Поля для Excalidraw доски
+    @Column(name = "excalidraw_room_id", unique = true)
+    private String excalidrawRoomId;
+    
+    @Column(name = "excalidraw_secret_key", length = 22)
+    private String excalidrawSecretKey;
     
     public enum LessonStatus {
         SCHEDULED,
@@ -183,11 +193,35 @@ public class Lesson {
         this.teacherJoinedAt = teacherJoinedAt;
     }
     
+    public LocalDateTime getStudentJoinedAt() {
+        return studentJoinedAt;
+    }
+    
+    public void setStudentJoinedAt(LocalDateTime studentJoinedAt) {
+        this.studentJoinedAt = studentJoinedAt;
+    }
+    
     public Boolean getAutoPenaltyApplied() {
         return autoPenaltyApplied;
     }
     
     public void setAutoPenaltyApplied(Boolean autoPenaltyApplied) {
         this.autoPenaltyApplied = autoPenaltyApplied;
+    }
+    
+    public String getExcalidrawRoomId() {
+        return excalidrawRoomId;
+    }
+    
+    public void setExcalidrawRoomId(String excalidrawRoomId) {
+        this.excalidrawRoomId = excalidrawRoomId;
+    }
+    
+    public String getExcalidrawSecretKey() {
+        return excalidrawSecretKey;
+    }
+    
+    public void setExcalidrawSecretKey(String excalidrawSecretKey) {
+        this.excalidrawSecretKey = excalidrawSecretKey;
     }
 } 
