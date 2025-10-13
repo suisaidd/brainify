@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle}">Результаты теста - Brainify</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/test-results.css}">
+    <link rel="stylesheet" th:href="@{/css/animations.css}">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-container">
+                <div class="nav-logo">
+                    <span class="nav-logo-green">Brain</span>ify
+                </div>
+                <div class="nav-menu">
+                    <a href="/" class="nav-link">Главная</a>
+                    <a href="/trainers" class="nav-link">Тренажёры</a>
+                    <a href="/test" class="nav-link">Тесты</a>
+                </div>
+                
+                <!-- Верхние кнопки -->
+                <div class="nav-buttons">
+                    <!-- Кнопки для неавторизованных пользователей -->
+                    <div th:if="${!isAuthenticated}">
+                        <button class="nav-btn nav-btn-login">ВОЙТИ</button>
+                        <button class="nav-btn nav-btn-register">РЕГИСТРАЦИЯ</button>
+                        <button class="nav-btn nav-btn-free free-lesson-btn">БЕСПЛАТНЫЙ УРОК</button>
+                    </div>
+                    
+                    <!-- Кнопки для авторизованных пользователей -->
+                    <div th:if="${isAuthenticated}">
+                        <span class="user-welcome" th:text="'Привет, ' + ${currentUser.name} + '!'">Привет, Пользователь!</span>
+                        <button class="nav-btn nav-btn-dashboard" th:data-role="${currentUser.role.name()}">КАБИНЕТ</button>
+                        <button class="nav-btn nav-btn-logout">ВЫЙТИ</button>
+                    </div>
+                </div>
+                
+                <button class="mobile-menu-btn">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="mobile-menu hidden">
+                <ul>
+                    <li><a href="/">Главная</a></li>
+                    <li><a href="/trainers">Тренажёры</a></li>
+                    <li><a href="/test">Тесты</a></li>
+                </ul>
+                <!-- Кнопки в мобильном меню -->
+                <div class="mobile-nav-buttons">
+                    <!-- Кнопки для неавторизованных пользователей -->
+                    <div th:if="${!isAuthenticated}">
+                        <button class="nav-btn nav-btn-login">ВОЙТИ</button>
+                        <button class="nav-btn nav-btn-register">РЕГИСТРАЦИЯ</button>
+                        <button class="nav-btn nav-btn-free free-lesson-btn">БЕСПЛАТНЫЙ УРОК</button>
+                    </div>
+                    
+                    <!-- Кнопки для авторизованных пользователей -->
+                    <div th:if="${isAuthenticated}">
+                        <span class="user-welcome mobile-welcome" th:text="'Привет, ' + ${currentUser.name} + '!'">Привет, Пользователь!</span>
+                        <button class="nav-btn nav-btn-dashboard" th:data-role="${currentUser.role.name()}">КАБИНЕТ</button>
+                        <button class="nav-btn nav-btn-logout">ВЫЙТИ</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Results Header -->
+    <section class="results-header">
+        <div class="container">
+            <div class="results-info">
+                <h1 class="results-title">Результаты теста</h1>
+                <p class="results-subtitle" th:text="${testSession.subject.name} + ' (' + ${testSession.examType.toUpperCase()} + ')'">Предмет (ОГЭ)</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Results Summary -->
+    <section class="results-summary">
+        <div class="container">
+            <div class="summary-cards">
+                <div class="summary-card correct">
+                    <div class="card-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-value" th:text="${testSession.correctAnswers}">0</div>
+                        <div class="card-label">Правильных ответов</div>
+                    </div>
+                </div>
+                
+                <div class="summary-card total">
+                    <div class="card-icon">
+                        <i class="fas fa-list-ol"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-value" th:text="${testSession.totalQuestions}">0</div>
+                        <div class="card-label">Всего вопросов</div>
+                    </div>
+                </div>
+                
+                <div class="summary-card percentage">
+                    <div class="card-icon">
+                        <i class="fas fa-percentage"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-value" th:text="${#numbers.formatDecimal(testSession.scorePercentage, 1, 1)} + '%'">0%</div>
+                        <div class="card-label">Процент правильных</div>
+                    </div>
+                </div>
+            </div>
+
+            
+        </div>
+    </section>
+
+    <!-- Results Table -->
+    <section class="results-table-section">
+        <div class="container">
+            <h2 class="section-title">Детальные результаты</h2>
+            
+            <div class="results-table-container">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>№</th>
+                            <th>Вопрос</th>
+                            <th>Ваш ответ</th>
+                            <th>Правильный ответ</th>
+                            <th>Результат</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="answer, iterStat : ${answers}" th:class="${answer.isCorrect} ? 'correct-row' : 'incorrect-row'">
+                            <td th:text="${iterStat.index + 1}">1</td>
+                            <td class="question-cell" th:text="${answer.task.question}">Вопрос</td>
+                            <td class="user-answer-cell" th:text="${answer.userAnswer ?: 'Не отвечено'}">Ваш ответ</td>
+                            <td class="correct-answer-cell" th:text="${answer.task.answer}">Правильный ответ</td>
+                            <td class="result-cell">
+                                <span th:if="${answer.isCorrect}" class="result-correct">
+                                    <i class="fas fa-check"></i>
+                                    Правильно
+                                </span>
+                                <span th:unless="${answer.isCorrect}" class="result-incorrect">
+                                    <i class="fas fa-times"></i>
+                                    Неправильно
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Solutions Section -->
+    <section class="solutions-section">
+        <div class="container">
+            <h2 class="section-title">Разбор заданий</h2>
+            
+            <div class="solutions-list">
+                <div th:each="answer, iterStat : ${answers}" th:if="${!answer.isCorrect}" class="solution-card">
+                    <div class="solution-header">
+                        <div class="solution-number" th:text="${iterStat.index + 1}">1</div>
+                        <div class="solution-status" th:class="${answer.isCorrect} ? 'status-correct' : 'status-incorrect'">
+                            <i th:if="${answer.isCorrect}" class="fas fa-check"></i>
+                            <i th:unless="${answer.isCorrect}" class="fas fa-times"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="solution-content">
+                        <div class="solution-question">
+                            <h3>Задание:</h3>
+                            <p th:text="${answer.task.question}">Текст задания</p>
+                        </div>
+                        
+                        <div class="solution-answer">
+                            <h3>Правильный ответ:</h3>
+                            <p th:text="${answer.task.answer}">Правильный ответ</p>
+                        </div>
+                        
+                        <div th:if="${answer.task.solution}" class="solution-explanation">
+                            <h3>Решение:</h3>
+                            <p th:text="${answer.task.solution}">Подробное решение</p>
+                        </div>
+                        
+                        <div class="solution-user-answer">
+                            <h3>Ваш ответ:</h3>
+                            <p th:text="${answer.userAnswer ?: 'Не отвечено'}" th:class="${answer.userAnswer ? '' : 'no-answer'}">Ваш ответ</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Actions -->
+    <section class="results-actions">
+        <div class="container">
+            <div class="actions-content">
+                <a href="/test/random" class="btn btn-primary">
+                    <i class="fas fa-random"></i>
+                    Новый случайный тест
+                </a>
+                <a href="/test/specific" class="btn btn-secondary">
+                    <i class="fas fa-list-ol"></i>
+                    Тест по номеру
+                </a>
+                <a href="/test/marathon" class="btn btn-success">
+                    <i class="fas fa-trophy"></i>
+                    Марафон
+                </a>
+                <a th:if="${incorrectNumbers} and ${not #lists.isEmpty(incorrectNumbers)}" th:href="@{'/test/specific'(retry=${incorrectNumbers[0]})}" class="btn btn-warning">
+                    Повторить номер №<span th:text="${incorrectNumbers[0]}">1</span>
+                </a>
+                <a href="/trainers" class="btn btn-outline">
+                    <i class="fas fa-arrow-left"></i>
+                    К тренажёрам
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <span class="footer-logo-green">Brain</span>ify
+                </div>
+                <p>© 2024 Brainify. Все права защищены.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script th:src="@{/js/main.js(v=2)}"></script>
+    <script th:src="@{/js/test-results.js}"></script>
+</body>
+</html>
+

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle}">Предмет - Тренажёры</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/subject-page.css}">
+    <link rel="stylesheet" th:href="@{/css/animations.css}">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-container">
+                <div class="nav-logo">
+                    <span class="nav-logo-green">Brain</span>ify
+                </div>
+                <div class="nav-menu">
+                    <a href="/" class="nav-link">Главная</a>
+                    <a href="/trainers" class="nav-link">Тренажёры</a>
+                    <a href="#contact" class="nav-link">Контакты</a>
+                </div>
+                
+                <!-- Верхние кнопки -->
+                <div class="nav-buttons">
+                    <!-- Кнопки для неавторизованных пользователей -->
+                    <div th:if="${!isAuthenticated}">
+                        <button class="nav-btn nav-btn-login">ВОЙТИ</button>
+                        <button class="nav-btn nav-btn-register">РЕГИСТРАЦИЯ</button>
+                        <button class="nav-btn nav-btn-free free-lesson-btn">БЕСПЛАТНЫЙ УРОК</button>
+                    </div>
+                    
+                    <!-- Кнопки для авторизованных пользователей -->
+                    <div th:if="${isAuthenticated}">
+                        <span class="user-welcome" th:text="'Привет, ' + ${currentUser.name} + '!'">Привет, Пользователь!</span>
+                        <button class="nav-btn nav-btn-dashboard" th:data-role="${currentUser.role.name()}">КАБИНЕТ</button>
+                        <button class="nav-btn nav-btn-logout">ВЫЙТИ</button>
+                    </div>
+                </div>
+                
+                <button class="mobile-menu-btn">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="mobile-menu hidden">
+                <ul>
+                    <li><a href="/">Главная</a></li>
+                    <li><a href="/trainers">Тренажёры</a></li>
+                    <li><a href="#contact">Контакты</a></li>
+                </ul>
+                <!-- Кнопки в мобильном меню -->
+                <div class="mobile-nav-buttons">
+                    <!-- Кнопки для неавторизованных пользователей -->
+                    <div th:if="${!isAuthenticated}">
+                        <button class="nav-btn nav-btn-login">ВОЙТИ</button>
+                        <button class="nav-btn nav-btn-register">РЕГИСТРАЦИЯ</button>
+                        <button class="nav-btn nav-btn-free free-lesson-btn">БЕСПЛАТНЫЙ УРОК</button>
+                    </div>
+                    
+                    <!-- Кнопки для авторизованных пользователей -->
+                    <div th:if="${isAuthenticated}">
+                        <span class="user-welcome mobile-welcome" th:text="'Привет, ' + ${currentUser.name} + '!'">Привет, Пользователь!</span>
+                        <button class="nav-btn nav-btn-dashboard" th:data-role="${currentUser.role.name()}">КАБИНЕТ</button>
+                        <button class="nav-btn nav-btn-logout">ВЫЙТИ</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Breadcrumb -->
+    <section class="breadcrumb-section">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="/trainers" class="breadcrumb-link">Тренажёры</a>
+                <span class="breadcrumb-separator">/</span>
+                <span class="breadcrumb-current" th:text="${subject.name + ' ' + examType}">Предмет</span>
+            </nav>
+        </div>
+    </section>
+
+    <!-- Subject Header -->
+    <section class="subject-header">
+        <div class="container">
+            <div class="subject-info">
+                <h1 class="subject-title" th:text="${subject.name}">Предмет</h1>
+                <p class="subject-exam-type" th:text="${examType}">ОГЭ</p>
+                <p class="subject-description">Выберите номер задания для изучения</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Task Numbers Grid -->
+    <section class="task-numbers-section">
+        <div class="container">
+            <h2 class="section-title">Номера заданий</h2>
+            <div class="task-numbers-grid" id="taskNumbersGrid">
+                <!-- Номера заданий будут загружены через JavaScript -->
+                <div th:each="taskNumber : ${taskNumbers}" class="task-number-card" th:data-task-number="${taskNumber.number}">
+                    <div class="task-number-header">
+                        <h3 th:text="${taskNumber.name}">Задание 1</h3>
+                        <div class="task-number-icon">
+                            <i class="fas fa-list-ol"></i>
+                        </div>
+                    </div>
+                    <div class="task-number-content">
+                        <p class="task-number-description">Нажмите для просмотра подтем</p>
+                        <div class="subtopics-preview" style="display: none;">
+                            <div class="subtopics-list">
+                                <!-- Подтемы будут загружены динамически -->
+                            </div>
+                        </div>
+                    </div>
+                    <button class="task-number-btn">
+                        <span class="btn-text">Открыть</span>
+                        <i class="fas fa-chevron-right btn-icon"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <span class="footer-logo-green">Brain</span>ify
+                </div>
+                <p>© 2024 Brainify. Все права защищены.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const taskNumberCards = document.querySelectorAll('.task-number-card');
+            
+            taskNumberCards.forEach(card => {
+                const taskNumber = card.getAttribute('data-task-number');
+                const btn = card.querySelector('.task-number-btn');
+                const subtopicsPreview = card.querySelector('.subtopics-preview');
+                const subtopicsList = card.querySelector('.subtopics-list');
+                const btnText = btn.querySelector('.btn-text');
+                const btnIcon = btn.querySelector('.btn-icon');
+                
+                let isExpanded = false;
+                let subtopicsLoaded = false;
+                
+                btn.addEventListener('click', function() {
+                    if (!isExpanded) {
+                        // Загружаем подтемы если еще не загружены
+                        if (!subtopicsLoaded) {
+                            loadSubtopics(taskNumber, subtopicsList);
+                            subtopicsLoaded = true;
+                        }
+                        
+                        // Показываем подтемы
+                        subtopicsPreview.style.display = 'block';
+                        btnText.textContent = 'Скрыть';
+                        btnIcon.className = 'fas fa-chevron-up btn-icon';
+                        isExpanded = true;
+                        
+                        // Анимация раскрытия
+                        card.style.height = 'auto';
+                    } else {
+                        // Скрываем подтемы
+                        subtopicsPreview.style.display = 'none';
+                        btnText.textContent = 'Открыть';
+                        btnIcon.className = 'fas fa-chevron-right btn-icon';
+                        isExpanded = false;
+                    }
+                });
+            });
+        });
+        
+        function loadSubtopics(taskNumber, container) {
+            const examType = window.location.pathname.split('/')[2];
+            const subjectName = window.location.pathname.split('/')[3];
+            
+            fetch(`/api/trainers/${examType}/${subjectName}/task/${taskNumber}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error('Ошибка загрузки подтем:', data.error);
+                        container.innerHTML = '<p class="error">Ошибка загрузки подтем</p>';
+                        return;
+                    }
+                    
+                    if (data.subtopics && data.subtopics.length > 0) {
+                        container.innerHTML = data.subtopics.map(subtopic => `
+                            <div class="subtopic-item" data-subtopic-id="${subtopic.id}">
+                                <div class="subtopic-info">
+                                    <h4>${subtopic.name}</h4>
+                                    <p>${subtopic.description || 'Описание отсутствует'}</p>
+                                </div>
+                                <button class="subtopic-btn">
+                                    <span>Перейти к заданиям</span>
+                                    <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
+                        `).join('');
+                        
+                        // Добавляем обработчики для кнопок подтем
+                        container.querySelectorAll('.subtopic-item').forEach(item => {
+                            const subtopicId = item.getAttribute('data-subtopic-id');
+                            const subtopicBtn = item.querySelector('.subtopic-btn');
+                            
+                            subtopicBtn.addEventListener('click', function() {
+                                const examType = window.location.pathname.split('/')[2];
+                                const subjectName = window.location.pathname.split('/')[3];
+                                window.location.href = `/trainers/${examType}/${subjectName}/task/${taskNumber}/subtopic/${subtopicId}`;
+                            });
+                        });
+                    } else {
+                        container.innerHTML = '<p class="no-subtopics">Подтемы не найдены</p>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка при загрузке подтем:', error);
+                    container.innerHTML = '<p class="error">Ошибка загрузки подтем</p>';
+                });
+        }
+    </script>
+
+    <script th:src="@{/js/main.js(v=2)}"></script>
+</body>
+</html>
+

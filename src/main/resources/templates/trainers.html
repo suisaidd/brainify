@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle}">Тренажёры - Brainify</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/trainers.css}">
+    <link rel="stylesheet" th:href="@{/css/animations.css}">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-container">
+                <div class="nav-logo">
+                    <span class="nav-logo-green">Brain</span>ify
+                </div>
+                <div class="nav-menu">
+                    <a href="/" class="nav-link">Главная</a>
+                    <a href="#about" class="nav-link">О нас</a>
+                    <a href="#contact" class="nav-link">Контакты</a>
+                </div>
+                
+                <!-- Верхние кнопки -->
+                <div class="nav-buttons">
+                    <!-- Кнопки для неавторизованных пользователей -->
+                    <div th:if="${!isAuthenticated}">
+                        <button class="nav-btn nav-btn-login">ВОЙТИ</button>
+                        <button class="nav-btn nav-btn-register">РЕГИСТРАЦИЯ</button>
+                        <button class="nav-btn nav-btn-free free-lesson-btn">БЕСПЛАТНЫЙ УРОК</button>
+                    </div>
+                    
+                    <!-- Кнопки для авторизованных пользователей -->
+                    <div th:if="${isAuthenticated}">
+                        <span class="user-welcome" th:text="'Привет, ' + ${currentUser.name} + '!'">Привет, Пользователь!</span>
+                        <button class="nav-btn nav-btn-dashboard" th:data-role="${currentUser.role.name()}">КАБИНЕТ</button>
+                        <button class="nav-btn nav-btn-logout">ВЫЙТИ</button>
+                    </div>
+                </div>
+                
+                <button class="mobile-menu-btn">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="mobile-menu hidden">
+                <ul>
+                    <li><a href="/">Главная</a></li>
+                    <li><a href="#about">О нас</a></li>
+                    <li><a href="#contact">Контакты</a></li>
+                </ul>
+                <!-- Кнопки в мобильном меню -->
+                <div class="mobile-nav-buttons">
+                    <!-- Кнопки для неавторизованных пользователей -->
+                    <div th:if="${!isAuthenticated}">
+                        <button class="nav-btn nav-btn-login">ВОЙТИ</button>
+                        <button class="nav-btn nav-btn-register">РЕГИСТРАЦИЯ</button>
+                        <button class="nav-btn nav-btn-free free-lesson-btn">БЕСПЛАТНЫЙ УРОК</button>
+                    </div>
+                    
+                    <!-- Кнопки для авторизованных пользователей -->
+                    <div th:if="${isAuthenticated}">
+                        <span class="user-welcome mobile-welcome" th:text="'Привет, ' + ${currentUser.name} + '!'">Привет, Пользователь!</span>
+                        <button class="nav-btn nav-btn-dashboard" th:data-role="${currentUser.role.name()}">КАБИНЕТ</button>
+                        <button class="nav-btn nav-btn-logout">ВЫЙТИ</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-text">
+                    <h1 class="hero-title">
+                        Тренажёры для <span class="highlight">подготовки к экзаменам</span>
+                    </h1>
+                    <p class="hero-subtitle">
+                        Интерактивные упражнения и тесты для эффективной подготовки к ОГЭ и ЕГЭ. Выберите тип тренировки и предметы для изучения.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Test Types Section -->
+    <section class="section section-white">
+        <div class="container">
+            <h2 class="section-title">Типы тренировок</h2>
+            <p class="section-subtitle">Выберите подходящий формат для вашей подготовки</p>
+            
+            <div class="test-types-row">
+                <!-- Random Test -->
+                <div class="test-type-card">
+                    <div class="test-type-icon">
+                        <i class="fas fa-random"></i>
+                    </div>
+                    <h3>Случайный вариант</h3>
+                    <p>Получите случайный набор заданий для проверки знаний по всем темам</p>
+                        <button class="test-type-btn" onclick="window.location.href='/test/random'">Начать тренировку</button>
+                </div>
+
+                <!-- Specific Test -->
+                <div class="test-type-card">
+                    <div class="test-type-icon">
+                        <i class="fas fa-list-ol"></i>
+                    </div>
+                    <h3>Тест по номеру</h3>
+                    <p>Выберите конкретный номер варианта для целенаправленной подготовки</p>
+                        <button class="test-type-btn" onclick="window.location.href='/test/specific'">Выбрать вариант</button>
+                </div>
+
+                <!-- Marathon Test -->
+                <div class="test-type-card">
+                    <div class="test-type-icon">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <h3>Марафон</h3>
+                    <p>Продолжительная тренировка с большим количеством заданий для закрепления</p>
+                        <button class="test-type-btn" onclick="window.location.href='/test/marathon'">Начать марафон</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Subjects Section -->
+    <section class="section section-light">
+        <div class="container">
+            <div class="subjects-header">
+                <h2 class="section-title">Выберите предметы</h2>
+                <div class="exam-type-switcher">
+                    <button class="exam-type-btn active" data-exam="oge">ОГЭ</button>
+                    <button class="exam-type-btn" data-exam="ege">ЕГЭ</button>
+                </div>
+            </div>
+            
+            <div class="subjects-grid" id="subjectsGrid">
+                <!-- Предметы будут загружаться динамически через JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <span class="footer-logo-green">Brain</span>ify
+                </div>
+                <p>© 2024 Brainify. Все права защищены.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Левитирующие фигуры с inline стилями -->
+    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1;">
+        <!-- Фигура 1 - Лайм -->
+        <div style="
+            position: absolute;
+            top: 10%;
+            left: 10%;
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #a3e635, #84cc16);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: floatShape1 4s ease-in-out infinite;
+        "></div>
+        
+        <!-- Фигура 2 - Синий -->
+        <div style="
+            position: absolute;
+            top: 20%;
+            right: 15%;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: floatShape2 5s ease-in-out infinite 1s;
+        "></div>
+        
+        <!-- Фигура 3 - Оранжевый -->
+        <div style="
+            position: absolute;
+            top: 60%;
+            left: 5%;
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: floatShape3 6s ease-in-out infinite 2s;
+        "></div>
+        
+        <!-- Фигура 4 - Фиолетовый -->
+        <div style="
+            position: absolute;
+            top: 30%;
+            right: 10%;
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: floatShape4 3s ease-in-out infinite 3s;
+        "></div>
+        
+        <!-- Фигура 5 - Розовый -->
+        <div style="
+            position: absolute;
+            top: 70%;
+            right: 25%;
+            width: 90px;
+            height: 90px;
+            background: linear-gradient(135deg, #ec4899, #be185d);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: floatShape5 4.5s ease-in-out infinite 4s;
+        "></div>
+        
+        <!-- Фигура 6 - Зеленый -->
+        <div style="
+            position: absolute;
+            top: 80%;
+            left: 70%;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: floatShape6 5.5s ease-in-out infinite 5s;
+        "></div>
+        
+        <!-- Фигура 7 - Красно-оранжевый -->
+        <div style="
+            position: absolute;
+            top: 15%;
+            left: 60%;
+            width: 75px;
+            height: 75px;
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: floatShape7 7s ease-in-out infinite 6s;
+        "></div>
+        
+        <!-- Фигура 8 - Голубой -->
+        <div style="
+            position: absolute;
+            top: 50%;
+            left: 80%;
+            width: 45px;
+            height: 45px;
+            background: linear-gradient(135deg, #06b6d4, #0891b2);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: floatShape8 3.5s ease-in-out infinite 7s;
+        "></div>
+    </div>
+
+    <style>
+        @keyframes floatShape1 {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-30px) rotate(180deg); }
+        }
+        @keyframes floatShape2 {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-25px) rotate(180deg); }
+        }
+        @keyframes floatShape3 {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-35px) rotate(180deg); }
+        }
+        @keyframes floatShape4 {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+        @keyframes floatShape5 {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-28px) rotate(180deg); }
+        }
+        @keyframes floatShape6 {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-22px) rotate(180deg); }
+        }
+        @keyframes floatShape7 {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-32px) rotate(180deg); }
+        }
+        @keyframes floatShape8 {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-18px) rotate(180deg); }
+        }
+    </style>
+
+    <!-- JavaScript для переключения между ОГЭ и ЕГЭ -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const examTypeBtns = document.querySelectorAll('.exam-type-btn');
+            const subjectsGrid = document.getElementById('subjectsGrid');
+            
+            // Данные предметов для ОГЭ и ЕГЭ
+            const subjectsData = {
+                oge: {
+                    'Математика': [
+                        { id: 'math-oge', name: 'math-oge', label: 'Математика ОГЭ' }
+                    ],
+                    'Русский язык': [
+                        { id: 'russian-oge', name: 'russian-oge', label: 'Русский язык ОГЭ' }
+                    ],
+                    'Естественные науки': [
+                        { id: 'physics-oge', name: 'physics-oge', label: 'Физика ОГЭ' },
+                        { id: 'chemistry-oge', name: 'chemistry-oge', label: 'Химия ОГЭ' },
+                        { id: 'biology-oge', name: 'biology-oge', label: 'Биология ОГЭ' },
+                        { id: 'geography-oge', name: 'geography-oge', label: 'География ОГЭ' }
+                    ]
+                },
+                ege: {
+                    'Математика': [
+                        { id: 'math-ege-basic', name: 'math-ege-basic', label: 'Математика (базовый уровень)' },
+                        { id: 'math-ege-profile', name: 'math-ege-profile', label: 'Математика (профильный уровень)' }
+                    ],
+                    'Русский язык': [
+                        { id: 'russian-ege', name: 'russian-ege', label: 'Русский язык ЕГЭ' }
+                    ],
+                    'Естественные науки': [
+                        { id: 'physics-ege', name: 'physics-ege', label: 'Физика ЕГЭ' },
+                        { id: 'chemistry-ege', name: 'chemistry-ege', label: 'Химия ЕГЭ' },
+                        { id: 'biology-ege', name: 'biology-ege', label: 'Биология ЕГЭ' },
+                        { id: 'geography-ege', name: 'geography-ege', label: 'География ЕГЭ' }
+                    ]
+                }
+            };
+            
+            function updateSubjects(examType) {
+                const subjects = subjectsData[examType];
+                let html = '';
+                
+                Object.keys(subjects).forEach(category => {
+                    html += `
+                        <div class="subject-column">
+                            <h3 class="subject-column-title">${category}</h3>
+                            <div class="subject-items">
+                    `;
+                    
+                    subjects[category].forEach(subject => {
+                        html += `
+                            <div class="subject-item">
+                                <input type="checkbox" id="${subject.id}" name="subjects" value="${subject.name}">
+                                <label for="${subject.id}">${subject.label}</label>
+                            </div>
+                        `;
+                    });
+                    
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                subjectsGrid.innerHTML = html;
+            }
+            
+            examTypeBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // Убираем активный класс со всех кнопок
+                    examTypeBtns.forEach(b => b.classList.remove('active'));
+                    // Добавляем активный класс к нажатой кнопке
+                    this.classList.add('active');
+                    
+                    // Обновляем предметы
+                    const examType = this.getAttribute('data-exam');
+                    updateSubjects(examType);
+                });
+            });
+            
+            // Инициализация с ОГЭ
+            updateSubjects('oge');
+        });
+    </script>
+
+    <script th:src="@{/js/main.js(v=2)}"></script>
+    <script th:src="@{/js/trainers.js}"></script>
+</body>
+</html>

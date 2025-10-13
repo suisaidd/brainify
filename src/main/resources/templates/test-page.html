@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle}">Тест - Brainify</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/test-page.css}">
+    <link rel="stylesheet" th:href="@{/css/animations.css}">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-container">
+                <div class="nav-logo">
+                    <span class="nav-logo-green">Brain</span>ify
+                </div>
+                <div class="nav-menu">
+                    <a href="/" class="nav-link">Главная</a>
+                    <a href="/trainers" class="nav-link">Тренажёры</a>
+                    <a href="/test" class="nav-link active">Тесты</a>
+                </div>
+                
+                <!-- Верхние кнопки -->
+                <div class="nav-buttons">
+                    <!-- Кнопки для неавторизованных пользователей -->
+                    <div th:if="${!isAuthenticated}">
+                        <button class="nav-btn nav-btn-login">ВОЙТИ</button>
+                        <button class="nav-btn nav-btn-register">РЕГИСТРАЦИЯ</button>
+                        <button class="nav-btn nav-btn-free free-lesson-btn">БЕСПЛАТНЫЙ УРОК</button>
+                    </div>
+                    
+                    <!-- Кнопки для авторизованных пользователей -->
+                    <div th:if="${isAuthenticated}">
+                        <span class="user-welcome" th:text="'Привет, ' + ${currentUser.name} + '!'">Привет, Пользователь!</span>
+                        <button class="nav-btn nav-btn-dashboard" th:data-role="${currentUser.role.name()}">КАБИНЕТ</button>
+                        <button class="nav-btn nav-btn-logout">ВЫЙТИ</button>
+                    </div>
+                </div>
+                
+                <button class="mobile-menu-btn">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="mobile-menu hidden">
+                <ul>
+                    <li><a href="/">Главная</a></li>
+                    <li><a href="/trainers">Тренажёры</a></li>
+                    <li><a href="/test">Тесты</a></li>
+                </ul>
+                <!-- Кнопки в мобильном меню -->
+                <div class="mobile-nav-buttons">
+                    <!-- Кнопки для неавторизованных пользователей -->
+                    <div th:if="${!isAuthenticated}">
+                        <button class="nav-btn nav-btn-login">ВОЙТИ</button>
+                        <button class="nav-btn nav-btn-register">РЕГИСТРАЦИЯ</button>
+                        <button class="nav-btn nav-btn-free free-lesson-btn">БЕСПЛАТНЫЙ УРОК</button>
+                    </div>
+                    
+                    <!-- Кнопки для авторизованных пользователей -->
+                    <div th:if="${isAuthenticated}">
+                        <span class="user-welcome mobile-welcome" th:text="'Привет, ' + ${currentUser.name} + '!'">Привет, Пользователь!</span>
+                        <button class="nav-btn nav-btn-dashboard" th:data-role="${currentUser.role.name()}">КАБИНЕТ</button>
+                        <button class="nav-btn nav-btn-logout">ВЫЙТИ</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Test Content -->
+    <section class="test-section">
+        <div class="container">
+            <div class="test-header">
+                <h1 class="test-title" th:text="${pageTitle}">Тест</h1>
+                <p class="test-subtitle">Выберите параметры теста и начните прохождение</p>
+            </div>
+
+            <div class="test-content" id="testContent">
+                <!-- Контент будет загружен через JavaScript -->
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <span class="footer-logo-green">Brain</span>ify
+                </div>
+                <p>© 2024 Brainify. Все права защищены.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script th:src="@{/js/main.js(v=2)}"></script>
+    <script th:inline="javascript">
+        // Передаем тип теста в JavaScript ДО подключения логики страницы
+        window.testType = /*[[${testType}]]*/ 'random';
+    </script>
+    <script th:src="@{/js/test-page.js}"></script>
+</body>
+</html>
+

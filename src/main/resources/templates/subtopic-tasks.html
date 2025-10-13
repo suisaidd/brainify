@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle}">Подтема - Тренажёры</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/subtopic-tasks.css}">
+    <link rel="stylesheet" th:href="@{/css/animations.css}">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-container">
+                <div class="nav-logo">
+                    <span class="nav-logo-green">Brain</span>ify
+                </div>
+                <div class="nav-menu">
+                    <a href="/" class="nav-link">Главная</a>
+                    <a href="/trainers" class="nav-link">Тренажёры</a>
+                    <a href="#contact" class="nav-link">Контакты</a>
+                </div>
+                
+                <!-- Верхние кнопки -->
+                <div class="nav-buttons">
+                    <!-- Кнопки для неавторизованных пользователей -->
+                    <div th:if="${!isAuthenticated}">
+                        <button class="nav-btn nav-btn-login">ВОЙТИ</button>
+                        <button class="nav-btn nav-btn-register">РЕГИСТРАЦИЯ</button>
+                        <button class="nav-btn nav-btn-free free-lesson-btn">БЕСПЛАТНЫЙ УРОК</button>
+                    </div>
+                    
+                    <!-- Кнопки для авторизованных пользователей -->
+                    <div th:if="${isAuthenticated}">
+                        <span class="user-welcome" th:text="'Привет, ' + ${currentUser.name} + '!'">Привет, Пользователь!</span>
+                        <button class="nav-btn nav-btn-dashboard" th:data-role="${currentUser.role.name()}">КАБИНЕТ</button>
+                        <button class="nav-btn nav-btn-logout">ВЫЙТИ</button>
+                    </div>
+                </div>
+                
+                <button class="mobile-menu-btn">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="mobile-menu hidden">
+                <ul>
+                    <li><a href="/">Главная</a></li>
+                    <li><a href="/trainers">Тренажёры</a></li>
+                    <li><a href="#contact">Контакты</a></li>
+                </ul>
+                <!-- Кнопки в мобильном меню -->
+                <div class="mobile-nav-buttons">
+                    <!-- Кнопки для неавторизованных пользователей -->
+                    <div th:if="${!isAuthenticated}">
+                        <button class="nav-btn nav-btn-login">ВОЙТИ</button>
+                        <button class="nav-btn nav-btn-register">РЕГИСТРАЦИЯ</button>
+                        <button class="nav-btn nav-btn-free free-lesson-btn">БЕСПЛАТНЫЙ УРОК</button>
+                    </div>
+                    
+                    <!-- Кнопки для авторизованных пользователей -->
+                    <div th:if="${isAuthenticated}">
+                        <span class="user-welcome mobile-welcome" th:text="'Привет, ' + ${currentUser.name} + '!'">Привет, Пользователь!</span>
+                        <button class="nav-btn nav-btn-dashboard" th:data-role="${currentUser.role.name()}">КАБИНЕТ</button>
+                        <button class="nav-btn nav-btn-logout">ВЫЙТИ</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Breadcrumb -->
+    <section class="breadcrumb-section">
+        <div class="container">
+            <nav class="breadcrumb">
+                <a href="/trainers" class="breadcrumb-link">Тренажёры</a>
+                <span class="breadcrumb-separator">/</span>
+                <a th:href="@{'/trainers/' + ${examType} + '/' + ${subjectName}}" th:text="${subjectName + ' ' + examType}" class="breadcrumb-link">Предмет</a>
+                <span class="breadcrumb-separator">/</span>
+                <span class="breadcrumb-current" th:text="${subtopic.name}">Подтема</span>
+            </nav>
+        </div>
+    </section>
+
+    <!-- Subtopic Header -->
+    <section class="subtopic-header">
+        <div class="container">
+            <div class="subtopic-info">
+                <h1 class="subtopic-title" th:text="${subtopic.name}">Подтема</h1>
+                <p class="subtopic-description" th:text="${subtopic.description}">Описание подтемы</p>
+                <div class="subtopic-meta">
+                    <span class="meta-item">
+                        <i class="fas fa-book"></i>
+                        <span th:text="${subjectName + ' ' + examType}">Предмет</span>
+                    </span>
+                    <span class="meta-item">
+                        <i class="fas fa-list-ol"></i>
+                        <span th:text="'Задание ' + ${taskNumber}">Задание 1</span>
+                    </span>
+                    <span class="meta-item">
+                        <i class="fas fa-tasks"></i>
+                        <span th:text="${#lists.size(tasks)} + ' заданий'">0 заданий</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tasks Section -->
+    <section class="tasks-section">
+        <div class="container">
+            <div class="tasks-header">
+                <h2 class="section-title">Задания</h2>
+                <div class="tasks-controls">
+                    <button class="control-btn" id="showAnswersBtn">
+                        <i class="fas fa-eye"></i>
+                        Показать ответы
+                    </button>
+                    <button class="control-btn" id="shuffleBtn">
+                        <i class="fas fa-random"></i>
+                        Перемешать
+                    </button>
+                </div>
+            </div>
+            
+            <div class="tasks-grid" id="tasksGrid">
+                <div th:each="task : ${tasks}" class="task-card" th:data-task-id="${task.id}">
+                    <div class="task-header">
+                        <div class="task-number">
+                            <span th:text="${taskStat.index}">1</span>
+                        </div>
+                        <div class="task-difficulty" th:class="'difficulty-' + ${task.difficultyLevel}">
+                            <i class="fas fa-star"></i>
+                            <span th:text="${task.difficultyLevel}">1</span>
+                        </div>
+                    </div>
+                    
+                    <div class="task-content">
+                        <div class="task-question">
+                            <h3>Задание</h3>
+                            <div class="question-text" th:text="${task.question}">Текст задания</div>
+                        </div>
+                        
+                        <div th:if="${task.imageData != null}" class="task-image">
+                            <img th:src="@{'/api/tasks/' + ${task.id} + '/image'}" 
+                                 alt="Изображение к заданию" 
+                                 class="task-image-img"
+                                 onload="this.style.display='block'"
+                                 onerror="this.style.display='none'">
+                        </div>
+                        
+                        <div class="task-answer" style="display: none;">
+                            <h3>Ответ</h3>
+                            <div class="answer-text" th:text="${task.answer}">Ответ на задание</div>
+                        </div>
+                        
+                        <div class="task-solution" style="display: none;">
+                            <h3>Решение</h3>
+                            <div class="solution-text" th:text="${task.solution}">Решение задания</div>
+                        </div>
+                    </div>
+                    
+                    <div class="task-actions">
+                        <button class="action-btn show-answer-btn">
+                            <i class="fas fa-eye"></i>
+                            Показать ответ
+                        </button>
+                        <button class="action-btn show-solution-btn" style="display: none;">
+                            <i class="fas fa-lightbulb"></i>
+                            Показать решение
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <span class="footer-logo-green">Brain</span>ify
+                </div>
+                <p>© 2024 Brainify. Все права защищены.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script th:src="@{/js/main.js(v=2)}"></script>
+    <script th:src="@{/js/subtopic-tasks.js}"></script>
+</body>
+</html>

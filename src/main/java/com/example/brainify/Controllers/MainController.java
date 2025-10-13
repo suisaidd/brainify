@@ -90,6 +90,18 @@ public class MainController {
         return "private-lessons";
     }
 
+    @GetMapping("/trainers")
+    public String trainersPage(Model model, HttpSession session) {
+        model.addAttribute("pageTitle", "Тренажёры - Brainify");
+        
+        // Страница доступна всем пользователям без регистрации
+        User currentUser = sessionManager.getCurrentUser(session);
+        model.addAttribute("currentUser", currentUser);
+        model.addAttribute("isAuthenticated", currentUser != null);
+        
+        return "trainers";
+    }
+
     @GetMapping("/dashboard")
     public String dashboardPage(Model model, HttpSession session) {
         // Проверяем, авторизован ли пользователь через SessionManager

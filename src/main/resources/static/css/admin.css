@@ -780,6 +780,23 @@ body {
     background: linear-gradient(135deg, #667eea, #764ba2);
 }
 
+/* Тренажёры карточка */
+.trainers-card {
+    background: linear-gradient(135deg, #a3e635, #84cc16);
+    color: white;
+    border: none;
+}
+
+.trainers-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(163, 230, 53, 0.3);
+}
+
+.trainers-card .nav-icon {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
 /* Адаптивность */
 @media (max-width: 768px) {
     .admin-header {

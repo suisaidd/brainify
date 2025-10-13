@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle}">Тест по номеру</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/test-page.css}">
+    <link rel="stylesheet" th:href="@{/css/animations.css}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-container">
+                <div class="nav-logo"><span class="nav-logo-green">Brain</span>ify</div>
+                <div class="nav-menu">
+                    <a href="/" class="nav-link">Главная</a>
+                    <a href="/trainers" class="nav-link">Тренажёры</a>
+                    <a href="/test/specific" class="nav-link active">Тест по номеру</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <section class="test-section">
+        <div class="container">
+            <div class="test-header">
+                <h1 class="test-title" th:text="${pageTitle}">Тест по номеру</h1>
+                <p class="test-subtitle">Прохождение теста</p>
+            </div>
+
+            <div class="test-content" id="testRunContent"></div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo"><span class="footer-logo-green">Brain</span>ify</div>
+                <p>© 2024 Brainify. Все права защищены.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script th:inline="javascript">
+        window.testSessionId = /*[[${sessionId}]]*/ null;
+    </script>
+    <script th:src="@{/js/test-run.js}"></script>
+</body>
+</html>
+
+
