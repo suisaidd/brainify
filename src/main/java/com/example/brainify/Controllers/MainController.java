@@ -78,6 +78,26 @@ public class MainController {
 
 
 
+    @GetMapping("/study-map")
+    public String studyMapPage(Model model, HttpSession session) {
+        model.addAttribute("pageTitle", "Карта подготовки - Brainify");
+
+        // Страница доступна всем пользователям
+        User currentUser = sessionManager.getCurrentUser(session);
+        model.addAttribute("currentUser", currentUser);
+        model.addAttribute("isAuthenticated", currentUser != null);
+
+        // Подтягиваем активные предметы для плиток
+        try {
+            List<Subject> subjects = subjectRepository.findByIsActiveTrueOrderByNameAsc();
+            model.addAttribute("subjects", subjects);
+        } catch (Exception e) {
+            model.addAttribute("subjects", java.util.Collections.emptyList());
+        }
+
+        return "study-map";
+    }
+
     @GetMapping("/private-lessons")
     public String privateLessonsPage(Model model, HttpSession session) {
         model.addAttribute("pageTitle", "Частные занятия - Brainify");

@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} ?: 'Раздел - Brainify'">Раздел - Brainify</title>
+    
+    <!-- Стили -->
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/course.css}">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Дополнительные стили для блоков контента */
+        .content-blocks {
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+        
+        .content-block {
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .content-block h2, .content-block h3, .content-block h4 {
+            color: #1e293b;
+            font-weight: 700;
+            margin-bottom: 16px;
+            margin-top: 24px;
+        }
+        
+        .content-block h2:first-child,
+        .content-block h3:first-child,
+        .content-block h4:first-child {
+            margin-top: 0;
+        }
+        
+        .content-block h2 {
+            font-size: 28px;
+        }
+        
+        .content-block h3 {
+            font-size: 22px;
+        }
+        
+        .content-block h4 {
+            font-size: 18px;
+        }
+        
+        .content-block p {
+            color: #475569;
+            line-height: 1.8;
+            margin-bottom: 16px;
+            font-size: 16px;
+        }
+        
+        .content-block ul, .content-block ol {
+            color: #475569;
+            line-height: 1.8;
+            margin-bottom: 16px;
+            margin-left: 24px;
+        }
+        
+        .content-block li {
+            margin-bottom: 8px;
+        }
+        
+        .content-block code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            color: #10b981;
+        }
+        
+        .content-block pre {
+            background: #1e293b;
+            color: #f1f5f9;
+            padding: 20px;
+            border-radius: 12px;
+            overflow-x: auto;
+            margin-bottom: 16px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .content-block pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+        
+        .block-image {
+            border-radius: 12px;
+            max-width: 100%;
+            height: auto;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            margin: 20px 0;
+        }
+        
+        .sql-task-block {
+            background: #f8fafc;
+            border: 2px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 24px;
+            margin: 24px 0;
+        }
+        
+        .sql-task-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .sql-task-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+        }
+        
+        .sql-task-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        
+        .sql-editor {
+            background: #1e293b;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+        
+        .sql-editor-header {
+            background: #0f172a;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .editor-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .editor-dot.red { background: #ef4444; }
+        .editor-dot.yellow { background: #f59e0b; }
+        .editor-dot.green { background: #10b981; }
+        
+        .sql-textarea {
+            width: 100%;
+            min-height: 120px;
+            background: #1e293b;
+            color: #f1f5f9;
+            border: none;
+            padding: 16px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: vertical;
+        }
+        
+        .sql-textarea:focus {
+            outline: none;
+        }
+        
+        .sql-actions {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .sql-run-btn {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .sql-run-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+        }
+        
+        .sql-result {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            min-height: 60px;
+            max-height: 400px;
+            overflow: auto;
+        }
+        
+        .sql-result table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .sql-result th {
+            background: #f8fafc;
+            padding: 12px;
+            text-align: left;
+            font-weight: 700;
+            border: 1px solid #e5e7eb;
+            color: #1e293b;
+        }
+        
+        .sql-result td {
+            padding: 10px 12px;
+            border: 1px solid #e5e7eb;
+            color: #475569;
+        }
+        
+        .sql-result tr:hover {
+            background: #f8fafc;
+        }
+        
+        .complete-section-btn {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            padding: 16px 32px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+        }
+        
+        .complete-section-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(16, 185, 129, 0.5);
+        }
+        
+        .complete-section-btn:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* Модальное окно для редактирования */
+        .editor-modal {
+            border: none;
+            border-radius: 20px;
+            padding: 0;
+            max-width: 800px;
+            width: 90vw;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .editor-modal::backdrop {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+        
+        .modal-content {
+            padding: 32px;
+        }
+        
+        .modal-header {
+            margin-bottom: 24px;
+        }
+        
+        .modal-header h3 {
+            font-size: 24px;
+            font-weight: 800;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+        
+        .modal-header p {
+            color: #64748b;
+        }
+        
+        .form-field {
+            margin-bottom: 20px;
+        }
+        
+        .form-field label {
+            display: block;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .form-field input,
+        .form-field textarea,
+        .form-field select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-field input:focus,
+        .form-field textarea:focus,
+        .form-field select:focus {
+            outline: none;
+            border-color: #10b981;
+        }
+        
+        .form-field textarea {
+            min-height: 120px;
+            resize: vertical;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 32px;
+        }
+        
+        .modal-btn {
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 2px solid;
+            transition: all 0.3s ease;
+        }
+        
+        .modal-btn.primary {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border-color: #10b981;
+        }
+        
+        .modal-btn.secondary {
+            background: white;
+            color: #475569;
+            border-color: #e5e7eb;
+        }
+        
+        .modal-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        @media (max-width: 768px) {
+            .complete-section-btn {
+                bottom: 16px;
+                right: 16px;
+                padding: 12px 24px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="course-page">
+        <!-- Боковая навигация -->
+        <aside class="course-sidebar" id="courseSidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <span class="logo-green">Brain</span>ify
+                </div>
+                <div class="sidebar-subtitle" th:text="${subject.name}">Название курса</div>
+                <a th:href="@{'/course/' + ${subject.id}}" class="back-button">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>К курсу</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- Главы и разделы -->
+                <div class="course-chapter" th:each="ch : ${chapters}">
+                    <div class="chapter-header">
+                        <span th:text="${ch.title}">Название главы</span>
+                    </div>
+                    
+                    <div class="course-sections" th:if="${chapterToSections[ch.id] != null && #lists.size(chapterToSections[ch.id]) > 0}">
+                        <a class="section-item" 
+                           th:each="s : ${chapterToSections[ch.id]}"
+                           th:href="@{'/course/section/' + ${s.id}}"
+                           th:classappend="${s.id == section.id} ? 'active' : (${#sets.contains(unlockedSectionIds, s.id)} ? 'unlocked' : 'locked')">
+                            <span class="section-status">
+                                <i class="fas fa-check" th:if="${s.id == section.id}"></i>
+                                <i class="fas fa-circle" style="font-size: 6px;" th:if="${s.id != section.id and #sets.contains(unlockedSectionIds, s.id)}"></i>
+                                <i class="fas fa-lock" style="font-size: 8px;" th:if="${not #sets.contains(unlockedSectionIds, s.id) and s.id != section.id}"></i>
+                            </span>
+                            <span th:text="${s.title}">Название раздела</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Основной контент -->
+        <main class="course-main">
+            <!-- Верхняя панель -->
+            <div class="course-topbar">
+                <button class="mobile-menu-toggle" id="mobileMenuToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="topbar-title" th:text="${section.title}">Название раздела</div>
+                <div class="topbar-actions">
+                    <a th:href="@{'/course/' + ${subject.id}}" class="action-btn secondary">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>К курсу</span>
+                    </a>
+                    <button th:if="${isAuthenticated and currentUser != null and currentUser.role?.name() == 'ADMIN'}" 
+                            class="action-btn primary" id="openEditorBtn">
+                        <i class="fas fa-edit"></i>
+                        <span>Редактировать</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Контент раздела -->
+            <div class="course-content">
+                <div class="content-blocks">
+                    <!-- Блоки контента -->
+                    <div class="content-block" th:each="b : ${blocks}">
+                        <!-- Текстовый блок -->
+                        <div th:if="${b.type.name()} == 'TEXT'">
+                            <h3 th:if="${b.title} != null && ${b.title} != ''" th:text="${b.title}">Заголовок</h3>
+                            <div th:utext="${b.textContent}">Текстовый контент</div>
+                        </div>
+                        
+                        <!-- Блок с изображением -->
+                        <div th:if="${b.type.name()} == 'IMAGE'">
+                            <h3 th:if="${b.title} != null && ${b.title} != ''" th:text="${b.title}">Заголовок</h3>
+                            <img th:src="${b.imageUrl}" alt="Изображение" class="block-image">
+                        </div>
+                        
+                        <!-- SQL задание -->
+                        <div th:if="${b.type.name()} == 'SQL_TASK'" class="sql-task-block">
+                            <div class="sql-task-header">
+                                <div class="sql-task-icon">
+                                    <i class="fas fa-code"></i>
+                                </div>
+                                <div class="sql-task-title" th:text="${b.title} ?: 'SQL Задание'">SQL Задание</div>
+                            </div>
+                            
+                            <div class="sql-editor">
+                                <div class="sql-editor-header">
+                                    <span class="editor-dot red"></span>
+                                    <span class="editor-dot yellow"></span>
+                                    <span class="editor-dot green"></span>
+                                </div>
+                                <textarea class="sql-textarea" th:text="${b.initialSql}">SELECT * FROM users;</textarea>
+                            </div>
+                            
+                            <div class="sql-actions">
+                                <button class="sql-run-btn run-sql-btn">
+                                    <i class="fas fa-play"></i>
+                                    Выполнить запрос
+                                </button>
+                            </div>
+                            
+                            <div class="sql-result">
+                                <p style="color: #94a3b8; text-align: center;">Результаты запроса появятся здесь</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Пустое состояние -->
+                    <div class="empty-state" th:if="${#lists.isEmpty(blocks)}">
+                        <i class="fas fa-file-alt"></i>
+                        <h3>Раздел пока не заполнен</h3>
+                        <p>Администратор добавит материалы в ближайшее время</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Кнопка завершения раздела -->
+    <button class="complete-section-btn" id="completeSectionBtn" th:attr="data-section-id=${section.id}">
+        <i class="fas fa-check-circle"></i>
+        Завершить раздел
+    </button>
+    
+    <!-- Модальное окно редактирования -->
+    <dialog class="editor-modal" id="editorModal">
+        <form class="modal-content" th:action="@{'/admin/course/block'}" method="post">
+            <input type="hidden" name="sectionId" th:value="${section.id}">
+            
+            <div class="modal-header">
+                <h3>Добавить блок контента</h3>
+                <p>Выберите тип блока и заполните необходимые поля</p>
+            </div>
+            
+            <div class="form-field">
+                <label>Тип блока</label>
+                <select name="type" id="blockType">
+                    <option value="TEXT">Текст</option>
+                    <option value="IMAGE">Изображение</option>
+                    <option value="SQL_TASK">SQL Задание</option>
+                </select>
+            </div>
+            
+            <div class="form-field">
+                <label>Заголовок</label>
+                <input type="text" name="title" placeholder="Введите заголовок блока">
+            </div>
+            
+            <div class="form-field" id="textField">
+                <label>Текст (HTML)</label>
+                <textarea name="textContent" placeholder="Введите текст или HTML"></textarea>
+            </div>
+            
+            <div class="form-field" id="imageField" style="display: none;">
+                <label>URL изображения</label>
+                <input type="text" name="imageUrl" placeholder="https://example.com/image.jpg">
+            </div>
+            
+            <div class="form-field" id="sqlField" style="display: none;">
+                <label>Начальный SQL запрос</label>
+                <textarea name="initialSql" placeholder="SELECT * FROM table"></textarea>
+                <label style="margin-top: 12px;">Ожидаемый результат (JSON массив)</label>
+                <textarea name="expectedResultJson" placeholder="[]"></textarea>
+            </div>
+            
+            <div class="form-field">
+                <label>Порядок сортировки</label>
+                <input type="text" name="sortOrder" value="0" placeholder="0">
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" class="modal-btn secondary" id="closeEditorBtn">Отмена</button>
+                <button type="submit" class="modal-btn primary">Добавить блок</button>
+            </div>
+        </form>
+    </dialog>
+    
+    <!-- JavaScript -->
+    <script>
+        // Мобильное меню
+        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+        const courseSidebar = document.getElementById('courseSidebar');
+        
+        if (mobileMenuToggle && courseSidebar) {
+            mobileMenuToggle.addEventListener('click', () => {
+                courseSidebar.classList.toggle('mobile-open');
+            });
+            
+            document.addEventListener('click', (e) => {
+                if (!courseSidebar.contains(e.target) && !mobileMenuToggle.contains(e.target)) {
+                    courseSidebar.classList.remove('mobile-open');
+                }
+            });
+        }
+        
+        // Модальное окно редактирования
+        const openEditorBtn = document.getElementById('openEditorBtn');
+        const closeEditorBtn = document.getElementById('closeEditorBtn');
+        const editorModal = document.getElementById('editorModal');
+        const blockType = document.getElementById('blockType');
+        
+        if (openEditorBtn && editorModal) {
+            openEditorBtn.addEventListener('click', () => {
+                editorModal.showModal();
+            });
+        }
+        
+        if (closeEditorBtn && editorModal) {
+            closeEditorBtn.addEventListener('click', () => {
+                editorModal.close();
+            });
+        }
+        
+        // Переключение полей в зависимости от типа блока
+        if (blockType) {
+            const textField = document.getElementById('textField');
+            const imageField = document.getElementById('imageField');
+            const sqlField = document.getElementById('sqlField');
+            
+            blockType.addEventListener('change', () => {
+                textField.style.display = 'none';
+                imageField.style.display = 'none';
+                sqlField.style.display = 'none';
+                
+                if (blockType.value === 'TEXT') {
+                    textField.style.display = '';
+                } else if (blockType.value === 'IMAGE') {
+                    imageField.style.display = '';
+                } else if (blockType.value === 'SQL_TASK') {
+                    sqlField.style.display = '';
+                }
+            });
+        }
+        
+        // Выполнение SQL запросов
+        document.querySelectorAll('.run-sql-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const block = btn.closest('.sql-task-block');
+                const textarea = block.querySelector('.sql-textarea');
+                const resultDiv = block.querySelector('.sql-result');
+                
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Выполнение...';
+                
+                try {
+                    const response = await fetch('/course/sql/execute', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sql: textarea.value })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (!data.success) {
+                        resultDiv.innerHTML = `<p style="color: #ef4444; font-weight: 600;">Ошибка: ${data.error || 'Неизвестная ошибка'}</p>`;
+                        return;
+                    }
+                    
+                    const rows = data.rows || [];
+                    
+                    if (rows.length === 0) {
+                        resultDiv.innerHTML = '<p style="color: #94a3b8; text-align: center;">Запрос выполнен успешно, но результатов нет</p>';
+                        return;
+                    }
+                    
+                    const cols = Object.keys(rows[0]);
+                    let tableHtml = '<table><thead><tr>';
+                    cols.forEach(col => {
+                        tableHtml += `<th>${col}</th>`;
+                    });
+                    tableHtml += '</tr></thead><tbody>';
+                    
+                    rows.forEach(row => {
+                        tableHtml += '<tr>';
+                        cols.forEach(col => {
+                            tableHtml += `<td>${row[col] !== null ? row[col] : 'NULL'}</td>`;
+                        });
+                        tableHtml += '</tr>';
+                    });
+                    
+                    tableHtml += '</tbody></table>';
+                    resultDiv.innerHTML = tableHtml;
+                    
+                } catch (error) {
+                    resultDiv.innerHTML = `<p style="color: #ef4444; font-weight: 600;">Ошибка выполнения: ${error.message}</p>`;
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-play"></i> Выполнить запрос';
+                }
+            });
+        });
+        
+        // Завершение раздела
+        const completeSectionBtn = document.getElementById('completeSectionBtn');
+        if (completeSectionBtn) {
+            completeSectionBtn.addEventListener('click', async () => {
+                const sectionId = completeSectionBtn.getAttribute('data-section-id');
+                
+                completeSectionBtn.disabled = true;
+                completeSectionBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+                
+                try {
+                    const response = await fetch(`/course/section/${sectionId}/complete`, {
+                        method: 'POST'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        completeSectionBtn.innerHTML = '<i class="fas fa-check-circle"></i> Завершено!';
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        completeSectionBtn.innerHTML = '<i class="fas fa-times"></i> Ошибка';
+                        completeSectionBtn.disabled = false;
+                    }
+                } catch (error) {
+                    completeSectionBtn.innerHTML = '<i class="fas fa-times"></i> Ошибка';
+                    completeSectionBtn.disabled = false;
+                }
+            });
+        }
+    </script>
+</body>
+</html>

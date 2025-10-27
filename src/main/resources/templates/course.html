@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} ?: 'Курс - Brainify'">Курс - Brainify</title>
+    
+    <!-- Стили -->
+    <link rel="stylesheet" th:href="@{/css/course-new.css}">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Шапка -->
+    <header class="course-header">
+        <div class="header-container">
+            <a href="/" class="header-logo">
+                <span class="logo-brain">Brain</span><span class="logo-ify">ify</span>
+            </a>
+            
+            <nav class="header-nav">
+                <a href="/study-map">Курсы</a>
+                <a href="/trainers">Тренажёры</a>
+                <a href="/dashboard" th:if="${isAuthenticated}">Профиль</a>
+            </nav>
+            
+            <div class="header-actions">
+                <a href="/auth/login" class="header-btn login" th:if="${not isAuthenticated}">Войти</a>
+                <span th:if="${isAuthenticated and currentUser != null}" 
+                      style="color: #6b7280; font-weight: 600;" 
+                      th:text="${currentUser.name}">Пользователь</span>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Hero секция с градиентом -->
+    <section class="course-hero">
+        <div class="hero-container">
+            <h1 class="hero-title" th:text="${subject.name}">Интерактивный курс</h1>
+            <p class="hero-description" th:text="${subject.description} ?: 'Всесторонний курс, спроектированный так, чтобы навсегда изменить ваше отношение к изучаемому предмету. Мы вместе пройдём путь, чтобы понять как работает эта область знаний, и получим все необходимые навыки для эффективного применения их на практике.'">
+                Всесторонний курс, спроектированный для глубокого изучения предмета.
+            </p>
+        </div>
+    </section>
+    
+    <!-- Контейнер модулей -->
+    <div class="modules-container">
+        <!-- Модули -->
+        <div th:if="${not #lists.isEmpty(modules)}">
+            <div class="module-card" th:each="m, iterStat : ${modules}">
+                <div class="module-main">
+                    <div class="module-label" th:text="'Модуль ' + ${iterStat.index}">Модуль 0</div>
+                    <h2 class="module-title">
+                        <span th:text="${m.title}">Введение</span>
+                        <span class="module-progress module-completed" 
+                              th:if="${moduleCompletedChapters[m.id] != null and moduleTotalChapters[m.id] != null and moduleCompletedChapters[m.id] == moduleTotalChapters[m.id] and moduleTotalChapters[m.id] > 0}">
+                            Завершён
+                        </span>
+                    </h2>
+                    <p class="module-description" th:text="${m.description} ?: 'В этом модуле мы изучим основные концепции и получим необходимые знания для дальнейшего обучения.'">
+                        В этом модуле мы познакомимся с основными концепциями.
+                    </p>
+                </div>
+                
+                <div class="module-chapters">
+                    <!-- Главы и разделы -->
+                    <div th:if="${moduleToChapters[m.id] != null and not #lists.isEmpty(moduleToChapters[m.id])}">
+                        <div class="chapter-item" th:each="ch : ${moduleToChapters[m.id]}">
+                            <a class="chapter-link" 
+                               th:href="@{'/course/chapter/' + ${ch.id}}" 
+                               th:text="${ch.title}">Введение</a>
+                            
+                            <!-- Разделы внутри главы -->
+                            <div class="chapter-sections" th:if="${chapterToSections[ch.id] != null and not #lists.isEmpty(chapterToSections[ch.id])}">
+                                <div class="section-item" 
+                                     th:each="s : ${chapterToSections[ch.id]}"
+                                     th:classappend="${#sets.contains(completedSectionIds, s.id)} ? 'completed' : ''">
+                                    <a class="section-link" 
+                                       th:href="@{'/course/section/' + ${s.id}}"
+                                       th:text="${s.title}">
+                                        Структура курса
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Если нет глав -->
+                    <div th:if="${moduleToChapters[m.id] == null or #lists.isEmpty(moduleToChapters[m.id])}" 
+                         style="color: #9ca3af; font-size: 14px; padding: 12px 0;">
+                        <i class="fas fa-info-circle"></i>
+                        В модуле пока нет разделов
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Пустое состояние -->
+        <div class="module-card" th:if="${#lists.isEmpty(modules)}">
+            <div class="empty-state" style="grid-column: 1 / -1;">
+                <i class="fas fa-book-open"></i>
+                <h3>Курс пока не заполнен</h3>
+                <p>Администратор добавит материалы в ближайшее время</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Плавающие кнопки действий -->
+    <div class="course-actions">
+        <a th:href="@{/study-map}" class="action-button secondary">
+            <i class="fas fa-arrow-left"></i>
+            <span>К курсам</span>
+        </a>
+        <a th:if="${isAuthenticated and currentUser != null and currentUser.role?.name() == 'ADMIN'}" 
+           th:href="@{'/course/' + ${subject.id} + '/edit'}" 
+           class="action-button primary">
+            <i class="fas fa-edit"></i>
+            <span>Редактировать</span>
+        </a>
+    </div>
+</body>
+</html>

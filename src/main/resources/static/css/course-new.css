@@ -1,0 +1,471 @@
+/* Дизайн страницы курса в стиле SQL Academy - точная копия */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    background: #f9fafb;
+    color: #1f2937;
+    line-height: 1.6;
+}
+
+/* Шапка */
+.course-header {
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.header-container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header-logo {
+    font-size: 24px;
+    font-weight: 800;
+    color: #1f2937;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.header-logo .logo-brain {
+    background: linear-gradient(135deg, #10b981, #059669);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.header-logo .logo-ify {
+    color: #1f2937;
+}
+
+.header-nav {
+    display: flex;
+    gap: 32px;
+    align-items: center;
+}
+
+.header-nav a {
+    color: #4b5563;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 15px;
+    transition: color 0.2s;
+}
+
+.header-nav a:hover {
+    color: #10b981;
+}
+
+.header-actions {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.header-btn {
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.header-btn.premium {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: white;
+}
+
+.header-btn.login {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.header-btn:hover {
+    transform: translateY(-1px);
+}
+
+/* Hero секция с градиентом */
+.course-hero {
+    background: linear-gradient(135deg, #0c4a6e 0%, #1e40af 30%, #7c3aed 60%, #db2777 100%);
+    padding: 80px 24px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.course-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 30% 50%, rgba(59, 130, 246, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 70% 50%, rgba(168, 85, 247, 0.3) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+.hero-container {
+    max-width: 1280px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+}
+
+.hero-title {
+    font-size: 48px;
+    font-weight: 800;
+    margin-bottom: 24px;
+    line-height: 1.2;
+}
+
+.hero-description {
+    font-size: 18px;
+    line-height: 1.8;
+    max-width: 800px;
+    opacity: 0.95;
+}
+
+/* Контейнер модулей */
+.modules-container {
+    max-width: 1280px;
+    margin: -60px auto 80px;
+    padding: 0 24px;
+    position: relative;
+    z-index: 10;
+}
+
+/* Карточка модуля */
+.module-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 10px 20px rgba(0, 0, 0, 0.06);
+    padding: 40px;
+    margin-bottom: 24px;
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 60px;
+    transition: all 0.3s;
+}
+
+.module-card:hover {
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1), 0 16px 32px rgba(0, 0, 0, 0.08);
+}
+
+.module-main {
+    flex: 1;
+}
+
+.module-label {
+    font-size: 14px;
+    color: #9ca3af;
+    font-weight: 600;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.module-title {
+    font-size: 28px;
+    font-weight: 800;
+    color: #1f2937;
+    margin-bottom: 16px;
+}
+
+.module-description {
+    font-size: 16px;
+    line-height: 1.7;
+    color: #4b5563;
+}
+
+/* Навигация по разделам справа */
+.module-chapters {
+    position: relative;
+}
+
+.module-chapters::before {
+    content: '';
+    position: absolute;
+    left: 9px;
+    top: 16px;
+    bottom: 16px;
+    width: 2px;
+    background: #e5e7eb;
+}
+
+.chapter-item {
+    position: relative;
+    padding-left: 32px;
+    margin-bottom: 16px;
+    cursor: pointer;
+}
+
+.chapter-item::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 6px;
+    width: 12px;
+    height: 12px;
+    background: #d1d5db;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 0 0 2px #e5e7eb;
+    transition: all 0.3s;
+}
+
+.chapter-item.active::before {
+    background: #10b981;
+    box-shadow: 0 0 0 2px #10b981;
+}
+
+.chapter-item:hover::before {
+    background: #10b981;
+    transform: scale(1.2);
+}
+
+.chapter-link {
+    color: #374151;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
+    transition: color 0.2s;
+    cursor: pointer;
+}
+
+.chapter-link:hover {
+    color: #10b981;
+}
+
+.chapter-item.active .chapter-link {
+    color: #10b981;
+    font-weight: 600;
+}
+
+/* Подразделы */
+.chapter-sections {
+    margin-top: 12px;
+    padding-left: 12px;
+}
+
+.section-item {
+    position: relative;
+    padding-left: 24px;
+    margin-bottom: 10px;
+}
+
+.section-item::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: 8px;
+    width: 8px;
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.section-item:hover::before {
+    background: #10b981;
+    transform: scale(1.3);
+}
+
+.section-link {
+    color: #6b7280;
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.2s;
+}
+
+.section-link:hover {
+    color: #10b981;
+}
+
+.section-item.completed::before {
+    background: #10b981;
+}
+
+.section-item.completed .section-link {
+    color: #10b981;
+}
+
+/* Пустое состояние */
+.empty-state {
+    text-align: center;
+    padding: 100px 40px;
+    color: #9ca3af;
+}
+
+.empty-state i {
+    font-size: 64px;
+    margin-bottom: 24px;
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #6b7280;
+    margin-bottom: 12px;
+}
+
+.empty-state p {
+    font-size: 16px;
+}
+
+/* Кнопки управления */
+.course-actions {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    display: flex;
+    gap: 12px;
+    z-index: 100;
+}
+
+.action-button {
+    padding: 14px 28px;
+    border-radius: 12px;
+    border: none;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.action-button.primary {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+}
+
+.action-button.secondary {
+    background: white;
+    color: #374151;
+    border: 2px solid #e5e7eb;
+}
+
+.action-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Адаптивность */
+@media (max-width: 1024px) {
+    .module-card {
+        grid-template-columns: 1fr;
+        gap: 40px;
+    }
+    
+    .hero-title {
+        font-size: 36px;
+    }
+}
+
+@media (max-width: 768px) {
+    .header-nav {
+        display: none;
+    }
+    
+    .course-hero {
+        padding: 60px 20px;
+    }
+    
+    .hero-title {
+        font-size: 32px;
+    }
+    
+    .hero-description {
+        font-size: 16px;
+    }
+    
+    .modules-container {
+        margin-top: -40px;
+        padding: 0 16px;
+    }
+    
+    .module-card {
+        padding: 24px;
+    }
+    
+    .module-title {
+        font-size: 24px;
+    }
+    
+    .course-actions {
+        bottom: 16px;
+        right: 16px;
+        left: 16px;
+        flex-direction: column;
+    }
+    
+    .action-button {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Анимации */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.module-card {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.module-card:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.module-card:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+/* Индикатор прогресса модуля */
+.module-progress {
+    display: inline-block;
+    padding: 6px 12px;
+    background: #ecfdf5;
+    color: #10b981;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-left: 12px;
+}
+
+.module-completed {
+    background: #dcfce7;
+    color: #16a34a;
+}
+

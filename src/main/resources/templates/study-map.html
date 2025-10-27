@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} ?: 'Карта подготовки - Brainify'">Карта подготовки - Brainify</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <style>
+        .study-map-container { max-width: 1100px; margin: 0 auto; padding: 32px 16px; }
+        .study-map-title { font-weight: 800; font-size: 32px; margin-bottom: 8px; }
+        .study-map-subtitle { color: #6b7280; margin-bottom: 24px; }
+        .subjects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+        .subject-card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; background: #fff; transition: box-shadow .2s, transform .2s; cursor: pointer; }
+        .subject-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.08); transform: translateY(-2px); }
+        .subject-title { font-size: 18px; font-weight: 700; margin: 0 0 8px; }
+        .subject-desc { color: #4b5563; font-size: 14px; line-height: 1.5; margin: 0; }
+        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .back-link { color: #10b981; text-decoration: none; font-weight: 600; }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:,">
+    <meta name="robots" content="noindex">
+    <meta name="referrer" content="no-referrer">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.subject-card');
+            cards.forEach(card => {
+                card.addEventListener('click', () => {
+                    const subjectId = card.getAttribute('data-id');
+                    window.location.href = '/course/' + encodeURIComponent(subjectId);
+                });
+            });
+        });
+    </script>
+    <style>
+        body { background: #f9fafb; }
+    </style>
+    <script>
+        if ('caches' in window) {
+            caches.keys().then(names => names.forEach(name => caches.delete(name)));
+        }
+    </script>
+    <meta http-equiv="refresh" content="false">
+</head>
+<body>
+    <div class="study-map-container">
+        <div class="header-actions">
+            <h1 class="study-map-title">Карта подготовки</h1>
+            <a href="/" class="back-link"><i class="fa fa-arrow-left"></i> На главную</a>
+        </div>
+        <p class="study-map-subtitle">Выберите предмет, чтобы посмотреть программу и начать обучение</p>
+
+        <div class="subjects-grid">
+            <div class="subject-card" th:each="s : ${subjects}" th:attr="data-id=${s.id},data-name=${s.name}">
+                <h3 class="subject-title" th:text="${s.name}">Математика</h3>
+                <p class="subject-desc" th:text="${s.description} ?: 'Краткое описание курса'">Краткое описание курса</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
+

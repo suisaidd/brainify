@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} ?: 'Глава - Brainify'">Глава - Brainify</title>
+    
+    <link rel="stylesheet" th:href="@{/css/section-modern.css}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="page-container">
+        <!-- Левая боковая панель -->
+        <aside class="left-sidebar" id="leftSidebar">
+            <div class="sidebar-header">
+                <div class="breadcrumb">
+                    <a th:href="@{'/course/' + ${subject.id}}">Курс</a>
+                    <i class="fas fa-chevron-right"></i>
+                    <span th:text="${module.title}">Модуль</span>
+                </div>
+                <h2 class="sidebar-title" th:text="${chapter.title}">Глава</h2>
+            </div>
+            
+            <nav class="sections-nav">
+                <div class="nav-chapter" th:each="ch : ${chapters}">
+                    <a class="nav-chapter-title" 
+                       th:href="@{'/course/chapter/' + ${ch.id}}"
+                       th:classappend="${ch.id == chapter.id} ? 'active' : ''" 
+                       th:text="${ch.title}">Глава</a>
+                    <div class="nav-chapter-sections" th:if="${chapterToSections[ch.id] != null}">
+                        <a class="nav-section" 
+                           th:each="s : ${chapterToSections[ch.id]}"
+                           th:href="@{'/course/section/' + ${s.id}}"
+                           th:text="${s.title}">
+                            Раздел
+                        </a>
+                    </div>
+                </div>
+            </nav>
+        </aside>
+        
+        <!-- Основной контент -->
+        <main class="main-content">
+            <!-- КРАСИВЫЙ HEADER ВО ВСЮ ШИРИНУ -->
+            <div class="top-bar">
+                <div class="top-bar-container">
+                    <div class="top-bar-left">
+                        <button class="top-btn secondary" id="mobileSidebarToggle" style="display: none;">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                        <a href="/" class="logo">
+                            <span class="logo-brain">Brain</span><span class="logo-ify">ify</span>
+                        </a>
+                        <div class="header-divider"></div>
+                        <div class="page-breadcrumb">
+                            <div class="breadcrumb-top" th:text="${module.title}">Модуль</div>
+                            <div class="breadcrumb-current" th:text="${chapter.title}">Глава</div>
+                        </div>
+                    </div>
+                    <div class="top-bar-actions">
+                    <a th:href="@{'/course/' + ${subject.id}}" class="top-btn secondary">
+                        <i class="fas fa-th"></i> К курсу
+                    </a>
+                    <button th:if="${isAuthenticated and currentUser != null and currentUser.role?.name() == 'ADMIN'}" 
+                            class="top-btn primary" id="editModeBtn">
+                        <i class="fas fa-edit"></i> Редактировать
+                    </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="content-wrapper">
+                <!-- Белая карточка с контентом -->
+                <div class="content-card">
+                    <h1 class="section-title" th:text="${chapter.title}">Название главы</h1>
+                    
+                    <!-- Блоки контента главы -->
+                    <div id="contentBlocks">
+                    <div class="content-block" th:each="b : ${blocks}" th:attr="data-block-id=${b.id}">
+                        <!-- Текстовый блок -->
+                        <div th:if="${b.type.name()} == 'TEXT'">
+                            <!-- Кнопки управления (только для ADMIN в режиме редактирования) -->
+                            <div class="block-actions" th:if="${isAuthenticated and currentUser != null and currentUser.role?.name() == 'ADMIN'}" style="display: none;">
+                                <button class="block-edit-btn" th:attr="data-block-id=${b.id}, data-block-type=${b.type.name()}">
+                                    <i class="fas fa-edit"></i> Редактировать
+                                </button>
+                                <button class="block-delete-btn" th:attr="data-block-id=${b.id}">
+                                    <i class="fas fa-trash"></i> Удалить
+                                </button>
+                            </div>
+                            <h3 th:if="${b.title != null and b.title != ''}" th:text="${b.title}">Заголовок</h3>
+                            <div th:utext="${b.textContent}">Текстовый контент</div>
+                        </div>
+                        
+                        <!-- Блок с изображением -->
+                        <div th:if="${b.type.name()} == 'IMAGE'">
+                            <!-- Кнопки управления (только для ADMIN в режиме редактирования) -->
+                            <div class="block-actions" th:if="${isAuthenticated and currentUser != null and currentUser.role?.name() == 'ADMIN'}" style="display: none;">
+                                <button class="block-edit-btn" th:attr="data-block-id=${b.id}, data-block-type=${b.type.name()}">
+                                    <i class="fas fa-edit"></i> Редактировать
+                                </button>
+                                <button class="block-delete-btn" th:attr="data-block-id=${b.id}">
+                                    <i class="fas fa-trash"></i> Удалить
+                                </button>
+                            </div>
+                            <h3 th:if="${b.title != null and b.title != ''}" th:text="${b.title}">Заголовок</h3>
+                            <img th:src="${b.imageUrl}" alt="Изображение" style="max-width: 100%; border-radius: 12px; margin: 20px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+                        </div>
+                        
+                        <!-- Задание -->
+                        <div th:if="${b.type.name()} == 'SQL_TASK'">
+                            <div class="task-block">
+                                <!-- Кнопки управления (только для ADMIN в режиме редактирования) -->
+                                <div class="block-actions" th:if="${isAuthenticated and currentUser != null and currentUser.role?.name() == 'ADMIN'}" style="display: none;">
+                                    <button class="block-edit-btn" th:attr="data-block-id=${b.id}, data-block-type=${b.type.name()}">
+                                        <i class="fas fa-edit"></i> Редактировать
+                                    </button>
+                                    <button class="block-delete-btn" th:attr="data-block-id=${b.id}">
+                                        <i class="fas fa-trash"></i> Удалить
+                                    </button>
+                                </div>
+                                <div class="task-header">
+                                    <div class="task-icon">
+                                        <i class="fas fa-tasks"></i>
+                                    </div>
+                                    <h3 class="task-title" th:text="${b.title} ?: 'Задание'">Задание</h3>
+                                </div>
+                                <div class="task-description" th:utext="${b.textContent} ?: '<p>Выполните задание</p>'">
+                                    Описание задания
+                                </div>
+                                <!-- Картинка из БД -->
+                                <img th:src="@{'/api/tasks/image/' + ${b.id} + '/CHAPTER'}" 
+                                     class="task-image" 
+                                     onerror="this.style.display='none'"
+                                     style="display: block;">
+                                <div class="task-input-wrapper">
+                                    <textarea class="task-input" 
+                                              placeholder="Введите ваш ответ здесь..." 
+                                              rows="3"
+                                              th:text="${b.initialSql}"></textarea>
+                                </div>
+                                <div class="task-actions">
+                                    <button class="check-btn check-answer-btn">
+                                        <i class="fas fa-check"></i> Проверить
+                                    </button>
+                                </div>
+                                <div class="task-result"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Пустое состояние -->
+                    <div th:if="${#lists.isEmpty(blocks)}" class="empty-state">
+                        <i class="fas fa-book-open"></i>
+                        <h3>Глава пока не заполнена</h3>
+                        <p th:if="${isAuthenticated and currentUser != null and currentUser.role?.name() == 'ADMIN'}">Нажмите кнопку "Добавить блок" ниже</p>
+                        <p th:if="${not (isAuthenticated and currentUser != null and currentUser.role?.name() == 'ADMIN')}">Администратор добавит материалы в ближайшее время</p>
+                    </div>
+                    </div>
+                    
+                    <!-- Кнопка добавить блок (только для ADMIN в режиме редактирования) -->
+                    <button th:if="${isAuthenticated and currentUser != null and currentUser.role?.name() == 'ADMIN'}" 
+                            class="add-block-btn" id="addBlockBtn" style="display: none;">
+                        <i class="fas fa-plus-circle"></i>
+                        Добавить блок
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Панель редактирования -->
+    <div class="edit-overlay" id="editOverlay"></div>
+    <div class="edit-panel" id="editPanel">
+        <div class="edit-panel-header">
+            <h3 class="edit-panel-title" id="editPanelTitle">
+                <i class="fas fa-plus-circle"></i>
+                Добавить контент
+            </h3>
+            <button class="close-edit-btn" id="closeEditBtn">&times;</button>
+        </div>
+        <form class="edit-panel-content" th:action="@{'/admin/course/chapter/block'}" method="post" id="blockForm">
+            <input type="hidden" name="chapterId" th:value="${chapter.id}">
+            <input type="hidden" id="editBlockId" name="blockId">
+            <input type="hidden" id="editBlockType" name="blockType">
+            
+            <div class="edit-form-group">
+                <label>
+                    <i class="fas fa-layer-group"></i>
+                    Тип блока
+                </label>
+                <select name="type" id="blockType">
+                    <option value="TEXT">📝 Текст</option>
+                    <option value="IMAGE">🖼️ Изображение</option>
+                    <option value="SQL_TASK">✅ Задание</option>
+                </select>
+            </div>
+            
+            <div class="edit-form-group">
+                <label>
+                    <i class="fas fa-heading"></i>
+                    Заголовок (опционально)
+                </label>
+                <input type="text" name="title" placeholder="Введите заголовок блока">
+            </div>
+            
+            <div class="edit-form-group" id="textField">
+                <label>
+                    <i class="fas fa-align-left"></i>
+                    Текст (HTML)
+                </label>
+                <textarea name="textContent" placeholder="<h2>Заголовок</h2>&#10;<p>Ваш текст...</p>"></textarea>
+                <p class="edit-form-hint">
+                    <i class="fas fa-lightbulb"></i>
+                    Используйте HTML: &lt;h2&gt;, &lt;p&gt;, &lt;ul&gt;, &lt;code&gt;
+                </p>
+            </div>
+            
+            <div class="edit-form-group" id="imageField" style="display: none;">
+                <label>
+                    <i class="fas fa-image"></i>
+                    URL изображения
+                </label>
+                <input type="text" name="imageUrl" placeholder="https://example.com/image.jpg">
+                <p class="edit-form-hint">
+                    <i class="fas fa-lightbulb"></i>
+                    Вставьте ссылку на картинку
+                </p>
+            </div>
+            
+            <div class="edit-form-group" id="sqlField" style="display: none;">
+                <label>
+                    <i class="fas fa-tasks"></i>
+                    Текст задания (HTML)
+                </label>
+                <textarea name="textContent" placeholder="<p>Опишите задание...</p>"></textarea>
+                
+                <label style="margin-top: 20px;">
+                    <i class="fas fa-image"></i>
+                    Картинка задания (drag & drop)
+                </label>
+                <div id="taskImageDropZone" style="border: 2px dashed #a7f3d0; border-radius: 10px; padding: 30px; text-align: center; background: #f0fdf4; cursor: pointer; transition: all 0.3s;">
+                    <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: #10b981; margin-bottom: 10px; display: block;"></i>
+                    <p style="color: #059669; font-weight: 600; margin: 0;">Перетащите картинку сюда или кликните для выбора</p>
+                    <p style="color: #6b7280; font-size: 12px; margin-top: 6px;">JPG, PNG (макс. 5MB)</p>
+                    <input type="file" id="taskImageInput" accept="image/*" style="display: none;">
+                </div>
+                <div id="taskImagePreview" style="margin-top: 12px; display: none;">
+                    <img id="previewImg" style="max-width: 100%; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <button type="button" id="removeImageBtn" style="margin-top: 8px; padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                        <i class="fas fa-times"></i> Удалить
+                    </button>
+                </div>
+                
+                <label style="margin-top: 20px;">
+                    <i class="fas fa-code"></i>
+                    Начальный код (опционально)
+                </label>
+                <textarea name="initialSql" placeholder="Начальный код"></textarea>
+                
+                <label style="margin-top: 20px;">
+                    <i class="fas fa-check-double"></i>
+                    Правильный ответ
+                </label>
+                <input type="text" id="correctAnswerInput" placeholder="Правильный ответ (будет скрыт от ученика)">
+                <p class="edit-form-hint">
+                    <i class="fas fa-lock"></i>
+                    Ответ сохраняется в БД и не виден в коде страницы
+                </p>
+            </div>
+            
+            <div class="edit-form-group">
+                <label>
+                    <i class="fas fa-sort-numeric-down"></i>
+                    Порядок
+                </label>
+                <input type="number" name="sortOrder" value="0" min="0">
+            </div>
+            
+            <div class="edit-form-actions">
+                <button type="submit" class="save-edit-btn">
+                    <i class="fas fa-save"></i> Добавить блок
+                </button>
+                <button type="button" class="cancel-edit-btn" id="cancelEditBtn">
+                    <i class="fas fa-times"></i> Отмена
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- JavaScript -->
+    <script>
+        // Мобильное меню
+        const mobileSidebarToggle = document.getElementById('mobileSidebarToggle');
+        const leftSidebar = document.getElementById('leftSidebar');
+        
+        if (window.innerWidth <= 768) {
+            mobileSidebarToggle.style.display = 'block';
+        }
+        
+        mobileSidebarToggle?.addEventListener('click', () => {
+            leftSidebar.classList.toggle('mobile-open');
+        });
+        
+        // Режим редактирования
+        const editModeBtn = document.getElementById('editModeBtn');
+        const addBlockBtn = document.getElementById('addBlockBtn');
+        const editPanel = document.getElementById('editPanel');
+        const editOverlay = document.getElementById('editOverlay');
+        const closeEditBtn = document.getElementById('closeEditBtn');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const blockType = document.getElementById('blockType');
+        let isEditMode = false;
+        
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const blockActions = document.querySelectorAll('.block-actions');
+            const addBlockBtn = document.getElementById('addBlockBtn');
+            
+            if (isEditMode) {
+                // Показать кнопки редактирования блоков
+                blockActions.forEach(action => action.style.display = 'flex');
+                // Показать кнопку добавления блока
+                if (addBlockBtn) addBlockBtn.style.display = 'block';
+                // Изменить текст кнопки
+                if (editModeBtn) editModeBtn.innerHTML = '<i class="fas fa-eye"></i> Просмотр';
+                // Переинициализируем обработчики событий для кнопок
+                setTimeout(() => addBlockEventListeners(), 100);
+            } else {
+                // Скрыть кнопки редактирования блоков
+                blockActions.forEach(action => action.style.display = 'none');
+                // Скрыть кнопку добавления блока
+                if (addBlockBtn) addBlockBtn.style.display = 'none';
+                // Изменить текст кнопки
+                if (editModeBtn) editModeBtn.innerHTML = '<i class="fas fa-edit"></i> Редактировать';
+            }
+        }
+        
+        function openEditPanel() {
+            // Сбрасываем форму для создания нового блока
+            document.getElementById('editBlockId').value = '';
+            document.getElementById('editBlockType').value = '';
+            document.getElementById('editPanelTitle').innerHTML = '<i class="fas fa-plus-circle"></i> Добавить контент';
+            document.querySelector('.save-edit-btn').innerHTML = '<i class="fas fa-save"></i> Добавить блок';
+            
+            // Очищаем все поля
+            document.querySelector('input[name="title"]').value = '';
+            document.querySelector('textarea[name="textContent"]').value = '';
+            document.querySelector('input[name="imageUrl"]').value = '';
+            document.querySelector('textarea[name="initialSql"]').value = '';
+            document.querySelector('input[name="sortOrder"]').value = '0';
+            document.getElementById('correctAnswerInput').value = '';
+            
+            // Скрываем все поля по умолчанию
+            document.getElementById('textField').style.display = 'none';
+            document.getElementById('imageField').style.display = 'none';
+            document.getElementById('sqlField').style.display = 'none';
+            
+            editPanel.classList.add('active');
+            editOverlay.classList.add('active');
+        }
+        
+        function closeEditPanel() {
+            editPanel.classList.remove('active');
+            editOverlay.classList.remove('active');
+        }
+        
+        editModeBtn?.addEventListener('click', toggleEditMode);
+        addBlockBtn?.addEventListener('click', openEditPanel);
+        closeEditBtn?.addEventListener('click', closeEditPanel);
+        cancelEditBtn?.addEventListener('click', closeEditPanel);
+        editOverlay?.addEventListener('click', closeEditPanel);
+        
+        // Функция для добавления обработчиков событий к кнопкам блоков
+        function addBlockEventListeners() {
+            // Кнопки редактировать блоков
+            document.querySelectorAll('.block-edit-btn').forEach(btn => {
+                // Удаляем старые обработчики если есть
+                btn.removeEventListener('click', handleEditBlock);
+                btn.addEventListener('click', handleEditBlock);
+            });
+            
+            // Кнопки удалить блоков
+            document.querySelectorAll('.block-delete-btn').forEach(btn => {
+                // Удаляем старые обработчики если есть
+                btn.removeEventListener('click', handleDeleteBlock);
+                btn.addEventListener('click', handleDeleteBlock);
+            });
+        }
+        
+        // Обработчик редактирования блока
+        async function handleEditBlock() {
+            const blockId = this.getAttribute('data-block-id');
+            const blockType = this.getAttribute('data-block-type');
+            
+            try {
+                // Загружаем данные блока
+                const response = await fetch(`/api/blocks/${blockId}/data`);
+                if (!response.ok) {
+                    alert('Ошибка загрузки данных блока');
+                    return;
+                }
+                
+                const blockData = await response.json();
+                
+                // Заполняем форму данными блока
+                document.getElementById('editBlockId').value = blockData.id;
+                document.getElementById('editBlockType').value = blockData.type;
+                document.getElementById('blockType').value = blockData.type;
+                document.querySelector('input[name="title"]').value = blockData.title || '';
+                document.querySelector('textarea[name="textContent"]').value = blockData.textContent || '';
+                document.querySelector('input[name="imageUrl"]').value = blockData.imageUrl || '';
+                document.querySelector('textarea[name="initialSql"]').value = blockData.initialSql || '';
+                document.querySelector('input[name="sortOrder"]').value = blockData.sortOrder || 0;
+                
+                // Показываем соответствующие поля
+                document.getElementById('textField').style.display = 'none';
+                document.getElementById('imageField').style.display = 'none';
+                document.getElementById('sqlField').style.display = 'none';
+                
+                if (blockData.type === 'TEXT') {
+                    document.getElementById('textField').style.display = '';
+                } else if (blockData.type === 'IMAGE') {
+                    document.getElementById('imageField').style.display = '';
+                } else if (blockData.type === 'SQL_TASK') {
+                    document.getElementById('sqlField').style.display = '';
+                }
+                
+                // Меняем заголовок и кнопку для режима редактирования
+                document.getElementById('editPanelTitle').innerHTML = '<i class="fas fa-edit"></i> Редактировать блок';
+                document.querySelector('.save-edit-btn').innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
+                
+                // Открываем панель редактирования
+                openEditPanel();
+                
+            } catch (error) {
+                alert('Ошибка загрузки данных блока');
+            }
+        }
+        
+        // Обработчик удаления блока
+        async function handleDeleteBlock() {
+            if (!confirm('Удалить этот блок?')) return;
+            
+            const blockId = this.getAttribute('data-block-id');
+            try {
+                const response = await fetch(`/admin/course/chapter/block/${blockId}/delete`, {
+                    method: 'POST'
+                });
+                if (response.ok) {
+                    this.closest('.content-block').style.animation = 'fadeOut 0.3s';
+                    setTimeout(() => window.location.reload(), 300);
+                } else {
+                    alert('Ошибка удаления');
+                }
+            } catch (error) {
+                alert('Ошибка удаления');
+            }
+        }
+        
+        // Инициализируем обработчики при загрузке страницы
+        addBlockEventListeners();
+        
+        // Переключение полей
+        blockType?.addEventListener('change', () => {
+            document.getElementById('textField').style.display = 'none';
+            document.getElementById('imageField').style.display = 'none';
+            document.getElementById('sqlField').style.display = 'none';
+            
+            if (blockType.value === 'TEXT') {
+                document.getElementById('textField').style.display = '';
+            } else if (blockType.value === 'IMAGE') {
+                document.getElementById('imageField').style.display = '';
+            } else if (blockType.value === 'SQL_TASK') {
+                document.getElementById('sqlField').style.display = '';
+            }
+        });
+        
+        // Проверка ответа через БД API
+        document.querySelectorAll('.check-answer-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const taskBlock = this.closest('.task-block');
+                const textarea = taskBlock.querySelector('.task-input');
+                const resultDiv = taskBlock.querySelector('.task-result');
+                const blockId = taskBlock.closest('[data-block-id]')?.getAttribute('data-block-id');
+                const userAnswer = textarea.value.trim();
+                
+                if (!userAnswer) {
+                    resultDiv.className = 'task-result error';
+                    resultDiv.innerHTML = '<i class="fas fa-times-circle"></i> Введите ответ';
+                    return;
+                }
+                
+                this.disabled = true;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Проверка...';
+                
+                try {
+                    const response = await fetch('/api/tasks/check-answer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            blockId: blockId,
+                            blockType: 'CHAPTER',
+                            answer: userAnswer
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success && data.correct) {
+                        resultDiv.className = 'task-result success';
+                        resultDiv.innerHTML = '<i class="fas fa-check-circle"></i> ' + data.message;
+                    } else {
+                        resultDiv.className = 'task-result error';
+                        resultDiv.innerHTML = '<i class="fas fa-times-circle"></i> ' + data.message;
+                    }
+                } catch (error) {
+                    resultDiv.className = 'task-result error';
+                    resultDiv.innerHTML = '<i class="fas fa-times-circle"></i> Ошибка проверки';
+                } finally {
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-check"></i> Проверить';
+                }
+            });
+        });
+        
+        // Drag and Drop для картинок
+        const dropZone = document.getElementById('taskImageDropZone');
+        const fileInput = document.getElementById('taskImageInput');
+        const preview = document.getElementById('taskImagePreview');
+        const previewImg = document.getElementById('previewImg');
+        const removeBtn = document.getElementById('removeImageBtn');
+        let uploadedImageFile = null;
+        
+        if (dropZone && fileInput) {
+            dropZone.addEventListener('click', () => fileInput.click());
+            
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#10b981';
+                dropZone.style.background = '#dcfce7';
+            });
+            
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.style.borderColor = '#a7f3d0';
+                dropZone.style.background = '#f0fdf4';
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#a7f3d0';
+                dropZone.style.background = '#f0fdf4';
+                
+                if (e.dataTransfer.files.length > 0) {
+                    handleImageFile(e.dataTransfer.files[0]);
+                }
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleImageFile(e.target.files[0]);
+                }
+            });
+            
+            function handleImageFile(file) {
+                if (!file.type.startsWith('image/')) {
+                    alert('Выберите изображение');
+                    return;
+                }
+                
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('Файл слишком большой (макс. 5MB)');
+                    return;
+                }
+                
+                uploadedImageFile = file;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewImg.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            removeBtn?.addEventListener('click', () => {
+                uploadedImageFile = null;
+                preview.style.display = 'none';
+                fileInput.value = '';
+            });
+        }
+        
+        // Обработка отправки формы
+        document.querySelector('#editPanel form')?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const blockType = document.getElementById('blockType').value;
+            const correctAnswer = document.getElementById('correctAnswerInput')?.value;
+            const editBlockId = document.getElementById('editBlockId').value;
+            const isEdit = editBlockId && editBlockId !== '';
+            
+            const saveBtn = this.querySelector('.save-edit-btn');
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+            
+            try {
+                let response;
+                
+                if (isEdit) {
+                    // Редактирование существующего блока
+                    response = await fetch(`/api/blocks/${editBlockId}/update`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                } else {
+                    // Создание нового блока
+                    response = await fetch(this.action, {
+                        method: 'POST',
+                        body: formData
+                    });
+                }
+                
+                if (response.ok) {
+                    // Если это задание и есть картинка или ответ
+                    if (blockType === 'SQL_TASK') {
+                        const blockId = isEdit ? editBlockId : 0; // Для новых блоков ID будет 0
+                        
+                        // Загружаем картинку если есть
+                        if (uploadedImageFile) {
+                            const imgFormData = new FormData();
+                            imgFormData.append('file', uploadedImageFile);
+                            imgFormData.append('blockId', blockId);
+                            imgFormData.append('blockType', 'CHAPTER');
+                            
+                            await fetch('/api/tasks/upload-image', {
+                                method: 'POST',
+                                body: imgFormData
+                            });
+                        }
+                        
+                        // Сохраняем правильный ответ если есть
+                        if (correctAnswer) {
+                            await fetch('/api/tasks/save-answer', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    blockId: blockId,
+                                    blockType: 'CHAPTER',
+                                    correctAnswer: correctAnswer
+                                })
+                            });
+                        }
+                    }
+                    
+                    window.location.reload();
+                } else {
+                    saveBtn.innerHTML = '<i class="fas fa-times"></i> Ошибка';
+                    saveBtn.disabled = false;
+                }
+            } catch (error) {
+                saveBtn.innerHTML = '<i class="fas fa-times"></i> Ошибка';
+                saveBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

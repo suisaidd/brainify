@@ -1,0 +1,1240 @@
+/* Современный красивый дизайн страницы раздела/главы */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    background: #f3f4f6;
+    color: #1f2937;
+    line-height: 1.8;
+}
+
+/* Контейнер страницы */
+.page-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Левая боковая панель - НАВИГАЦИЯ */
+.left-sidebar {
+    width: 320px;
+    background: #f9fafb;
+    border-right: 1px solid #e5e7eb;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.left-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.left-sidebar::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+.left-sidebar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.sidebar-header {
+    padding: 24px 20px;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 12px;
+}
+
+.breadcrumb a {
+    color: #10b981;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s;
+}
+
+.breadcrumb a:hover {
+    color: #059669;
+}
+
+.breadcrumb i {
+    font-size: 10px;
+}
+
+.sidebar-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+/* Навигация разделов КАК В SQL ACADEMY */
+.sections-nav {
+    padding: 24px 20px;
+    position: relative;
+}
+
+/* Вертикальная линия как на SQL Academy */
+.sections-nav::before {
+    content: '';
+    position: absolute;
+    left: 40px;
+    top: 80px;
+    bottom: 20px;
+    width: 2px;
+    background: #e5e7eb;
+}
+
+.nav-chapter {
+    margin-bottom: 32px;
+    position: relative;
+}
+
+.nav-chapter-title {
+    display: block;
+    font-size: 16px;
+    font-weight: 700;
+    color: #1f2937;
+    padding: 0 0 0 40px;
+    margin-bottom: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    position: relative;
+}
+
+/* Большой кружок для главы */
+.nav-chapter-title::before {
+    content: '';
+    position: absolute;
+    left: 11px;
+    top: 4px;
+    width: 18px;
+    height: 18px;
+    background: #d1d5db;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 0 0 2px #e5e7eb;
+    transition: all 0.3s;
+    z-index: 1;
+}
+
+.nav-chapter-title:hover {
+    color: #10b981;
+}
+
+.nav-chapter-title:hover::before {
+    background: #10b981;
+    box-shadow: 0 0 0 2px #10b981;
+    transform: scale(1.15);
+}
+
+.nav-chapter-title.active::before {
+    background: #10b981;
+    box-shadow: 0 0 0 2px #10b981;
+}
+
+/* Разделы внутри главы */
+.nav-chapter-sections {
+    margin-left: 40px;
+}
+
+.nav-section {
+    display: block;
+    padding: 0 0 0 20px;
+    margin-bottom: 12px;
+    color: #6b7280;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    position: relative;
+}
+
+/* Маленький кружок для раздела */
+.nav-section::before {
+    content: '';
+    position: absolute;
+    left: -9px;
+    top: 7px;
+    width: 10px;
+    height: 10px;
+    background: #e5e7eb;
+    border-radius: 50%;
+    border: 2px solid white;
+    transition: all 0.3s;
+    z-index: 1;
+}
+
+.nav-section:hover {
+    color: #10b981;
+}
+
+.nav-section:hover::before {
+    background: #10b981;
+    transform: scale(1.2);
+}
+
+.nav-section.active {
+    color: #10b981;
+    font-weight: 700;
+}
+
+.nav-section.active::before {
+    background: #10b981;
+    border: 2px solid #10b981;
+    box-shadow: 0 0 0 2px #ecfdf5;
+}
+
+.nav-section.completed::before {
+    background: #10b981;
+}
+
+/* Основной контент */
+.main-content {
+    margin-left: 320px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #f3f4f6;
+}
+
+/* КРАСИВЫЙ HEADER ВО ВСЮ ШИРИНУ */
+.top-bar {
+    background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
+    border-bottom: 3px solid;
+    border-image: linear-gradient(90deg, #10b981 0%, #059669 50%, #10b981 100%);
+    border-image-slice: 1;
+    padding: 24px 0;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    width: 100%;
+}
+
+.top-bar-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.top-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+}
+
+.logo {
+    font-size: 28px;
+    font-weight: 800;
+    text-decoration: none;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+    transition: all 0.3s;
+}
+
+.logo:hover {
+    transform: scale(1.05);
+}
+
+.logo .logo-brain {
+    background: linear-gradient(135deg, #10b981, #059669);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.logo .logo-ify {
+    color: #1f2937;
+}
+
+.header-divider {
+    width: 3px;
+    height: 36px;
+    background: linear-gradient(180deg, #10b981, #059669);
+    border-radius: 2px;
+}
+
+.page-breadcrumb {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.breadcrumb-top {
+    font-size: 12px;
+    color: #10b981;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+}
+
+.breadcrumb-current {
+    font-size: 18px;
+    color: #1f2937;
+    font-weight: 800;
+}
+
+.top-bar-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.top-btn {
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: 2px solid;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.top-btn.primary {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border-color: #10b981;
+}
+
+.top-btn.primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+}
+
+.top-btn.secondary {
+    background: white;
+    color: #6b7280;
+    border-color: #e5e7eb;
+}
+
+.top-btn.secondary:hover {
+    border-color: #10b981;
+    color: #10b981;
+}
+
+/* БЕЛОЕ ОКНО С КОНТЕНТОМ */
+.content-wrapper {
+    flex: 1;
+    padding: 40px;
+    max-width: 1000px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.content-card {
+    background: white;
+    border-radius: 20px;
+    padding: 50px 60px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 
+                0 10px 25px rgba(0, 0, 0, 0.08);
+    margin-bottom: 40px;
+}
+
+.section-title {
+    font-size: 38px;
+    font-weight: 800;
+    color: #1f2937;
+    margin-bottom: 40px;
+    line-height: 1.2;
+}
+
+.content-block {
+    margin-bottom: 40px;
+    position: relative;
+}
+
+/* Кнопки управления блоком */
+.block-actions {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: none;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+/* Показывать кнопки только в режиме редактирования */
+.edit-mode .content-block:hover .block-actions {
+    display: flex;
+    opacity: 1;
+}
+
+/* Показывать кнопку "Добавить блок" только в режиме редактирования */
+.add-block-btn {
+    display: none !important;
+}
+
+.edit-mode .add-block-btn {
+    display: block !important;
+}
+
+/* Стили для кнопки "Готово" */
+.top-btn.success {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    color: white !important;
+}
+
+.top-btn.success:hover {
+    background: linear-gradient(135deg, #059669, #047857) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.block-edit-btn,
+.block-delete-btn {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.block-edit-btn {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+}
+
+.block-edit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+}
+
+.block-delete-btn {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+}
+
+.block-delete-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);
+}
+
+/* Кнопка добавить блок */
+.add-block-btn {
+    display: block;
+    width: 100%;
+    padding: 20px;
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    border: 2px dashed #10b981;
+    border-radius: 16px;
+    color: #10b981;
+    font-weight: 700;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-top: 40px;
+}
+
+.add-block-btn:hover {
+    background: linear-gradient(135deg, #dcfce7, #a7f3d0);
+    border-color: #059669;
+    color: #059669;
+    transform: scale(1.02);
+}
+
+.add-block-btn i {
+    font-size: 20px;
+    margin-right: 10px;
+}
+
+.content-block h2 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    margin-top: 40px;
+    color: #1f2937;
+}
+
+.content-block h2:first-child {
+    margin-top: 0;
+}
+
+.content-block h3 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    margin-top: 32px;
+    color: #1f2937;
+}
+
+.content-block h4 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    margin-top: 24px;
+    color: #334155;
+}
+
+.content-block p {
+    font-size: 17px;
+    line-height: 1.8;
+    color: #374151;
+    margin-bottom: 20px;
+}
+
+.content-block ul, .content-block ol {
+    margin: 20px 0;
+    padding-left: 28px;
+}
+
+.content-block li {
+    margin-bottom: 10px;
+    color: #374151;
+    line-height: 1.7;
+}
+
+.content-block strong {
+    color: #1f2937;
+    font-weight: 700;
+}
+
+.content-block code {
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 14px;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
+.content-block pre {
+    background: #1e293b;
+    padding: 24px;
+    border-radius: 14px;
+    overflow-x: auto;
+    margin: 24px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.content-block pre code {
+    background: none;
+    color: #f1f5f9;
+    padding: 0;
+    border: none;
+}
+
+/* ЗАДАНИЕ - МАКСИМАЛЬНО КОМПАКТНЫЙ БЛОК */
+.task-block {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border: 2px solid #a7f3d0;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 20px 0;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
+}
+
+.task-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #a7f3d0;
+}
+
+.task-icon {
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 13px;
+}
+
+.task-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #065f46;
+}
+
+.task-description {
+    color: #065f46;
+    margin-bottom: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.task-description p {
+    margin-bottom: 6px;
+    color: #065f46;
+}
+
+.task-image {
+    max-width: 100%;
+    border-radius: 8px;
+    margin: 12px 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.task-input-wrapper {
+    margin: 12px 0;
+}
+
+.task-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #a7f3d0;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.3s;
+    font-family: 'Monaco', 'Menlo', monospace;
+    background: white;
+    color: #1f2937;
+    resize: vertical;
+}
+
+.task-input:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.08);
+}
+
+.task-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.check-btn {
+    padding: 8px 20px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.2);
+}
+
+.check-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+}
+
+.check-btn:active {
+    transform: translateY(0);
+}
+
+.task-result {
+    margin-top: 10px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    display: none;
+    animation: slideIn 0.3s ease;
+}
+
+.task-result.success {
+    background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+    color: #065f46;
+    border: 2px solid #10b981;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.task-result.error {
+    background: linear-gradient(135deg, #fee2e2, #fecaca);
+    color: #991b1b;
+    border: 2px solid #ef4444;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+}
+
+/* Модальное окно */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow: hidden;
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.modal-body {
+    padding: 24px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.modal-footer {
+    padding: 20px 24px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    background: #f9fafb;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.form-hint {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-primary,
+.btn-secondary {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.btn-secondary:hover {
+    background: #e5e7eb;
+}
+
+/* Кнопка завершения */
+.complete-section-wrapper {
+    margin-top: 60px;
+    text-align: center;
+    padding: 40px 0;
+}
+
+.complete-section-btn {
+    padding: 18px 48px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    font-weight: 800;
+    font-size: 17px;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.complete-section-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(16, 185, 129, 0.4);
+}
+
+/* Встроенное редактирование */
+.edit-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: none;
+    animation: fadeIn 0.2s;
+}
+
+.edit-overlay.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.edit-panel {
+    position: fixed;
+    right: -550px;
+    top: 0;
+    bottom: 0;
+    width: 550px;
+    background: white;
+    box-shadow: -6px 0 30px rgba(0, 0, 0, 0.2);
+    z-index: 201;
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.edit-panel.active {
+    right: 0;
+}
+
+.edit-panel-header {
+    padding: 28px 32px;
+    border-bottom: 2px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #f9fafb, #ffffff);
+}
+
+.edit-panel-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #1f2937;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.edit-panel-title i {
+    color: #10b981;
+}
+
+.close-edit-btn {
+    background: #f3f4f6;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    font-size: 24px;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-edit-btn:hover {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+.edit-panel-content {
+    padding: 32px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.edit-form-group {
+    margin-bottom: 28px;
+}
+
+.edit-form-group label {
+    display: block;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 10px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.edit-form-group label i {
+    color: #10b981;
+}
+
+.edit-form-group input,
+.edit-form-group textarea,
+.edit-form-group select {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 14px;
+    transition: all 0.3s;
+    font-family: inherit;
+}
+
+.edit-form-group select {
+    cursor: pointer;
+}
+
+.edit-form-group textarea {
+    min-height: 150px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    resize: vertical;
+}
+
+.edit-form-group input:focus,
+.edit-form-group textarea:focus,
+.edit-form-group select:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.edit-form-hint {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 6px;
+}
+
+.edit-form-actions {
+    display: flex;
+    gap: 12px;
+    padding: 24px 32px;
+    border-top: 2px solid #e5e7eb;
+    background: #f9fafb;
+}
+
+.save-edit-btn {
+    flex: 1;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.save-edit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.cancel-edit-btn {
+    padding: 16px 24px;
+    background: white;
+    color: #6b7280;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.cancel-edit-btn:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+/* Адаптивность */
+@media (max-width: 1024px) {
+    .content-wrapper {
+        padding: 24px;
+    }
+    
+    .content-card {
+        padding: 36px 40px;
+    }
+}
+
+@media (max-width: 768px) {
+    .left-sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s;
+    }
+    
+    .left-sidebar.mobile-open {
+        transform: translateX(0);
+    }
+    
+    .main-content {
+        margin-left: 0;
+    }
+    
+    .top-bar {
+        padding: 16px 0;
+    }
+    
+    .top-bar-container {
+        padding: 0 20px;
+    }
+    
+    .logo {
+        font-size: 22px;
+    }
+    
+    .header-divider {
+        display: none;
+    }
+    
+    .page-breadcrumb {
+        display: none;
+    }
+    
+    #mobileSidebarToggle {
+        display: block !important;
+    }
+    
+    .content-wrapper {
+        padding: 20px 16px;
+    }
+    
+    .content-card {
+        padding: 28px 24px;
+        border-radius: 16px;
+    }
+    
+    .section-title {
+        font-size: 26px;
+    }
+    
+    .edit-panel {
+        width: 100%;
+        right: -100%;
+    }
+    
+    .top-btn {
+        padding: 8px 14px;
+        font-size: 13px;
+    }
+    
+    .top-btn span {
+        display: none;
+    }
+}
+
+/* Пустое состояние */
+.empty-state {
+    text-align: center;
+    padding: 80px 40px;
+    color: #9ca3af;
+}
+
+.empty-state i {
+    font-size: 72px;
+    margin-bottom: 24px;
+    opacity: 0.3;
+}
+
+/* Стили для кнопок управления блоками */
+.block-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.block-edit-btn,
+.block-delete-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.block-edit-btn {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+}
+
+.block-edit-btn:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.block-delete-btn {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+}
+
+.block-delete-btn:hover {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.block-edit-btn:active,
+.block-delete-btn:active {
+    transform: translateY(0);
+}
+
+/* Анимация появления кнопок */
+.block-actions {
+    animation: slideInDown 0.3s ease;
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+}
+
+.empty-state h3 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #6b7280;
+    margin-bottom: 12px;
+}
+
+.empty-state p {
+    font-size: 16px;
+}

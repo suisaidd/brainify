@@ -68,7 +68,9 @@ public class SecurityConfig {
                         "/api/auth/status", "/api/trainers/**", "/api/tasks/**", "/api/test/**",
                         "/admin/payroll/test",
                         "/ws/**", "/topic/**", "/app/**",
-"/equipment-check/**"
+                        "/equipment-check/**",
+                        "/study-map", "/course/**", "/course/section/**", "/course/chapter/**", "/course/sql/execute",
+                        "/api/tasks/check-answer", "/api/tasks/image/**", "/api/blocks/**/data"
                 ).permitAll()
                 .requestMatchers("/admin/**").hasAnyAuthority("ADMIN")
                 .requestMatchers("/admin-role/**").hasAnyAuthority("ADMIN", "MANAGER")

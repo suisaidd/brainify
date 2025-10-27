@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} ?: 'Курс - Brainify'">Курс - Brainify</title>
+    
+    <!-- Стили -->
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/course.css}">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="course-page">
+        <!-- Боковая навигация -->
+        <aside class="course-sidebar" id="courseSidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <span class="logo-green">Brain</span>ify
+                </div>
+                <div class="sidebar-subtitle" th:text="${subject.name}">Название курса</div>
+                <a th:href="@{/study-map}" class="back-button">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>К карте курсов</span>
+                </a>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- Модули -->
+                <div class="course-module" th:each="m, iterStat : ${modules}">
+                    <div class="module-header" th:attr="data-module-id=${m.id}">
+                        <div class="module-icon" th:text="${iterStat.index + 1}">1</div>
+                        <div class="module-info">
+                            <div class="module-title" th:text="${m.title}">Название модуля</div>
+                            <div class="module-progress">
+                                <th:block th:with="completedCh=${moduleCompletedChapters[m.id]}, totalCh=${moduleTotalChapters[m.id]}">
+                                    <span th:if="${completedCh != null && completedCh > 0}">
+                                        <span th:text="${completedCh}">0</span> из <span th:text="${totalCh ?: 0}">0</span> глав
+                                    </span>
+                                    <span th:if="${totalCh == null || totalCh == 0}" class="muted">Нет глав</span>
+                                    <span th:if="${completedCh != null && totalCh != null && completedCh == totalCh && totalCh > 0}" class="module-completed">
+                                        <i class="fas fa-check-circle"></i> Завершён
+                                    </span>
+                                </th:block>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Главы -->
+                    <div class="course-chapters" th:if="${moduleToChapters[m.id] != null && #lists.size(moduleToChapters[m.id]) > 0}">
+                        <div class="course-chapter" th:each="ch : ${moduleToChapters[m.id]}">
+                            <div class="chapter-header">
+                                <span th:text="${ch.title}">Название главы</span>
+                                <span class="chapter-progress" th:if="${chapterTotalSections[ch.id] != null && chapterTotalSections[ch.id] > 0}">
+                                    <span th:text="${chapterCompletedSections[ch.id] ?: 0}">0</span>/<span th:text="${chapterTotalSections[ch.id]}">0</span>
+                                </span>
+                            </div>
+                            
+                            <!-- Разделы -->
+                            <div class="course-sections" th:if="${chapterToSections[ch.id] != null && #lists.size(chapterToSections[ch.id]) > 0}">
+                                <a class="section-item" 
+                                   th:each="s : ${chapterToSections[ch.id]}"
+                                   th:href="@{'/course/section/' + ${s.id}}"
+                                   th:classappend="${#sets.contains(completedSectionIds, s.id)} ? 'completed' : (${#sets.contains(unlockedSectionIds, s.id)} ? 'unlocked' : 'locked')">
+                                    <span class="section-status">
+                                        <i class="fas fa-check" th:if="${#sets.contains(completedSectionIds, s.id)}"></i>
+                                        <i class="fas fa-circle" style="font-size: 6px;" th:if="${#sets.contains(unlockedSectionIds, s.id) and not #sets.contains(completedSectionIds, s.id)}"></i>
+                                        <i class="fas fa-lock" style="font-size: 8px;" th:if="${not #sets.contains(unlockedSectionIds, s.id) and not #sets.contains(completedSectionIds, s.id)}"></i>
+                                    </span>
+                                    <span th:text="${s.title}">Название раздела</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Основной контент -->
+        <main class="course-main">
+            <!-- Верхняя панель -->
+            <div class="course-topbar">
+                <button class="mobile-menu-toggle" id="mobileMenuToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="topbar-title" th:text="${subject.name}">Название курса</div>
+                <div class="topbar-actions">
+                    <a th:href="@{/study-map}" class="action-btn secondary">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>Назад</span>
+                    </a>
+                    <a th:if="${isAuthenticated and currentUser != null and currentUser.role?.name() == 'ADMIN'}" 
+                       th:href="@{'/course/' + ${subject.id} + '/edit'}" 
+                       class="action-btn primary">
+                        <i class="fas fa-edit"></i>
+                        <span>Редактировать</span>
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Контент -->
+            <div class="course-content">
+                <!-- Hero секция -->
+                <div class="course-hero">
+                    <h1 th:text="${subject.name}">Название курса</h1>
+                    <p th:text="${subject.description} ?: 'Добро пожаловать на курс! Выберите раздел из меню слева, чтобы начать обучение.'">
+                        Описание курса
+                    </p>
+                    
+                    <div class="course-stats">
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="fas fa-book"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-number" th:text="${totalModules}">0</span>
+                                <span class="stat-label">Модулей</span>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="fas fa-layer-group"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-number" th:text="${totalChapters}">0</span>
+                                <span class="stat-label">Глав</span>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-number" th:text="${totalSections}">0</span>
+                                <span class="stat-label">Разделов</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Карточка выбранного модуля -->
+                <div class="module-card" th:if="${selectedModule} != null">
+                    <div class="module-card-header">
+                        <div class="module-card-icon" th:text="${moduleIndex[selectedModule.id] != null ? moduleIndex[selectedModule.id] + 1 : 1}">1</div>
+                        <div class="module-card-title">
+                            <h3>
+                                <span>Модуль </span>
+                                <span th:text="${moduleIndex[selectedModule.id] != null ? moduleIndex[selectedModule.id] + 1 : 1}">1</span>:
+                                <span th:text="${selectedModule.title}">Название модуля</span>
+                            </h3>
+                            <p>
+                                <span th:if="${moduleTotalChapters[selectedModule.id] != null && moduleTotalChapters[selectedModule.id] > 0}">
+                                    Глав: <span th:text="${moduleTotalChapters[selectedModule.id]}">0</span>
+                                </span>
+                                <span th:if="${moduleTotalChapters[selectedModule.id] == null || moduleTotalChapters[selectedModule.id] == 0}">
+                                    В модуле пока нет глав
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="module-card-content">
+                        <p th:if="${selectedModule.description != null and selectedModule.description != ''}" 
+                           th:text="${selectedModule.description}">
+                            Описание модуля
+                        </p>
+                        <p th:if="${selectedModule.description == null or selectedModule.description == ''}">
+                            Выберите раздел из меню слева, чтобы начать изучение этого модуля.
+                        </p>
+                        
+                        <!-- Список глав -->
+                        <div class="chapters-list" th:if="${moduleToChapters[selectedModule.id] != null && #lists.size(moduleToChapters[selectedModule.id]) > 0}">
+                            <div class="chapter-card" th:each="ch : ${moduleToChapters[selectedModule.id]}">
+                                <h4 th:text="${ch.title}">Название главы</h4>
+                                <p class="sections-count" th:if="${chapterToSections[ch.id] != null}">
+                                    <i class="fas fa-book-open"></i>
+                                    Разделов: <span th:text="${#lists.size(chapterToSections[ch.id])}">0</span>
+                                    <span th:if="${chapterCompletedSections[ch.id] != null && chapterCompletedSections[ch.id] > 0}">
+                                        · Завершено: <span th:text="${chapterCompletedSections[ch.id]}">0</span>
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Пустое состояние если модулей нет -->
+                <div class="empty-state" th:if="${#lists.isEmpty(modules)}">
+                    <i class="fas fa-book-open"></i>
+                    <h3>Курс пока не заполнен</h3>
+                    <p>Администратор добавит материалы в ближайшее время</p>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- JavaScript -->
+    <script th:src="@{/js/course.js}"></script>
+</body>
+</html>
