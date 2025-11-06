@@ -32,3 +32,4 @@ public interface TaskNumberRepository extends JpaRepository<TaskNumber, Long> {
     List<TaskNumber> findBySubjectAndExamTypeWithSubtopics(@Param("subject") Subject subject, @Param("examType") String examType);
 }
 
+

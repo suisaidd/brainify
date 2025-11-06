@@ -297,6 +297,36 @@ public class CourseController {
         Long subjectId = sct.get().getChapter().getModule().getSubject().getId();
         return "redirect:/course/" + subjectId + "/edit";
     }
+
+    @PostMapping("/api/admin/course/section/block")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> createSectionBlockJson(@RequestParam Long sectionId,
+                                                                      @RequestParam String type,
+                                                                      @RequestParam(required = false) String title,
+                                                                      @RequestParam(required = false) String textContent,
+                                                                      @RequestParam(required = false) String imageUrl,
+                                                                      @RequestParam(required = false) String initialSql,
+                                                                      @RequestParam(required = false) String expectedResultJson,
+                                                                      @RequestParam(required = false, defaultValue = "0") Integer sortOrder,
+                                                                      HttpSession session) {
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null || currentUser.getRole() == null || !currentUser.getRole().name().equals("ADMIN")) {
+            return ResponseEntity.status(403).body(Map.of("success", false));
+        }
+        Optional<CourseSection> sct = sectionRepository.findById(sectionId);
+        if (sct.isEmpty()) return ResponseEntity.badRequest().body(Map.of("success", false));
+        SectionBlock b = new SectionBlock();
+        b.setSection(sct.get());
+        try { b.setType(SectionBlock.BlockType.valueOf(type)); } catch (Exception ignored) {}
+        b.setTitle(title);
+        b.setTextContent(textContent);
+        b.setImageUrl(imageUrl);
+        b.setInitialSql(initialSql);
+        b.setExpectedResultJson(expectedResultJson);
+        b.setSortOrder(sortOrder == null ? 0 : sortOrder);
+        sectionBlockRepository.save(b);
+        return ResponseEntity.ok(Map.of("success", true, "id", b.getId()));
+    }
     @GetMapping("/course/chapter/{chapterId}")
     public String viewChapter(@PathVariable Long chapterId, Model model, HttpSession session) {
         Optional<CourseChapter> chapterOpt = chapterRepository.findById(chapterId);
@@ -384,6 +414,38 @@ public class CourseController {
         chapterBlockRepository.save(b);
         
         return "redirect:/course/chapter/" + chapterId;
+    }
+
+    @PostMapping("/api/admin/course/chapter/block")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> createChapterBlockJson(@RequestParam Long chapterId,
+                                                                      @RequestParam String type,
+                                                                      @RequestParam(required = false) String title,
+                                                                      @RequestParam(required = false) String textContent,
+                                                                      @RequestParam(required = false) String imageUrl,
+                                                                      @RequestParam(required = false) String initialSql,
+                                                                      @RequestParam(required = false) String expectedResultJson,
+                                                                      @RequestParam(required = false, defaultValue = "0") Integer sortOrder,
+                                                                      HttpSession session) {
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null || currentUser.getRole() == null || !currentUser.getRole().name().equals("ADMIN")) {
+            return ResponseEntity.status(403).body(Map.of("success", false));
+        }
+        Optional<CourseChapter> chapterOpt = chapterRepository.findById(chapterId);
+        if (chapterOpt.isEmpty()) return ResponseEntity.badRequest().body(Map.of("success", false));
+
+        ChapterBlock b = new ChapterBlock();
+        b.setChapter(chapterOpt.get());
+        try { b.setType(ChapterBlock.BlockType.valueOf(type)); } catch (Exception ignored) {}
+        b.setTitle(title);
+        b.setTextContent(textContent);
+        b.setImageUrl(imageUrl);
+        b.setInitialSql(initialSql);
+        b.setExpectedResultJson(expectedResultJson);
+        b.setSortOrder(sortOrder == null ? 0 : sortOrder);
+        chapterBlockRepository.save(b);
+
+        return ResponseEntity.ok(Map.of("success", true, "id", b.getId()));
     }
 
     @GetMapping("/course/section/{sectionId}")
@@ -521,13 +583,48 @@ public class CourseController {
 
     @GetMapping("/api/blocks/{blockId}/data")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> getBlockData(@PathVariable Long blockId, HttpSession session) {
+    public ResponseEntity<Map<String, Object>> getBlockData(@PathVariable Long blockId,
+                                                           @RequestParam(name = "scope", required = false) String scope,
+                                                           HttpSession session) {
         User currentUser = sessionManager.getCurrentUser(session);
         if (currentUser == null || !currentUser.getRole().name().equals("ADMIN")) {
             return ResponseEntity.status(403).body(Map.of("success", false));
         }
         
-        // Попробуем найти в разделах
+        // Если задан scope, ищем строго в указанной сущности, чтобы избежать коллизий ID
+        if ("SECTION".equalsIgnoreCase(scope)) {
+            Optional<SectionBlock> sectionBlock = sectionBlockRepository.findById(blockId);
+            if (sectionBlock.isPresent()) {
+                SectionBlock block = sectionBlock.get();
+                return ResponseEntity.ok(Map.of(
+                    "id", block.getId(),
+                    "type", block.getType().name(),
+                    "title", block.getTitle() != null ? block.getTitle() : "",
+                    "textContent", block.getTextContent() != null ? block.getTextContent() : "",
+                    "imageUrl", block.getImageUrl() != null ? block.getImageUrl() : "",
+                    "initialSql", block.getInitialSql() != null ? block.getInitialSql() : "",
+                    "sortOrder", block.getSortOrder()
+                ));
+            }
+            return ResponseEntity.notFound().build();
+        } else if ("CHAPTER".equalsIgnoreCase(scope)) {
+            Optional<ChapterBlock> chapterBlock = chapterBlockRepository.findById(blockId);
+            if (chapterBlock.isPresent()) {
+                ChapterBlock block = chapterBlock.get();
+                return ResponseEntity.ok(Map.of(
+                    "id", block.getId(),
+                    "type", block.getType().name(),
+                    "title", block.getTitle() != null ? block.getTitle() : "",
+                    "textContent", block.getTextContent() != null ? block.getTextContent() : "",
+                    "imageUrl", block.getImageUrl() != null ? block.getImageUrl() : "",
+                    "initialSql", block.getInitialSql() != null ? block.getInitialSql() : "",
+                    "sortOrder", block.getSortOrder()
+                ));
+            }
+            return ResponseEntity.notFound().build();
+        }
+
+        // Fallback: пробуем в обоих (для обратной совместимости)
         Optional<SectionBlock> sectionBlock = sectionBlockRepository.findById(blockId);
         if (sectionBlock.isPresent()) {
             SectionBlock block = sectionBlock.get();
@@ -541,8 +638,7 @@ public class CourseController {
                 "sortOrder", block.getSortOrder()
             ));
         }
-        
-        // Попробуем найти в главах
+
         Optional<ChapterBlock> chapterBlock = chapterBlockRepository.findById(blockId);
         if (chapterBlock.isPresent()) {
             ChapterBlock block = chapterBlock.get();
@@ -569,13 +665,45 @@ public class CourseController {
                                                           @RequestParam(required = false) String imageUrl,
                                                           @RequestParam(required = false) String initialSql,
                                                           @RequestParam(required = false, defaultValue = "0") Integer sortOrder,
+                                                          @RequestParam(name = "scope", required = false) String scope,
                                                           HttpSession session) {
         User currentUser = sessionManager.getCurrentUser(session);
         if (currentUser == null || !currentUser.getRole().name().equals("ADMIN")) {
             return ResponseEntity.status(403).body(Map.of("success", false));
         }
         
-        // Попробуем обновить блок раздела
+        // Если задан scope, обновляем строго в указанной сущности
+        if ("SECTION".equalsIgnoreCase(scope)) {
+            Optional<SectionBlock> sectionBlock = sectionBlockRepository.findById(blockId);
+            if (sectionBlock.isPresent()) {
+                SectionBlock block = sectionBlock.get();
+                block.setType(SectionBlock.BlockType.valueOf(type));
+                block.setTitle(title);
+                block.setTextContent(textContent);
+                block.setImageUrl(imageUrl);
+                block.setInitialSql(initialSql);
+                block.setSortOrder(sortOrder);
+                sectionBlockRepository.save(block);
+                return ResponseEntity.ok(Map.of("success", true));
+            }
+            return ResponseEntity.notFound().build();
+        } else if ("CHAPTER".equalsIgnoreCase(scope)) {
+            Optional<ChapterBlock> chapterBlock = chapterBlockRepository.findById(blockId);
+            if (chapterBlock.isPresent()) {
+                ChapterBlock block = chapterBlock.get();
+                block.setType(ChapterBlock.BlockType.valueOf(type));
+                block.setTitle(title);
+                block.setTextContent(textContent);
+                block.setImageUrl(imageUrl);
+                block.setInitialSql(initialSql);
+                block.setSortOrder(sortOrder);
+                chapterBlockRepository.save(block);
+                return ResponseEntity.ok(Map.of("success", true));
+            }
+            return ResponseEntity.notFound().build();
+        }
+
+        // Fallback: пробуем последовательно для обратной совместимости
         Optional<SectionBlock> sectionBlock = sectionBlockRepository.findById(blockId);
         if (sectionBlock.isPresent()) {
             SectionBlock block = sectionBlock.get();
@@ -589,7 +717,6 @@ public class CourseController {
             return ResponseEntity.ok(Map.of("success", true));
         }
         
-        // Попробуем обновить блок главы
         Optional<ChapterBlock> chapterBlock = chapterBlockRepository.findById(blockId);
         if (chapterBlock.isPresent()) {
             ChapterBlock block = chapterBlock.get();

@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
 
 @Controller
-@RequestMapping("/admin-lessons")
+@RequestMapping("/admin/lessons")
 public class AdminLessonsController {
 
 
@@ -211,10 +211,20 @@ public class AdminLessonsController {
             StudentTeacher assignment = studentTeacherRepository.findActiveByStudentAndSubject(student, subject).orElse(null);
             
             if (assignment == null) {
-                return ResponseEntity.ok(Map.of("teacher", null, "message", "Преподаватель не назначен"));
+                Map<String, Object> response = new HashMap<>();
+                response.put("teacher", null);
+                response.put("message", "Преподаватель не назначен");
+                return ResponseEntity.ok(response);
             }
             
             User teacher = assignment.getTeacher();
+            if (teacher == null) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("teacher", null);
+                response.put("message", "Преподаватель не найден");
+                return ResponseEntity.ok(response);
+            }
+            
             Map<String, Object> teacherData = new HashMap<>();
             teacherData.put("id", teacher.getId());
             teacherData.put("name", teacher.getName());
@@ -222,6 +232,7 @@ public class AdminLessonsController {
             
             return ResponseEntity.ok(Map.of("teacher", teacherData));
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of("error", "Ошибка получения преподавателя: " + e.getMessage()));
         }
     }
@@ -229,6 +240,7 @@ public class AdminLessonsController {
     // API для назначения преподавателя студенту
     @PostMapping("/api/assign-teacher")
     @ResponseBody
+    @Transactional
     public ResponseEntity<Map<String, Object>> assignTeacher(
             @RequestParam Long studentId,
             @RequestParam Long teacherId,
@@ -252,6 +264,8 @@ public class AdminLessonsController {
             }
 
             // Проверяем, что преподаватель ведет этот предмет
+            // Инициализируем коллекцию subjects для проверки
+            teacher.getSubjects().size(); // Инициализируем ленивую коллекцию
             if (!teacher.getSubjects().contains(subject)) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Преподаватель не ведет выбранный предмет"));
             }
@@ -259,12 +273,27 @@ public class AdminLessonsController {
             // Деактивируем предыдущего преподавателя для этого предмета (если есть)
             studentTeacherRepository.deactivateByStudentAndSubject(student, subject);
 
+            // Проверяем, не существует ли уже активная связь с этим преподавателем
+            Optional<StudentTeacher> existingAssignment = studentTeacherRepository.findActiveByStudentTeacherAndSubject(
+                student, teacher, subject);
+            
+            if (existingAssignment.isPresent()) {
+                // Если связь уже существует, просто активируем её
+                StudentTeacher existing = existingAssignment.get();
+                if (!existing.getIsActive()) {
+                    existing.setIsActive(true);
+                    studentTeacherRepository.save(existing);
+                }
+                return ResponseEntity.ok(Map.of("success", true, "message", "Преподаватель успешно назначен"));
+            }
+
             // Создаем новую связь
             StudentTeacher studentTeacher = new StudentTeacher(student, teacher, subject);
             studentTeacherRepository.save(studentTeacher);
 
             return ResponseEntity.ok(Map.of("success", true, "message", "Преподаватель успешно назначен"));
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of("error", "Ошибка назначения преподавателя: " + e.getMessage()));
         }
     }

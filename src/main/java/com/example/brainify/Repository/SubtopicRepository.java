@@ -30,3 +30,4 @@ public interface SubtopicRepository extends JpaRepository<Subtopic, Long> {
     List<Subtopic> findByTaskNumberWithTasks(@Param("taskNumber") TaskNumber taskNumber);
 }
 
+

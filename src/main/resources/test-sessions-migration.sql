@@ -61,3 +61,4 @@ COMMENT ON COLUMN test_answers.is_correct IS 'Правильность отве�
 COMMENT ON COLUMN test_answers.points_earned IS 'Заработанные баллы';
 COMMENT ON COLUMN test_answers.time_spent_seconds IS 'Время на ответ в секундах';
 
+

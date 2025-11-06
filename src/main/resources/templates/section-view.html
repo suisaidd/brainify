@@ -116,15 +116,10 @@
                                      class="task-image" 
                                      onerror="this.style.display='none'"
                                      style="display: block;">
-                                <div class="task-input-wrapper">
-                                    <textarea class="task-input" 
-                                              placeholder="Введите ваш ответ здесь..." 
-                                              rows="3"
-                                              th:text="${b.initialSql}"></textarea>
-                                </div>
-                                <div class="task-actions">
+                                <div class="task-compact">
+                                    <input class="task-answer-input" type="text" placeholder="Ваш ответ..." th:value="${b.initialSql}">
                                     <button class="check-btn check-answer-btn">
-                                        <i class="fas fa-check"></i> Проверить
+                                        <i class="fas fa-check"></i>
                                     </button>
                                 </div>
                                 <div class="task-result"></div>
@@ -335,6 +330,9 @@
         function openEditPanel() {
             editPanel.classList.add('active');
             editOverlay.classList.add('active');
+            // Отключаем дублирующиеся поля по умолчанию
+            document.querySelectorAll('#textField [name="textContent"]').forEach(el => el.disabled = true);
+            document.querySelectorAll('#sqlField [name="textContent"]').forEach(el => el.disabled = true);
         }
         
         function closeEditPanel() {
@@ -375,7 +373,7 @@
                 
                 try {
                     // Загрузить данные блока
-                    const response = await fetch(`/api/blocks/${blockId}/data`);
+                    const response = await fetch(`/api/blocks/${blockId}/data?scope=SECTION`);
                     if (response.ok) {
                         const blockData = await response.json();
                         openBlockEditModal(blockData);
@@ -474,7 +472,7 @@
                 this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
                 this.disabled = true;
                 
-                const response = await fetch(`/api/blocks/${blockId}/update`, {
+                const response = await fetch(`/api/blocks/${blockId}/update?scope=SECTION`, {
                     method: 'POST',
                     body: formData
                 });
@@ -557,7 +555,7 @@
         document.querySelectorAll('.check-answer-btn').forEach(btn => {
             btn.addEventListener('click', async function() {
                 const taskBlock = this.closest('.task-block');
-                const textarea = taskBlock.querySelector('.task-input');
+                const textarea = taskBlock.querySelector('.task-answer-input') || taskBlock.querySelector('.task-input');
                 const resultDiv = taskBlock.querySelector('.task-result');
                 const blockId = taskBlock.closest('[data-block-id]')?.getAttribute('data-block-id');
                 const userAnswer = textarea.value.trim();
@@ -569,7 +567,7 @@
                 }
                 
                 this.disabled = true;
-                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Проверка...';
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
                 
                 try {
                     const response = await fetch('/api/tasks/check-answer', {
@@ -584,19 +582,35 @@
 
                     const data = await response.json();
                     
-                    if (data.success && data.correct) {
+                    // Сброс классов состояния на блоке
+                    taskBlock.classList.remove('is-success', 'is-error');
+
+                    const isSuccess = data && (data.success === true || data.success === 'true');
+                    const isCorrect = data && (data.correct === true || data.correct === 'true');
+
+                    if (isSuccess && isCorrect) {
                         resultDiv.className = 'task-result success';
-                        resultDiv.innerHTML = '<i class="fas fa-check-circle"></i> ' + (data.message || 'Правильно! 🎉');
+                        resultDiv.innerHTML = '<i class="fas fa-check-circle"></i> ' + (data.message || 'Правильно!');
+                        taskBlock.classList.add('is-success');
+                        // Заблокировать повторное решение
+                        if (textarea) textarea.disabled = true;
+                        this.disabled = true;
+                        this.innerHTML = '<i class="fas fa-check"></i>';
                     } else {
                         resultDiv.className = 'task-result error';
-                        resultDiv.innerHTML = '<i class="fas fa-times-circle"></i> ' + (data.message || 'Неправильно');
+                        resultDiv.innerHTML = '<i class="fas fa-times-circle"></i> ' + (data.message || 'Неправильно, попробуй ещё раз');
+                        taskBlock.classList.add('is-error');
+                        // Разрешить повторную попытку
+                        this.disabled = false;
+                        this.innerHTML = '<i class="fas fa-check"></i>';
                     }
                 } catch (error) {
                     resultDiv.className = 'task-result error';
                     resultDiv.innerHTML = '<i class="fas fa-times-circle"></i> Ошибка проверки';
-                } finally {
+                    taskBlock.classList.remove('is-success');
+                    taskBlock.classList.add('is-error');
                     this.disabled = false;
-                    this.innerHTML = '<i class="fas fa-check"></i> Проверить';
+                    this.innerHTML = '<i class="fas fa-check"></i>';
                 }
             });
         });

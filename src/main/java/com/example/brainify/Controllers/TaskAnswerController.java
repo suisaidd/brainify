@@ -13,7 +13,6 @@ import jakarta.servlet.http.HttpSession;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.*;
 
@@ -137,13 +136,13 @@ public class TaskAnswerController {
             Optional<BlockTaskAnswer> answerOpt = taskAnswerRepository.findByBlockIdAndBlockType(blockId, blockType);
             
             if (answerOpt.isEmpty()) {
-                // Если нет правильного ответа в БД, принимаем любой
-                return ResponseEntity.ok(Map.of("success", true, "correct", true, "message", "Ответ принят!"));
+                // Нет правильного ответа в БД — считаем неверным, чтобы не принимать всё подряд
+                return ResponseEntity.ok(Map.of("success", true, "correct", false, "message", "Неправильно, попробуй ещё раз"));
             }
 
             String correctAnswer = answerOpt.get().getCorrectAnswer();
             if (correctAnswer == null || correctAnswer.trim().isEmpty()) {
-                return ResponseEntity.ok(Map.of("success", true, "correct", true, "message", "Ответ принят!"));
+                return ResponseEntity.ok(Map.of("success", true, "correct", false, "message", "Неправильно, попробуй ещё раз"));
             }
 
             // Сравнение (можно улучшить)

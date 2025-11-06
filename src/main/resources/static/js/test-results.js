@@ -209,3 +209,4 @@ function typeWriter(element, text, speed = 50) {
     type();
 }
 
+

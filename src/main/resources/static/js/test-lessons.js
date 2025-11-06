@@ -15,7 +15,7 @@ async function testCreateLessons() {
     };
     
     try {
-        const response = await fetch('/admin-lessons/api/create-lessons', {
+        const response = await fetch('/admin/lessons/api/create-lessons', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -67,7 +67,7 @@ async function testGetTeacherSchedule(teacherId = 1) {
     console.log(`Тестируем получение расписания преподавателя ${teacherId}...`);
     
     try {
-        const response = await fetch(`/admin-lessons/api/teacher/${teacherId}/schedule`);
+        const response = await fetch(`/admin/lessons/api/teacher/${teacherId}/schedule`);
         const schedule = await response.json();
         
         console.log('Расписание преподавателя:', schedule);
@@ -124,13 +124,13 @@ function debugOccupiedSlots(teacherId = 1) {
     console.log('Неделя начинается с:', weekStart.toISOString());
     
     // Загружаем уроки преподавателя
-    fetch(`/admin-lessons/api/teacher/${teacherId}/lessons?weekStart=${weekStart.toISOString()}`)
+    fetch(`/admin/lessons/api/teacher/${teacherId}/lessons?weekStart=${weekStart.toISOString()}`)
         .then(response => response.json())
         .then(lessons => {
             console.log('📚 Уроки преподавателя:', lessons);
             
             // Загружаем расписание преподавателя
-            return fetch(`/admin-lessons/api/teacher/${teacherId}/schedule`);
+            return fetch(`/admin/lessons/api/teacher/${teacherId}/schedule`);
         })
         .then(response => response.json())
         .then(schedule => {
@@ -229,7 +229,7 @@ async function fullDiagnostic(teacherId = 1) {
         
         // 2. Загружаем уроки из API
         console.log('\n📚 === ЗАГРУЗКА УРОКОВ ИЗ API ===');
-        const lessonsResponse = await fetch(`/admin-lessons/api/teacher/${teacherId}/lessons?weekStart=${weekStart.toISOString()}`);
+        const lessonsResponse = await fetch(`/admin/lessons/api/teacher/${teacherId}/lessons?weekStart=${weekStart.toISOString()}`);
         const lessons = await lessonsResponse.json();
         console.log('Ответ API (lessons):', lessons);
         console.log('Количество уроков:', lessons.length);
@@ -256,7 +256,7 @@ async function fullDiagnostic(teacherId = 1) {
         
         // 3. Загружаем расписание преподавателя
         console.log('\n📅 === ЗАГРУЗКА РАСПИСАНИЯ ПРЕПОДАВАТЕЛЯ ===');
-        const scheduleResponse = await fetch(`/admin-lessons/api/teacher/${teacherId}/schedule`);
+        const scheduleResponse = await fetch(`/admin/lessons/api/teacher/${teacherId}/schedule`);
         const scheduleData = await scheduleResponse.json();
         console.log('Ответ API (schedule):', scheduleData);
         
@@ -369,7 +369,7 @@ async function quickCheck(teacherId = 1) {
         console.log('📅 Текущая неделя:', weekStart.toLocaleDateString('ru-RU'));
         
         // 2. Загружаем уроки
-        const lessonsResponse = await fetch(`/admin-lessons/api/teacher/${teacherId}/lessons?weekStart=${weekStart.toISOString()}`);
+        const lessonsResponse = await fetch(`/admin/lessons/api/teacher/${teacherId}/lessons?weekStart=${weekStart.toISOString()}`);
         const lessons = await lessonsResponse.json();
         console.log(`📚 Найдено уроков: ${lessons.length}`);
         

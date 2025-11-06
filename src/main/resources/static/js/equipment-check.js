@@ -171,6 +171,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     initializeEquipmentCheck();
     setupEventListeners();
+    
+    // Делаем кнопку "Подключиться к уроку" доступной через 2 секунды для удобства тестирования
+    setTimeout(() => {
+        const continueBtn = document.getElementById('continueToLessonBtn');
+        if (continueBtn && continueBtn.disabled) {
+            continueBtn.disabled = false;
+            showToast('Кнопка подключения к уроку доступна', 'info');
+        }
+    }, 2000);
+    
     // Начинаем проверку оборудования
     setTimeout(() => {
         startEquipmentCheck();
@@ -279,6 +289,7 @@ function setupEventListeners() {
     document.getElementById('retryCheckBtn').addEventListener('click', startEquipmentCheck);
     document.getElementById('continueToLessonBtn').addEventListener('click', continueToLesson);
     document.getElementById('continueAnywayBtn').addEventListener('click', continueToLesson);
+    document.getElementById('skipCheckBtn').addEventListener('click', skipEquipmentCheck);
 }
 
 // Проверка оборудования
@@ -748,6 +759,24 @@ function toggleAudio() {
     }
 }
 
+// Пропуск проверки оборудования
+async function skipEquipmentCheck() {
+    console.log('=== Пропуск проверки оборудования ===');
+    showToast('Пропускаем проверку оборудования...', 'info');
+    
+    // Останавливаем медиа стрим
+    stopActiveStream();
+    
+    // Отменяем автоматический переход, если он был запущен
+    if (window.autoRedirectInterval) {
+        clearInterval(window.autoRedirectInterval);
+        window.autoRedirectInterval = null;
+    }
+    
+    // Переходим к уроку
+    await continueToLesson();
+}
+
 // Переход к уроку
 async function continueToLesson() {
     console.log('=== Переход к уроку ===');
@@ -774,36 +803,24 @@ async function continueToLesson() {
     }
     
     // Показываем сообщение о переходе к доске
-    showToast('Очистка кеша и переход к доске урока...', 'info');
+    showToast('Переход к доске урока...', 'info');
     
-    // Принудительно очищаем кеш Excalidraw перед переходом
-    console.log('Очищаем кеш Excalidraw перед переходом к доске...');
-    const cacheCleared = await clearExcalidrawCache();
+    // Открываем доску в новой вкладке
+    const boardWindow = window.open(`/whiteboard/board/${lessonId}`, '_blank', 'noopener,noreferrer');
     
-    if (cacheCleared) {
-        showToast('Кеш очищен! Переход к доске...', 'success');
-    } else {
-        showToast('Переход к доске (очистка кеша не удалась)...', 'warning');
-    }
-    
-    // Открываем доску Excalidraw в новой вкладке
-    setTimeout(() => {
-        const boardWindow = window.open(`/excalidraw/board/${lessonId}`, '_blank', 'noopener,noreferrer');
+    if (boardWindow) {
+        showToast('Доска урока открыта в новой вкладке', 'success');
+        boardWindow.focus();
         
-        if (boardWindow) {
-            showToast('Доска урока открыта в новой вкладке', 'success');
-            boardWindow.focus();
-            
-            // Закрываем текущую вкладку проверки оборудования
-            setTimeout(() => {
-                window.close();
-            }, 2000);
-        } else {
-            showToast('Не удалось открыть доску. Проверьте блокировку всплывающих окон.', 'error');
-            // Fallback - перенаправляем в текущей вкладке
-            window.location.href = `/excalidraw/board/${lessonId}`;
-        }
-    }, 1500);
+        // Закрываем текущую вкладку проверки оборудования
+        setTimeout(() => {
+            window.close();
+        }, 1000);
+    } else {
+        showToast('Не удалось открыть доску. Проверьте блокировку всплывающих окон.', 'error');
+        // Fallback - перенаправляем в текущей вкладке
+        window.location.href = `/whiteboard/board/${lessonId}`;
+    }
 }
 
 // Автоматическое создание сессии и переход к уроку (новая функция)
@@ -846,7 +863,7 @@ async function autoCreateSessionAndRedirect() {
     
     // Открываем доску Excalidraw в новой вкладке
     setTimeout(() => {
-        const boardWindow = window.open(`/excalidraw/board/${lessonId}`, '_blank', 'noopener,noreferrer');
+        const boardWindow = window.open(`/whiteboard/board/${lessonId}`, '_blank', 'noopener,noreferrer');
         
         if (boardWindow) {
             showToast('Доска урока открыта в новой вкладке', 'success');
@@ -859,7 +876,7 @@ async function autoCreateSessionAndRedirect() {
         } else {
             showToast('Не удалось открыть доску. Проверьте блокировку всплывающих окон.', 'error');
             // Fallback - перенаправляем в текущей вкладке
-            window.location.href = `/excalidraw/board/${lessonId}`;
+            window.location.href = `/whiteboard/board/${lessonId}`;
         }
     }, 1500);
 }

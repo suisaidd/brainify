@@ -66,7 +66,7 @@
                 <div class="module-chapters">
                     <!-- Главы и разделы -->
                     <div th:if="${moduleToChapters[m.id] != null and not #lists.isEmpty(moduleToChapters[m.id])}">
-                        <div class="chapter-item" th:each="ch : ${moduleToChapters[m.id]}">
+                        <div class="chapter-item" th:each="ch : ${moduleToChapters[m.id]}" th:classappend="${chapterToSections[ch.id] != null and not #lists.isEmpty(chapterToSections[ch.id])} ? ' has-sections' : ' no-sections'">
                             <a class="chapter-link" 
                                th:href="@{'/course/chapter/' + ${ch.id}}" 
                                th:text="${ch.title}">Введение</a>

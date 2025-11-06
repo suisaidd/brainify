@@ -133,15 +133,10 @@
                                      class="task-image" 
                                      onerror="this.style.display='none'"
                                      style="display: block;">
-                                <div class="task-input-wrapper">
-                                    <textarea class="task-input" 
-                                              placeholder="Введите ваш ответ здесь..." 
-                                              rows="3"
-                                              th:text="${b.initialSql}"></textarea>
-                                </div>
-                                <div class="task-actions">
+                                <div class="task-compact">
+                                    <input class="task-answer-input" type="text" placeholder="Ваш ответ..." th:value="${b.initialSql}">
                                     <button class="check-btn check-answer-btn">
-                                        <i class="fas fa-check"></i> Проверить
+                                        <i class="fas fa-check"></i>
                                     </button>
                                 </div>
                                 <div class="task-result"></div>
@@ -318,8 +313,11 @@
             const addBlockBtn = document.getElementById('addBlockBtn');
             
             if (isEditMode) {
+                // Включаем CSS-режим редактирования
+                document.body.classList.add('edit-mode');
                 // Показать кнопки редактирования блоков
                 blockActions.forEach(action => action.style.display = 'flex');
+                blockActions.forEach(action => action.style.opacity = '1');
                 // Показать кнопку добавления блока
                 if (addBlockBtn) addBlockBtn.style.display = 'block';
                 // Изменить текст кнопки
@@ -327,8 +325,11 @@
                 // Переинициализируем обработчики событий для кнопок
                 setTimeout(() => addBlockEventListeners(), 100);
             } else {
+                // Выключаем CSS-режим редактирования
+                document.body.classList.remove('edit-mode');
                 // Скрыть кнопки редактирования блоков
                 blockActions.forEach(action => action.style.display = 'none');
+                blockActions.forEach(action => action.style.opacity = '0');
                 // Скрыть кнопку добавления блока
                 if (addBlockBtn) addBlockBtn.style.display = 'none';
                 // Изменить текст кнопки
@@ -355,6 +356,9 @@
             document.getElementById('textField').style.display = 'none';
             document.getElementById('imageField').style.display = 'none';
             document.getElementById('sqlField').style.display = 'none';
+            // Отключаем дублирующиеся поля, чтобы не отправлялись
+            document.querySelectorAll('#textField [name="textContent"]').forEach(el => el.disabled = true);
+            document.querySelectorAll('#sqlField [name="textContent"]').forEach(el => el.disabled = true);
             
             editPanel.classList.add('active');
             editOverlay.classList.add('active');
@@ -395,7 +399,7 @@
             
             try {
                 // Загружаем данные блока
-                const response = await fetch(`/api/blocks/${blockId}/data`);
+                const response = await fetch(`/api/blocks/${blockId}/data?scope=CHAPTER`);
                 if (!response.ok) {
                     alert('Ошибка загрузки данных блока');
                     return;
@@ -413,25 +417,30 @@
                 document.querySelector('textarea[name="initialSql"]').value = blockData.initialSql || '';
                 document.querySelector('input[name="sortOrder"]').value = blockData.sortOrder || 0;
                 
-                // Показываем соответствующие поля
+                // Показываем соответствующие поля и управляем disabled
                 document.getElementById('textField').style.display = 'none';
                 document.getElementById('imageField').style.display = 'none';
                 document.getElementById('sqlField').style.display = 'none';
+                document.querySelectorAll('#textField [name="textContent"]').forEach(el => el.disabled = true);
+                document.querySelectorAll('#sqlField [name="textContent"]').forEach(el => el.disabled = true);
                 
                 if (blockData.type === 'TEXT') {
                     document.getElementById('textField').style.display = '';
+                    document.querySelectorAll('#textField [name="textContent"]').forEach(el => el.disabled = false);
                 } else if (blockData.type === 'IMAGE') {
                     document.getElementById('imageField').style.display = '';
                 } else if (blockData.type === 'SQL_TASK') {
                     document.getElementById('sqlField').style.display = '';
+                    document.querySelectorAll('#sqlField [name="textContent"]').forEach(el => el.disabled = false);
                 }
                 
                 // Меняем заголовок и кнопку для режима редактирования
                 document.getElementById('editPanelTitle').innerHTML = '<i class="fas fa-edit"></i> Редактировать блок';
                 document.querySelector('.save-edit-btn').innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
                 
-                // Открываем панель редактирования
-                openEditPanel();
+                // Открываем панель редактирования без сброса формы
+                editPanel.classList.add('active');
+                editOverlay.classList.add('active');
                 
             } catch (error) {
                 alert('Ошибка загрузки данных блока');
@@ -466,13 +475,17 @@
             document.getElementById('textField').style.display = 'none';
             document.getElementById('imageField').style.display = 'none';
             document.getElementById('sqlField').style.display = 'none';
+            document.querySelectorAll('#textField [name="textContent"]').forEach(el => el.disabled = true);
+            document.querySelectorAll('#sqlField [name="textContent"]').forEach(el => el.disabled = true);
             
             if (blockType.value === 'TEXT') {
                 document.getElementById('textField').style.display = '';
+                document.querySelectorAll('#textField [name="textContent"]').forEach(el => el.disabled = false);
             } else if (blockType.value === 'IMAGE') {
                 document.getElementById('imageField').style.display = '';
             } else if (blockType.value === 'SQL_TASK') {
                 document.getElementById('sqlField').style.display = '';
+                document.querySelectorAll('#sqlField [name="textContent"]').forEach(el => el.disabled = false);
             }
         });
         
@@ -480,7 +493,7 @@
         document.querySelectorAll('.check-answer-btn').forEach(btn => {
             btn.addEventListener('click', async function() {
                 const taskBlock = this.closest('.task-block');
-                const textarea = taskBlock.querySelector('.task-input');
+                const textarea = taskBlock.querySelector('.task-answer-input') || taskBlock.querySelector('.task-input');
                 const resultDiv = taskBlock.querySelector('.task-result');
                 const blockId = taskBlock.closest('[data-block-id]')?.getAttribute('data-block-id');
                 const userAnswer = textarea.value.trim();
@@ -492,7 +505,7 @@
                 }
                 
                 this.disabled = true;
-                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Проверка...';
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
                 
                 try {
                     const response = await fetch('/api/tasks/check-answer', {
@@ -507,19 +520,35 @@
                     
                     const data = await response.json();
                     
-                    if (data.success && data.correct) {
+                    // Сброс классов состояния на блоке
+                    taskBlock.classList.remove('is-success', 'is-error');
+
+                    const isSuccess = data && (data.success === true || data.success === 'true');
+                    const isCorrect = data && (data.correct === true || data.correct === 'true');
+
+                    if (isSuccess && isCorrect) {
                         resultDiv.className = 'task-result success';
-                        resultDiv.innerHTML = '<i class="fas fa-check-circle"></i> ' + data.message;
+                        resultDiv.innerHTML = '<i class="fas fa-check-circle"></i> ' + (data.message || 'Правильно!');
+                        taskBlock.classList.add('is-success');
+                        // Заблокировать повторное решение
+                        if (textarea) textarea.disabled = true;
+                        this.disabled = true;
+                        this.innerHTML = '<i class="fas fa-check"></i>';
                     } else {
                         resultDiv.className = 'task-result error';
-                        resultDiv.innerHTML = '<i class="fas fa-times-circle"></i> ' + data.message;
+                        resultDiv.innerHTML = '<i class="fas fa-times-circle"></i> ' + (data.message || 'Неправильно, попробуй ещё раз');
+                        taskBlock.classList.add('is-error');
+                        // Разрешить повторную попытку
+                        this.disabled = false;
+                        this.innerHTML = '<i class="fas fa-check"></i>';
                     }
                 } catch (error) {
                     resultDiv.className = 'task-result error';
                     resultDiv.innerHTML = '<i class="fas fa-times-circle"></i> Ошибка проверки';
-                } finally {
+                    taskBlock.classList.remove('is-success');
+                    taskBlock.classList.add('is-error');
                     this.disabled = false;
-                    this.innerHTML = '<i class="fas fa-check"></i> Проверить';
+                    this.innerHTML = '<i class="fas fa-check"></i>';
                 }
             });
         });
@@ -608,22 +637,28 @@
                 
                 if (isEdit) {
                     // Редактирование существующего блока
-                    response = await fetch(`/api/blocks/${editBlockId}/update`, {
+                    response = await fetch(`/api/blocks/${editBlockId}/update?scope=CHAPTER`, {
                         method: 'POST',
                         body: formData
                     });
                 } else {
-                    // Создание нового блока
-                    response = await fetch(this.action, {
+                    // Создание нового блока через JSON API, чтобы получить ID
+                    response = await fetch('/api/admin/course/chapter/block', {
                         method: 'POST',
                         body: formData
                     });
                 }
                 
                 if (response.ok) {
+                    let newId = editBlockId;
+                    try {
+                        const resJson = await response.json();
+                        if (resJson && resJson.id) newId = resJson.id;
+                    } catch (e) { /* ignore parse error for edit case */ }
+                    
                     // Если это задание и есть картинка или ответ
                     if (blockType === 'SQL_TASK') {
-                        const blockId = isEdit ? editBlockId : 0; // Для новых блоков ID будет 0
+                        const blockId = newId; 
                         
                         // Загружаем картинку если есть
                         if (uploadedImageFile) {

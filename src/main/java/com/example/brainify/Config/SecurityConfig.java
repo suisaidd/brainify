@@ -70,9 +70,10 @@ public class SecurityConfig {
                         "/ws/**", "/topic/**", "/app/**",
                         "/equipment-check/**",
                         "/study-map", "/course/**", "/course/section/**", "/course/chapter/**", "/course/sql/execute",
-                        "/api/tasks/check-answer", "/api/tasks/image/**", "/api/blocks/**/data"
+                        "/api/tasks/check-answer", "/api/tasks/image/**", "/api/blocks/*/data"
                 ).permitAll()
                 .requestMatchers("/admin/**").hasAnyAuthority("ADMIN")
+                .requestMatchers("/api/admin/**").hasAnyAuthority("ADMIN")
                 .requestMatchers("/admin-role/**").hasAnyAuthority("ADMIN", "MANAGER")
                 .requestMatchers("/dashboard", "/dashboard-student").authenticated()
                 .anyRequest().authenticated()

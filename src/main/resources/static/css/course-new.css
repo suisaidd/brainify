@@ -161,8 +161,8 @@ body {
     padding: 40px;
     margin-bottom: 24px;
     display: grid;
-    grid-template-columns: 1fr 300px;
-    gap: 60px;
+    grid-template-columns: 1fr 380px; /* шире колонка под названия */
+    gap: 40px; /* ближе к левому контенту */
     transition: all 0.3s;
 }
 
@@ -199,37 +199,38 @@ body {
 /* Навигация по разделам справа */
 .module-chapters {
     position: relative;
-}
-
-.module-chapters::before {
-    content: '';
-    position: absolute;
-    left: 9px;
-    top: 16px;
-    bottom: 16px;
-    width: 2px;
-    background: #e5e7eb;
+    --axis-x: 16px;      /* центр столбца точек глав */
+    --dot-size: 16px;    /* размер кружка главы */
+    --sec-offset: 32px;  /* padding-left для chapter-sections */
+    --sec-dot-size: 12px; /* размер точки раздела */
+    --sec-dot-center: calc(var(--sec-offset) + var(--sec-dot-size) / 2); /* центр точки раздела: 32px + 6px = 38px */
 }
 
 .chapter-item {
     position: relative;
-    padding-left: 32px;
-    margin-bottom: 16px;
+    padding-left: 32px; /* сдвигаем текст левее, чтобы помещался */
+    margin-bottom: 12px; /* меньший отступ между элементами */
     cursor: pointer;
 }
 
 .chapter-item::before {
     content: '';
     position: absolute;
-    left: 4px;
-    top: 6px;
-    width: 12px;
-    height: 12px;
-    background: #d1d5db;
+    left: calc(var(--axis-x) - 8px); /* кружок 16px, центр совпадает с осью */
+    top: 12px; /* выравниваем с центром текста главы */
+    width: 16px;
+    height: 16px;
+    background: #c7c9cc;
     border-radius: 50%;
-    border: 2px solid white;
+    border: 2px solid #ffffff;
     box-shadow: 0 0 0 2px #e5e7eb;
-    transition: all 0.3s;
+    transition: transform 0.2s ease, background 0.2s ease;
+    z-index: 2;
+}
+
+/* Убираем все линии */
+.chapter-item::after {
+    display: none;
 }
 
 .chapter-item.active::before {
@@ -238,67 +239,110 @@ body {
 }
 
 .chapter-item:hover::before {
-    background: #10b981;
-    transform: scale(1.2);
+    background: #c7c9cc;
+    transform: scale(1.1);
 }
 
 .chapter-link {
     color: #374151;
     text-decoration: none;
-    font-size: 15px;
-    font-weight: 500;
-    transition: color 0.2s;
-    cursor: pointer;
-}
-
-.chapter-link:hover {
-    color: #10b981;
-}
-
-.chapter-item.active .chapter-link {
-    color: #10b981;
+    font-size: 20px; /* крупнее, как на примере */
     font-weight: 600;
+    transition: background 0.2s;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 12px;
+    display: inline-block;
+    position: relative;
+    line-height: 1.2;
+    vertical-align: middle;
+    margin-left: 0;
 }
+
+/* Убираем линии от chapter-link */
+.chapter-link::before,
+.chapter-link::after {
+    display: none;
+}
+
+/* Подсвечиваем главу только при hover на саму главу, а не на разделы */
+.chapter-item:hover > .chapter-link { 
+    background: #f1f2f4; 
+}
+
+/* Убираем подсветку главы когда hover на разделах */
+.chapter-item:has(.chapter-sections:hover) > .chapter-link,
+.chapter-item:has(.section-item:hover) > .chapter-link {
+    background: transparent;
+}
+
+.chapter-item.active .chapter-link { background: #f3f4f6; }
 
 /* Подразделы */
 .chapter-sections {
-    margin-top: 12px;
-    padding-left: 12px;
+    margin-top: 8px;
+    margin-bottom: 12px;
+    padding-left: 32px; /* 2 пробела * 16px = 32px смещение вправо */
+    position: relative;
+    width: 100%;
+    display: block;
+}
+
+/* Убираем все линии от chapter-sections */
+.chapter-sections::before,
+.chapter-sections::after {
+    display: none;
 }
 
 .section-item {
     position: relative;
-    padding-left: 24px;
-    margin-bottom: 10px;
+    padding-left: 24px; /* отступ для точки */
+    margin-bottom: 8px;
+    display: block;
+    width: 100%;
 }
 
+/* Точки у разделов */
 .section-item::before {
     content: '';
     position: absolute;
-    left: -4px;
-    top: 8px;
-    width: 8px;
-    height: 8px;
-    background: #e5e7eb;
+    left: 0; /* точка в начале строки раздела */
+    top: 50%;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 12px;
+    background: #cfd2d7;
     border-radius: 50%;
     transition: all 0.2s;
+    z-index: 2;
 }
 
 .section-item:hover::before {
-    background: #10b981;
-    transform: scale(1.3);
+    transform: translateY(-50%) scale(1.1);
+    background: #c7c9cc;
 }
+
+/* Убираем линии между разделами */
+.section-item::after {
+    display: none;
+}
+
+/* Подсвечиваем только текущий раздел при ховере */
+.section-item:hover .section-link { background: #f1f2f4; color: #374151; }
 
 .section-link {
     color: #6b7280;
     text-decoration: none;
-    font-size: 14px;
-    transition: color 0.2s;
+    font-size: 16px; /* увеличенный шрифт для разделов */
+    transition: background 0.2s;
+    padding: 4px 8px;
+    border-radius: 10px;
+    display: inline-block;
+    line-height: 1.4;
+    vertical-align: middle;
 }
 
-.section-link:hover {
-    color: #10b981;
-}
+.section-link:hover { background: #f1f2f4; color: #374151; }
 
 .section-item.completed::before {
     background: #10b981;

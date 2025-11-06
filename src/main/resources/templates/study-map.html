@@ -3,65 +3,464 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${pageTitle} ?: 'Карта подготовки - Brainify'">Карта подготовки - Brainify</title>
-    <link rel="stylesheet" th:href="@{/css/main.css}">
-    <style>
-        .study-map-container { max-width: 1100px; margin: 0 auto; padding: 32px 16px; }
-        .study-map-title { font-weight: 800; font-size: 32px; margin-bottom: 8px; }
-        .study-map-subtitle { color: #6b7280; margin-bottom: 24px; }
-        .subjects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
-        .subject-card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; background: #fff; transition: box-shadow .2s, transform .2s; cursor: pointer; }
-        .subject-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,.08); transform: translateY(-2px); }
-        .subject-title { font-size: 18px; font-weight: 700; margin: 0 0 8px; }
-        .subject-desc { color: #4b5563; font-size: 14px; line-height: 1.5; margin: 0; }
-        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-        .back-link { color: #10b981; text-decoration: none; font-weight: 600; }
-    </style>
+    <title th:text="${pageTitle != null ? pageTitle : 'Карта подготовки - Brainify'}">Карта подготовки - Brainify</title>
+    
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="icon" href="data:,">
-    <meta name="robots" content="noindex">
-    <meta name="referrer" content="no-referrer">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const cards = document.querySelectorAll('.subject-card');
-            cards.forEach(card => {
-                card.addEventListener('click', () => {
-                    const subjectId = card.getAttribute('data-id');
-                    window.location.href = '/course/' + encodeURIComponent(subjectId);
-                });
-            });
-        });
-    </script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
     <style>
-        body { background: #f9fafb; }
-    </style>
-    <script>
-        if ('caches' in window) {
-            caches.keys().then(names => names.forEach(name => caches.delete(name)));
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-    </script>
-    <meta http-equiv="refresh" content="false">
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #1f2937;
+            line-height: 1.6;
+        }
+
+        /* Header */
+        .study-map-header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-logo {
+            font-size: 24px;
+            font-weight: 800;
+            color: #1f2937;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .header-logo .logo-brain {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .back-link {
+            color: #6b7280;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: #667eea;
+        }
+
+        /* Hero Section */
+        .hero-section {
+            padding: 60px 24px 40px;
+            text-align: center;
+            color: white;
+        }
+
+        .hero-container {
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        .hero-title {
+            font-size: 48px;
+            font-weight: 900;
+            margin-bottom: 16px;
+            text-shadow: 0 2px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .hero-subtitle {
+            font-size: 20px;
+            opacity: 0.95;
+            margin-bottom: 40px;
+            font-weight: 400;
+        }
+
+        /* Exam Type Switcher */
+        .exam-switcher {
+            display: inline-flex;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 6px;
+            gap: 8px;
+            margin-bottom: 40px;
+        }
+
+        .exam-btn {
+            padding: 14px 32px;
+            border: none;
+            background: transparent;
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .exam-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.2);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .exam-btn:hover::before {
+            opacity: 1;
+        }
+
+        .exam-btn.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Main Container */
+        .study-map-container {
+            max-width: 1280px;
+            margin: -40px auto 80px;
+            padding: 0 24px;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Subjects Grid */
+        .subjects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 24px;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Subject Card */
+        .subject-card {
+            background: white;
+            border-radius: 20px;
+            padding: 32px;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 10px 20px rgba(0, 0, 0, 0.06);
+            position: relative;
+            overflow: hidden;
+            border: 2px solid transparent;
+        }
+
+        .subject-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s;
+        }
+
+        .subject-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.3);
+            border-color: rgba(102, 126, 234, 0.3);
+        }
+
+        .subject-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .subject-icon {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 28px;
+            color: white;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .subject-title {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 12px;
+            color: #1f2937;
+            line-height: 1.3;
+        }
+
+        .subject-desc {
+            color: #6b7280;
+            font-size: 15px;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+        }
+
+        .empty-state i {
+            font-size: 80px;
+            color: #d1d5db;
+            margin-bottom: 24px;
+        }
+
+        .empty-state h3 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #374151;
+            margin-bottom: 12px;
+        }
+
+        .empty-state p {
+            color: #6b7280;
+            font-size: 16px;
+        }
+
+        /* Loading State */
+        .subjects-grid.loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: 36px;
+            }
+
+            .hero-subtitle {
+                font-size: 18px;
+            }
+
+            .exam-switcher {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .exam-btn {
+                width: 100%;
+            }
+
+            .subjects-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .subject-card {
+                padding: 24px;
+            }
+        }
+
+        /* Subject Icons Mapping */
+        .subject-icon.math { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .subject-icon.russian { background: linear-gradient(135deg, #f093fb, #f5576c); }
+        .subject-icon.physics { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+        .subject-icon.chemistry { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+        .subject-icon.biology { background: linear-gradient(135deg, #fa709a, #fee140); }
+        .subject-icon.history { background: linear-gradient(135deg, #30cfd0, #330867); }
+        .subject-icon.geography { background: linear-gradient(135deg, #a8edea, #fed6e3); }
+        .subject-icon.social { background: linear-gradient(135deg, #ff9a9e, #fecfef); }
+        .subject-icon.literature { background: linear-gradient(135deg, #ffecd2, #fcb69f); }
+        .subject-icon.english { background: linear-gradient(135deg, #ff6e7f, #bfe9ff); }
+        .subject-icon.informatics { background: linear-gradient(135deg, #a1c4fd, #c2e9fb); }
+    </style>
 </head>
 <body>
-    <div class="study-map-container">
-        <div class="header-actions">
-            <h1 class="study-map-title">Карта подготовки</h1>
-            <a href="/" class="back-link"><i class="fa fa-arrow-left"></i> На главную</a>
+    <!-- Header -->
+    <header class="study-map-header">
+        <div class="header-container">
+            <a href="/" class="header-logo">
+                <span class="logo-brain">Brain</span><span>ify</span>
+            </a>
+            <a href="/" class="back-link">
+                <i class="fas fa-arrow-left"></i>
+                <span>На главную</span>
+            </a>
         </div>
-        <p class="study-map-subtitle">Выберите предмет, чтобы посмотреть программу и начать обучение</p>
+    </header>
 
-        <div class="subjects-grid">
-            <div class="subject-card" th:each="s : ${subjects}" th:attr="data-id=${s.id},data-name=${s.name}">
-                <h3 class="subject-title" th:text="${s.name}">Математика</h3>
-                <p class="subject-desc" th:text="${s.description} ?: 'Краткое описание курса'">Краткое описание курса</p>
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="hero-container">
+            <h1 class="hero-title">Карта подготовки</h1>
+            <p class="hero-subtitle">Выберите предмет и начните свой путь к успешной сдаче экзамена</p>
+            
+            <!-- Exam Type Switcher -->
+            <div class="exam-switcher">
+                <button class="exam-btn active" data-type="ege" id="egeBtn">
+                    <i class="fas fa-graduation-cap"></i> ЕГЭ
+                </button>
+                <button class="exam-btn" data-type="oge" id="ogeBtn">
+                    <i class="fas fa-certificate"></i> ОГЭ
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Container -->
+    <div class="study-map-container">
+        <div class="subjects-grid" id="subjectsGrid">
+            <!-- Subjects will be loaded here -->
+            <div class="subject-card" th:each="s : ${subjects}" 
+                 th:data-id="${s.id}" 
+                 th:data-name="${s.name}">
+                <div class="subject-icon">
+                    <i class="fas fa-book"></i>
+                </div>
+                <h3 class="subject-title" th:text="${s.name}">Математика ЕГЭ</h3>
+                <p class="subject-desc" th:text="${s.description != null ? s.description : 'Комплексная подготовка к экзамену'}">Комплексная подготовка к экзамену</p>
             </div>
         </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const egeBtn = document.getElementById('egeBtn');
+            const ogeBtn = document.getElementById('ogeBtn');
+            const subjectsGrid = document.getElementById('subjectsGrid');
+
+            function getCards() {
+                return document.querySelectorAll('.subject-card');
+            }
+
+            // Initialize - show EGE by default
+            setTimeout(() => {
+                filterSubjects('ege');
+            }, 100);
+
+            // Exam type switcher
+            egeBtn.addEventListener('click', () => {
+                egeBtn.classList.add('active');
+                ogeBtn.classList.remove('active');
+                filterSubjects('ege');
+            });
+
+            ogeBtn.addEventListener('click', () => {
+                ogeBtn.classList.add('active');
+                egeBtn.classList.remove('active');
+                filterSubjects('oge');
+            });
+
+            function filterSubjects(examType) {
+                const cards = getCards();
+                cards.forEach(card => {
+                    const subjectName = (card.getAttribute('data-name') || '').toLowerCase();
+                    let shouldShow = false;
+                    
+                    if (examType === 'ege') {
+                        shouldShow = subjectName.includes('егэ') || 
+                                     subjectName.includes('базовый') || 
+                                     subjectName.includes('профильный');
+                    } else if (examType === 'oge') {
+                        shouldShow = subjectName.includes('огэ');
+                    }
+                    
+                    if (shouldShow) {
+                        card.style.display = 'block';
+                        card.style.animation = 'fadeInUp 0.4s ease-out';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                // Check if empty
+                const visibleCards = Array.from(cards).filter(card => card.style.display !== 'none');
+                if (visibleCards.length === 0) {
+                    showEmptyState();
+                } else {
+                    hideEmptyState();
+                }
+                
+                // Reinitialize click handlers
+                initializeCardClickHandlers();
+            }
+
+            function showEmptyState() {
+                if (document.querySelector('.empty-state')) return;
+                
+                const emptyState = document.createElement('div');
+                emptyState.className = 'empty-state';
+                emptyState.innerHTML = '<i class="fas fa-inbox"></i><h3>Пока нет предметов</h3><p>Предметы для этого типа экзамена появятся здесь</p>';
+                subjectsGrid.appendChild(emptyState);
+            }
+
+            function hideEmptyState() {
+                const emptyState = document.querySelector('.empty-state');
+                if (emptyState) {
+                    emptyState.remove();
+                }
+            }
+
+            // Card click handler
+            function initializeCardClickHandlers() {
+                const cards = getCards();
+                cards.forEach(card => {
+                    card.onclick = function() {
+                        const subjectId = this.getAttribute('data-id');
+                        if (subjectId) {
+                            window.location.href = '/course/' + encodeURIComponent(subjectId);
+                        }
+                    };
+                });
+            }
+            
+            initializeCardClickHandlers();
+        });
+    </script>
 </body>
 </html>
-
-

@@ -123,21 +123,46 @@ async function loadStudentLessons() {
         
         const lessons = await response.json();
         
-        // Разделяем уроки на ближайшие и все уроки
+        // Разделяем уроки на активные (не закончившиеся) и прошедшие (как у преподавателя)
         const now = new Date();
-        const upcomingLessons = lessons.filter(lesson => {
-            const lessonDate = new Date(lesson.lessonDate);
-            return lessonDate > now && lesson.status === 'SCHEDULED';
-        }).sort((a, b) => new Date(a.lessonDate) - new Date(b.lessonDate));
+        const upcomingLessons = [];
+        const pastLessons = [];
+        const cancelledLessons = [];
         
-        const allLessons = lessons.sort((a, b) => new Date(b.lessonDate) - new Date(a.lessonDate));
+        lessons.forEach(lesson => {
+            const lessonDate = new Date(lesson.lessonDate);
+            const oneHourAfter = new Date(lessonDate.getTime() + (60 * 60 * 1000)); // 1 час после урока
+            
+            // Отмененные уроки идут в архив независимо от даты
+            if (lesson.status === 'CANCELLED') {
+                cancelledLessons.push(lesson);
+            } else if (now <= oneHourAfter) {
+                // Урок считается активным, если он еще не прошел 1 час после начала
+                upcomingLessons.push(lesson);
+            } else {
+                // Урок уходит в архив через 1 час после начала
+                pastLessons.push(lesson);
+            }
+        });
+        
+        // Сортируем активные уроки по дате (ближайшие сначала)
+        upcomingLessons.sort((a, b) => new Date(a.lessonDate) - new Date(b.lessonDate));
+        
+        // Сортируем прошедшие уроки по дате (новые сначала)
+        pastLessons.sort((a, b) => new Date(b.lessonDate) - new Date(a.lessonDate));
+        
+        // Сортируем отмененные уроки по дате (новые сначала)
+        cancelledLessons.sort((a, b) => new Date(b.lessonDate) - new Date(a.lessonDate));
+        
+        // Объединяем прошедшие и отмененные уроки
+        const allPastLessons = [...pastLessons, ...cancelledLessons];
         
         displayUpcomingLessons(upcomingLessons);
-        displayAllLessons(allLessons);
+        displayAllLessons(allPastLessons);
         
         // Также отображаем на главной странице
         displayMainUpcomingLessons(upcomingLessons);
-        displayMainAllLessons(allLessons);
+        displayMainAllLessons(allPastLessons);
         
     } catch (error) {
         console.error('Ошибка загрузки уроков:', error);
@@ -297,10 +322,14 @@ function createLessonElement(lesson) {
         statusIcon = 'fas fa-exclamation-triangle';
     }
     
-    // Определяем, можно ли войти в урок
+    // Определяем, можно ли войти в урок (как у преподавателя)
+    const fifteenMinutesBefore = new Date(lessonDate.getTime() - 15 * 60 * 1000);
+    const oneHourAfter = new Date(lessonDate.getTime() + 60 * 60 * 1000);
+    
+    // Можно войти, если урок запланирован и текущее время между 15 минутами до начала и 1 часом после начала
     const canJoin = lesson.status === 'SCHEDULED' && 
-                   lessonDate > now && 
-                   (lessonDate - now) <= 15 * 60 * 1000; // 15 минут до урока
+                   now >= fifteenMinutesBefore && 
+                   now <= oneHourAfter;
     
     lessonDiv.innerHTML = `
         <div class="lesson-duration">
@@ -334,24 +363,34 @@ function createLessonElement(lesson) {
         
         <div class="lesson-actions">
             ${canJoin ? `
-                <button class="lesson-btn primary" onclick="joinLesson(${lesson.id})">
+                <button class="lesson-btn primary" onclick="joinLesson(${lesson.id})" title="Войти в урок с проверкой оборудования">
                     <i class="fas fa-video"></i>
                     Войти в урок
                 </button>
-            ` : lesson.status === 'SCHEDULED' ? `
+            ` : lesson.status === 'SCHEDULED' && now < fifteenMinutesBefore ? `
                 <button class="lesson-btn secondary" disabled>
                     <i class="fas fa-clock"></i>
-                    Скоро начнётся
+                    Доступно за 15 минут до начала
+                </button>
+            ` : lesson.status === 'SCHEDULED' && now > oneHourAfter ? `
+                <button class="lesson-btn secondary" disabled>
+                    <i class="fas fa-clock"></i>
+                    Урок завершен
                 </button>
             ` : lesson.status === 'COMPLETED' ? `
                 <button class="lesson-btn success" disabled>
                     <i class="fas fa-check"></i>
                     Завершён
                 </button>
-            ` : `
+            ` : lesson.status === 'CANCELLED' ? `
                 <button class="lesson-btn danger" disabled>
                     <i class="fas fa-times"></i>
                     Отменён
+                </button>
+            ` : `
+                <button class="lesson-btn secondary" disabled>
+                    <i class="fas fa-clock"></i>
+                    Урок завершен
                 </button>
             `}
         </div>
@@ -405,6 +444,7 @@ function joinLesson(lessonId) {
         showToast('Ошибка при входе в урок', 'error');
     });
 }
+
 
 // Функция показа уведомлений
 function showToast(message, type = 'info') {

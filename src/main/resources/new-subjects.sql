@@ -29,3 +29,4 @@ INSERT INTO subjects (name, description, is_active, created_at) VALUES
 ('Английский язык ЕГЭ', 'Английский язык для подготовки к ЕГЭ', true, CURRENT_TIMESTAMP),
 ('Информатика ЕГЭ', 'Информатика для подготовки к ЕГЭ', true, CURRENT_TIMESTAMP);
 
+

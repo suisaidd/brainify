@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Доска урока - Brainify</title>
+
+    <!-- Подключение стилей -->
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/whiteboard.css}">
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+<!-- Хедер -->
+<header class="whiteboard-header">
+    <div class="header-left">
+        <a href="/dashboard" class="logo">
+            <span style="color: #4CAF50;">Brain</span>ify
+        </a>
+        <div class="lesson-info" th:if="${lesson}">
+            <i class="fas fa-chalkboard-teacher"></i>
+            <span th:text="'Урок: ' + ${lesson.subject.name}"></span>
+            <i class="fas fa-calendar"></i>
+            <span th:text="${#temporals.format(lesson.lessonDate, 'dd.MM.yyyy HH:mm')}"></span>
+        </div>
+    </div>
+
+    <div class="header-right">
+        <div class="status-indicator" id="connectionStatus">
+            <div class="status-dot"></div>
+            <span>Подключено</span>
+        </div>
+
+        <div class="board-controls">
+            <button class="btn btn-secondary" onclick="clearBoard()" title="Очистить доску">
+                <i class="fas fa-trash"></i>
+                Очистить
+            </button>
+            <button class="btn btn-secondary" onclick="saveBoard()" title="Сохранить">
+                <i class="fas fa-save"></i>
+                Сохранить
+            </button>
+            <button class="btn btn-secondary" onclick="undoAction()" title="Отменить">
+                <i class="fas fa-undo"></i>
+                Отменить
+            </button>
+            <button class="btn btn-secondary" onclick="redoAction()" title="Повторить">
+                <i class="fas fa-redo"></i>
+                Повторить
+            </button>
+            <button class="btn btn-danger" onclick="closeBoard()" title="Закрыть">
+                <i class="fas fa-times"></i>
+                Закрыть
+            </button>
+        </div>
+    </div>
+</header>
+
+<!-- Панель инструментов -->
+<div class="toolbar">
+    <div class="toolbar-section">
+        <button class="tool-btn active" data-tool="select" title="Выбрать (V)">
+            <i class="fas fa-mouse-pointer"></i>
+        </button>
+        <button class="tool-btn" data-tool="rectangle" title="Прямоугольник (R)">
+            <i class="fas fa-square"></i>
+        </button>
+        <button class="tool-btn" data-tool="ellipse" title="Эллипс (E)">
+            <i class="fas fa-circle"></i>
+        </button>
+        <button class="tool-btn" data-tool="arrow" title="Стрелка (A)">
+            <i class="fas fa-arrow-right"></i>
+        </button>
+        <button class="tool-btn" data-tool="line" title="Линия (L)">
+            <i class="fas fa-minus"></i>
+        </button>
+        <button class="tool-btn" data-tool="draw" title="Рисование (P)">
+            <i class="fas fa-pen"></i>
+        </button>
+        <button class="tool-btn" data-tool="text" title="Текст (T)">
+            <i class="fas fa-font"></i>
+        </button>
+    </div>
+    
+    <div class="toolbar-section">
+        <div class="color-picker-container">
+            <input type="color" id="strokeColor" value="#000000" title="Цвет линии">
+        </div>
+        <div class="color-picker-container">
+            <input type="color" id="fillColor" value="#ffffff" title="Цвет заливки">
+        </div>
+        <input type="range" id="strokeWidth" min="1" max="20" value="2" title="Толщина линии">
+        <span class="stroke-width-label" id="strokeWidthLabel">2</span>
+    </div>
+    
+    <div class="toolbar-section">
+        <button class="tool-btn" id="eraserBtn" title="Ластик (E)">
+            <i class="fas fa-eraser"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Контейнер доски -->
+<div class="board-container" id="boardContainer">
+    <canvas id="whiteboardCanvas"></canvas>
+</div>
+
+<!-- Скрытые данные -->
+<input type="hidden" id="lessonId" th:value="${lesson.id}">
+<input type="hidden" id="currentUserId" th:value="${currentUser.id}">
+<input type="hidden" id="currentUserName" th:value="${currentUser.name}">
+
+<!-- Подключение JavaScript -->
+<script th:src="@{/js/whiteboard.js}"></script>
+
+</body>
+</html>
+

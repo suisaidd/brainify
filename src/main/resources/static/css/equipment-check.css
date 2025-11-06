@@ -345,6 +345,18 @@
     background: #f57c00;
 }
 
+.action-btn.skip {
+    background: #6c757d;
+    color: #fff;
+    border: 2px solid #6c757d;
+}
+
+.action-btn.skip:hover {
+    background: #5a6268;
+    border-color: #5a6268;
+    transform: translateY(-1px);
+}
+
 .action-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;

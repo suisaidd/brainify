@@ -166,7 +166,7 @@ async function loadInitialData() {
 
 async function loadSubjects() {
     try {
-        const response = await fetch('/admin-lessons/api/subjects');
+        const response = await fetch('/admin/lessons/api/subjects');
         const data = await response.json();
         
         if (data.subjects) {
@@ -190,7 +190,7 @@ async function loadStudents() {
         containerElement.style.display = 'none';
         emptyElement.style.display = 'none';
         
-        const response = await fetch('/admin-lessons/api/students');
+        const response = await fetch('/admin/lessons/api/students');
         const data = await response.json();
         
         if (data.students) {
@@ -224,7 +224,7 @@ async function loadTeachers() {
         containerElement.style.display = 'none';
         emptyElement.style.display = 'none';
         
-        const response = await fetch('/admin-lessons/api/teachers');
+        const response = await fetch('/admin/lessons/api/teachers');
         const data = await response.json();
         
         if (data.teachers) {
@@ -471,7 +471,7 @@ async function openAssignTeacherModal(studentId) {
         
         // Теперь загружаем предметы ученика
         try {
-            const subjectsResponse = await fetch(`/admin-lessons/api/student/${studentId}/subjects`);
+            const subjectsResponse = await fetch(`/admin/lessons/api/student/${studentId}/subjects`);
             
             if (!subjectsResponse.ok) {
                 throw new Error(`HTTP error! status: ${subjectsResponse.status}`);
@@ -540,7 +540,7 @@ function createSubjectCard(subject, studentId) {
 // Функция для получения текущего преподавателя
 async function getCurrentTeacher(studentId, subjectId) {
     try {
-        const response = await fetch(`/admin-lessons/api/student/${studentId}/teacher-for-subject/${subjectId}`);
+        const response = await fetch(`/admin/lessons/api/student/${studentId}/teacher-for-subject/${subjectId}`);
         const data = await response.json();
         return data.teacher || null;
     } catch (error) {
@@ -579,7 +579,7 @@ async function toggleTeacherDropdown(studentId, subjectId, button) {
 // Функция для загрузки преподавателей в выпадающий список
 async function loadTeachersForDropdown(studentId, subjectId, dropdownContent) {
     try {
-        const response = await fetch(`/admin-lessons/api/teachers/by-subject/${subjectId}`);
+        const response = await fetch(`/admin/lessons/api/teachers/by-subject/${subjectId}`);
         const data = await response.json();
         
         if (data.teachers && data.teachers.length > 0) {
@@ -617,7 +617,7 @@ async function selectTeacher(studentId, teacherId, subjectId) {
         formData.append('teacherId', teacherId);
         formData.append('subjectId', subjectId);
         
-        const response = await fetch('/admin-lessons/api/assign-teacher', {
+        const response = await fetch('/admin/lessons/api/assign-teacher', {
             method: 'POST',
             body: formData
         });
@@ -665,7 +665,7 @@ async function assignTeacher(studentId, teacherId, subjectId) {
         formData.append('teacherId', teacherId);
         formData.append('subjectId', subjectId);
         
-        const response = await fetch('/admin-lessons/api/assign-teacher', {
+        const response = await fetch('/admin/lessons/api/assign-teacher', {
             method: 'POST',
             body: formData
         });
@@ -709,7 +709,7 @@ async function removeTeacher(studentId, subjectId) {
         }
         
         // Отправляем запрос на снятие назначения
-        const response = await fetch('/admin-lessons/api/remove-teacher', {
+        const response = await fetch('/admin/lessons/api/remove-teacher', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -780,7 +780,7 @@ function openStudentScheduleModal(studentId, subjectId) {
 
 async function loadTeachersForSubject(subjectId) {
     try {
-        const response = await fetch(`/admin-lessons/api/teachers/by-subject/${subjectId}`);
+        const response = await fetch(`/admin/lessons/api/teachers/by-subject/${subjectId}`);
         const data = await response.json();
         
         const teachersContainer = document.getElementById('teachers-list');
@@ -912,7 +912,7 @@ async function loadScheduleData() {
     try {
         if (currentUser.type === 'teacher') {
             // Загружаем расписание преподавателя
-            const response = await fetch(`/admin-lessons/api/teacher/${currentUser.id}/schedule?weekOffset=${currentWeekOffset}`);
+            const response = await fetch(`/admin/lessons/api/teacher/${currentUser.id}/schedule?weekOffset=${currentWeekOffset}`);
             const data = await response.json();
             
             if (data.schedules) {
@@ -962,8 +962,8 @@ async function loadScheduleData() {
         } else if (currentUser.type === 'student') {
             // Загружаем расписание ученика
             const url = currentUser.subjectId 
-                ? `/admin-lessons/api/student/${currentUser.id}/schedule?weekOffset=${currentWeekOffset}&subjectId=${currentUser.subjectId}`
-                : `/admin-lessons/api/student/${currentUser.id}/schedule?weekOffset=${currentWeekOffset}`;
+                ? `/admin/lessons/api/student/${currentUser.id}/schedule?weekOffset=${currentWeekOffset}&subjectId=${currentUser.subjectId}`
+                : `/admin/lessons/api/student/${currentUser.id}/schedule?weekOffset=${currentWeekOffset}`;
             const response = await fetch(url);
             const data = await response.json();
             
@@ -1136,7 +1136,7 @@ async function saveSchedule() {
                 lessonsToDelete: lessonsToDelete
             };
             
-            const response = await fetch(`/admin-lessons/api/teacher/${currentUser.id}/schedule`, {
+            const response = await fetch(`/admin/lessons/api/teacher/${currentUser.id}/schedule`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1199,7 +1199,7 @@ async function saveSchedule() {
                     weekOffset: currentWeekOffset
                 };
                 
-                const response = await fetch('/admin-lessons/api/create-lessons', {
+                const response = await fetch('/admin/lessons/api/create-lessons', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -1217,7 +1217,7 @@ async function saveSchedule() {
             // Если есть слоты для отмены
             if (slotsToDelete.length > 0) {
                 // Получаем уроки для отмены
-                const response = await fetch(`/admin-lessons/api/student/${currentUser.id}/lessons-to-cancel`, {
+                const response = await fetch(`/admin/lessons/api/student/${currentUser.id}/lessons-to-cancel`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

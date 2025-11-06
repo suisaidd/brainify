@@ -17,7 +17,7 @@ import java.util.Optional;
 public interface StudentTeacherRepository extends JpaRepository<StudentTeacher, Long> {
     
     // Найти активную связь студента с преподавателем по предмету
-    @Query("SELECT st FROM StudentTeacher st WHERE st.student = :student AND st.subject = :subject AND st.isActive = true")
+    @Query("SELECT st FROM StudentTeacher st JOIN FETCH st.teacher WHERE st.student = :student AND st.subject = :subject AND st.isActive = true")
     Optional<StudentTeacher> findActiveByStudentAndSubject(@Param("student") User student, @Param("subject") Subject subject);
     
     // Найти всех преподавателей студента

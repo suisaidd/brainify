@@ -1,0 +1,271 @@
+/* Стили для доски */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.whiteboard-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 50px;
+    z-index: 1000;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.logo {
+    font-size: 20px;
+    font-weight: bold;
+    color: white;
+    text-decoration: none;
+}
+
+.lesson-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+}
+
+.lesson-info i {
+    color: #e3f2fd;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.board-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-primary {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #45a049;
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background-color: rgba(255,255,255,0.2);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+.btn-secondary:hover {
+    background-color: rgba(255,255,255,0.3);
+}
+
+.btn-danger {
+    background-color: #f44336;
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #da190b;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #4CAF50;
+    animation: pulse 2s infinite;
+}
+
+.status-dot.disconnected {
+    background-color: #f44336;
+    animation: none;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Панель инструментов */
+.toolbar {
+    background: white;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 10px 15px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 999;
+}
+
+.toolbar-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 10px;
+    border-right: 1px solid #e0e0e0;
+}
+
+.toolbar-section:last-child {
+    border-right: none;
+}
+
+.tool-btn {
+    width: 40px;
+    height: 40px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    font-size: 16px;
+    color: #333;
+}
+
+.tool-btn:hover {
+    background: #f5f5f5;
+    border-color: #667eea;
+}
+
+.tool-btn.active {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+
+.color-picker-container {
+    position: relative;
+}
+
+.color-picker-container input[type="color"] {
+    width: 40px;
+    height: 40px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.color-picker-container input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.color-picker-container input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 4px;
+}
+
+#strokeWidth {
+    width: 100px;
+}
+
+.stroke-width-label {
+    min-width: 30px;
+    text-align: center;
+    font-size: 14px;
+    color: #333;
+}
+
+/* Контейнер доски */
+.board-container {
+    flex: 1;
+    position: relative;
+    background: #fafafa;
+    overflow: hidden;
+    background-image: 
+        linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+}
+
+#whiteboardCanvas {
+    display: block;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+#whiteboardCanvas.selecting {
+    cursor: default;
+}
+
+#whiteboardCanvas.drawing {
+    cursor: crosshair;
+}
+
+#whiteboardCanvas.text {
+    cursor: text;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .whiteboard-header {
+        padding: 10px 15px;
+        flex-wrap: wrap;
+    }
+
+    .lesson-info {
+        font-size: 12px;
+    }
+
+    .board-controls {
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+    
+    .toolbar {
+        flex-wrap: wrap;
+        padding: 8px 10px;
+    }
+    
+    .toolbar-section {
+        padding: 0 5px;
+    }
+}
+
