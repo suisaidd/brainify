@@ -24,14 +24,48 @@ class Whiteboard {
         this.isDragging = false;
         this.dragOffset = { x: 0, y: 0 };
         
+        // Ресайз элементов
+        this.isResizing = false;
+        this.resizeHandle = null; // 'nw','ne','sw','se'
+        this.resizeStartX = 0;
+        this.resizeStartY = 0;
+        this.resizeOrigRect = null; // {x,y,width,height}
+        
+        // Последняя позиция курсора (мировые координаты) — для вставки картинок
+        this.lastMouseWorldX = 0;
+        this.lastMouseWorldY = 0;
+        
         // Для рисования свободной линии
         this.currentPath = [];
+        
+        // ===== Бесконечная доска: камера =====
+        this.panX = 0;
+        this.panY = 0;
+        this.zoom = 1;
+        this.minZoom = 0.1;
+        this.maxZoom = 5;
+        this.isPanning = false;
+        this.panStartX = 0;
+        this.panStartY = 0;
+        this.panStartPanX = 0;
+        this.panStartPanY = 0;
+        this.spacePressed = false;
+        this.lastPinchDist = 0;
+        this.lastPinchCenter = null;
+        
+        // Кэш загруженных картинок (id -> HTMLImageElement)
+        this.imageCache = new Map();
         
         // Синхронизация
         this.saveTimeout = null;
         this.autoSaveInterval = null;
         this.syncInterval = null;
         this.lastSyncedVersion = 0;
+        this.isSaving = false;
+        this.pendingSave = false;
+        this.lastSavedData = null;
+        this.localElements = new Set();
+        this.lastSyncTime = 0;
         
         this.init();
     }
@@ -56,110 +90,310 @@ class Whiteboard {
         window.addEventListener('resize', resizeCanvas);
     }
     
+    // ===== Конвертация координат =====
+    
+    /** Экранные координаты -> мировые */
+    screenToWorld(sx, sy) {
+        return {
+            x: (sx - this.panX) / this.zoom,
+            y: (sy - this.panY) / this.zoom
+        };
+    }
+    
+    /** Мировые координаты -> экранные */
+    worldToScreen(wx, wy) {
+        return {
+            x: wx * this.zoom + this.panX,
+            y: wy * this.zoom + this.panY
+        };
+    }
+    
+    /** Позиция мыши в мировых координатах */
+    getMousePos(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        return this.screenToWorld(sx, sy);
+    }
+    
+    /** Экранная позиция мыши (без трансформации) */
+    getScreenMousePos(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+    
+    /** Позиция касания в мировых координатах */
+    getTouchPos(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const touch = e.touches[0] || e.changedTouches[0];
+        const sx = touch.clientX - rect.left;
+        const sy = touch.clientY - rect.top;
+        return this.screenToWorld(sx, sy);
+    }
+    
+    /** Экранная позиция касания */
+    getScreenTouchPos(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const touch = e.touches[0] || e.changedTouches[0];
+        return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+    }
+    
+    // ===== Zoom =====
+    
+    setZoom(newZoom, pivotSX, pivotSY) {
+        const oldZoom = this.zoom;
+        this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, newZoom));
+        
+        // Зумим к точке под курсором
+        const ratio = this.zoom / oldZoom;
+        this.panX = pivotSX - (pivotSX - this.panX) * ratio;
+        this.panY = pivotSY - (pivotSY - this.panY) * ratio;
+        
+        this.updateZoomIndicator();
+        this.redraw();
+    }
+    
+    updateZoomIndicator() {
+        const el = document.getElementById('zoomIndicator');
+        if (el) el.textContent = Math.round(this.zoom * 100) + '%';
+    }
+    
+    resetView() {
+        this.panX = 0;
+        this.panY = 0;
+        this.zoom = 1;
+        this.updateZoomIndicator();
+        this.redraw();
+    }
+    
+    // ===== Event Listeners =====
+    
     setupEventListeners() {
+        // Закрытие дропдаунов при клике/касании на доску
+        this.canvas.addEventListener('mousedown', () => this.closeAllDropdowns());
+        this.canvas.addEventListener('touchstart', () => this.closeAllDropdowns());
+        
         // Мышь
         this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
         this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
         this.canvas.addEventListener('mouseleave', this.handleMouseUp.bind(this));
         
+        // Колесо мыши — zoom
+        this.canvas.addEventListener('wheel', this.handleWheel.bind(this), { passive: false });
+        
         // Касание
-        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this));
-        this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this));
+        this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+        this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
         this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this));
         
         // Клавиатура
         document.addEventListener('keydown', this.handleKeyDown.bind(this));
+        document.addEventListener('keyup', this.handleKeyUp.bind(this));
+        
+        // Вставка изображений (Ctrl+V)
+        document.addEventListener('paste', this.handlePaste.bind(this));
     }
     
-    setupToolbar() {
-        // Инструменты
-        document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.setTool(btn.getAttribute('data-tool'));
-                document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-            });
-        });
-        
-        // Цвета
-        document.getElementById('strokeColor').addEventListener('change', (e) => {
-            this.strokeColor = e.target.value;
-        });
-        
-        document.getElementById('fillColor').addEventListener('change', (e) => {
-            this.fillColor = e.target.value;
-        });
-        
-        // Толщина линии
-        const strokeWidthInput = document.getElementById('strokeWidth');
-        const strokeWidthLabel = document.getElementById('strokeWidthLabel');
-        strokeWidthInput.addEventListener('input', (e) => {
-            this.strokeWidth = parseInt(e.target.value);
-            strokeWidthLabel.textContent = this.strokeWidth;
-        });
-        
-        // Ластик
-        document.getElementById('eraserBtn').addEventListener('click', () => {
-            this.setTool('eraser');
-            document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.remove('active'));
-        });
-    }
-    
-    setTool(tool) {
-        this.currentTool = tool;
-        this.canvas.className = tool;
-    }
-    
-    getMousePos(e) {
+    handleWheel(e) {
+        e.preventDefault();
         const rect = this.canvas.getBoundingClientRect();
-        return {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        };
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        
+        const delta = -e.deltaY;
+        const factor = delta > 0 ? 1.08 : 1 / 1.08;
+        this.setZoom(this.zoom * factor, sx, sy);
     }
     
-    getTouchPos(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const touch = e.touches[0] || e.changedTouches[0];
-        return {
-            x: touch.clientX - rect.left,
-            y: touch.clientY - rect.top
-        };
-    }
+    // ===== Mouse Handlers =====
     
     handleMouseDown(e) {
+        const screenPos = this.getScreenMousePos(e);
+        
+        // Средняя кнопка мыши, Space или инструмент pan — панорамирование
+        if (e.button === 1 || this.spacePressed || this.currentTool === 'pan') {
+            e.preventDefault();
+            this.isPanning = true;
+            this.panStartX = screenPos.x;
+            this.panStartY = screenPos.y;
+            this.panStartPanX = this.panX;
+            this.panStartPanY = this.panY;
+            this.canvas.style.cursor = 'grabbing';
+            return;
+        }
+        
         const pos = this.getMousePos(e);
+        
+        // Проверяем ресайз-ручки перед обычным рисованием
+        if (this.currentTool === 'select' && this.selectedElement) {
+            const handle = this.getResizeHandle(pos.x, pos.y, this.selectedElement);
+            if (handle) {
+                this.isResizing = true;
+                this.resizeHandle = handle;
+                this.resizeStartX = pos.x;
+                this.resizeStartY = pos.y;
+                this.resizeOrigRect = {
+                    x: this.selectedElement.x,
+                    y: this.selectedElement.y,
+                    width: this.selectedElement.width,
+                    height: this.selectedElement.height
+                };
+                return;
+            }
+        }
+        
         this.startDrawing(pos.x, pos.y);
     }
     
     handleMouseMove(e) {
-        const pos = this.getMousePos(e);
-        this.updateDrawing(pos.x, pos.y);
+        // Всегда отслеживаем позицию курсора в мировых координатах
+        const worldPos = this.getMousePos(e);
+        this.lastMouseWorldX = worldPos.x;
+        this.lastMouseWorldY = worldPos.y;
+        
+        if (this.isPanning) {
+            const screenPos = this.getScreenMousePos(e);
+            this.panX = this.panStartPanX + (screenPos.x - this.panStartX);
+            this.panY = this.panStartPanY + (screenPos.y - this.panStartY);
+            this.redraw();
+            return;
+        }
+        
+        // Курсор grab при зажатом пробеле или инструменте pan
+        if ((this.spacePressed || this.currentTool === 'pan') && !this.isDrawing) {
+            this.canvas.style.cursor = 'grab';
+            return;
+        }
+        
+        // Ресайз
+        if (this.isResizing && this.selectedElement) {
+            this.handleResize(worldPos.x, worldPos.y);
+            return;
+        }
+        
+        // Курсор ресайза при наведении на ручку
+        if (this.currentTool === 'select' && this.selectedElement && !this.isDrawing) {
+            const handle = this.getResizeHandle(worldPos.x, worldPos.y, this.selectedElement);
+            if (handle) {
+                const cursors = { nw: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', se: 'nwse-resize' };
+                this.canvas.style.cursor = cursors[handle] || 'default';
+                return;
+            } else {
+                this.canvas.style.cursor = '';
+            }
+        }
+        
+        this.updateDrawing(worldPos.x, worldPos.y);
     }
     
     handleMouseUp(e) {
+        if (this.isPanning) {
+            this.isPanning = false;
+            this.canvas.style.cursor = (this.spacePressed || this.currentTool === 'pan') ? 'grab' : '';
+            return;
+        }
+        
+        if (this.isResizing) {
+            this.isResizing = false;
+            this.resizeHandle = null;
+            this.canvas.style.cursor = '';
+            this.saveToHistory();
+            this.scheduleSave();
+            return;
+        }
+        
         this.stopDrawing();
     }
     
+    // ===== Touch Handlers (pan + pinch-to-zoom) =====
+    
     handleTouchStart(e) {
         e.preventDefault();
+        
+        if (e.touches.length === 2) {
+            // Два пальца — начинаем pinch/pan
+            this.isPanning = true;
+            this.isDrawing = false;
+            const t0 = e.touches[0];
+            const t1 = e.touches[1];
+            this.lastPinchDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+            const rect = this.canvas.getBoundingClientRect();
+            this.lastPinchCenter = {
+                x: (t0.clientX + t1.clientX) / 2 - rect.left,
+                y: (t0.clientY + t1.clientY) / 2 - rect.top
+            };
+            this.panStartX = this.lastPinchCenter.x;
+            this.panStartY = this.lastPinchCenter.y;
+            this.panStartPanX = this.panX;
+            this.panStartPanY = this.panY;
+            return;
+        }
+        
         const pos = this.getTouchPos(e);
         this.startDrawing(pos.x, pos.y);
     }
     
     handleTouchMove(e) {
         e.preventDefault();
+        
+        if (e.touches.length === 2) {
+            const t0 = e.touches[0];
+            const t1 = e.touches[1];
+            const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+            const rect = this.canvas.getBoundingClientRect();
+            const cx = (t0.clientX + t1.clientX) / 2 - rect.left;
+            const cy = (t0.clientY + t1.clientY) / 2 - rect.top;
+            
+            // Zoom
+            if (this.lastPinchDist > 0) {
+                const factor = dist / this.lastPinchDist;
+                this.setZoom(this.zoom * factor, cx, cy);
+            }
+            
+            // Pan
+            if (this.lastPinchCenter) {
+                this.panX += cx - this.lastPinchCenter.x;
+                this.panY += cy - this.lastPinchCenter.y;
+            }
+            
+            this.lastPinchDist = dist;
+            this.lastPinchCenter = { x: cx, y: cy };
+            this.redraw();
+            return;
+        }
+        
         const pos = this.getTouchPos(e);
         this.updateDrawing(pos.x, pos.y);
     }
     
     handleTouchEnd(e) {
         e.preventDefault();
-        this.stopDrawing();
+        
+        if (e.touches.length < 2) {
+            this.isPanning = false;
+            this.lastPinchDist = 0;
+            this.lastPinchCenter = null;
+        }
+        
+        if (e.touches.length === 0) {
+            this.stopDrawing();
+        }
     }
     
+    // ===== Keyboard =====
+    
     handleKeyDown(e) {
+        // Space для панорамирования
+        if (e.code === 'Space' && !e.repeat) {
+            // Не перехватываем, если фокус в input/textarea
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            e.preventDefault();
+            this.spacePressed = true;
+            if (!this.isDrawing) this.canvas.style.cursor = 'grab';
+            return;
+        }
+        
         // Горячие клавиши
         if (e.ctrlKey || e.metaKey) {
             if (e.key === 'z' && !e.shiftKey) {
@@ -174,7 +408,13 @@ class Whiteboard {
             }
             if (e.key === 's') {
                 e.preventDefault();
-                this.saveBoard();
+                this.saveBoardState();
+                return;
+            }
+            // Ctrl+0 — сбросить вид
+            if (e.key === '0') {
+                e.preventDefault();
+                this.resetView();
                 return;
             }
         }
@@ -187,18 +427,295 @@ class Whiteboard {
             'a': 'arrow',
             'l': 'line',
             'p': 'draw',
-            't': 'text'
+            't': 'text',
+            'h': 'pan'
         };
+        
+        const shapeTools = ['rectangle', 'ellipse', 'arrow', 'line'];
         
         if (toolMap[e.key.toLowerCase()] && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
             const tool = toolMap[e.key.toLowerCase()];
-            this.setTool(tool);
-            document.querySelectorAll('.tool-btn[data-tool]').forEach(b => {
-                b.classList.toggle('active', b.getAttribute('data-tool') === tool);
-            });
+            
+            if (shapeTools.includes(tool)) {
+                this.currentShape = tool;
+                const icon = document.getElementById('shapesIcon');
+                if (icon && this.shapeIcons) icon.className = this.shapeIcons[tool] || 'fas fa-shapes';
+                const shapesDropdown = document.getElementById('shapesDropdown');
+                if (shapesDropdown) {
+                    shapesDropdown.querySelectorAll('.dropdown-item').forEach(d => {
+                        d.classList.toggle('active', d.getAttribute('data-tool') === tool);
+                    });
+                }
+                this.activateTool(tool, document.getElementById('shapesToggle'));
+            } else {
+                const btn = document.querySelector(`.tool-btn[data-tool="${tool}"]`);
+                this.activateTool(tool, btn);
+            }
         }
     }
+    
+    handleKeyUp(e) {
+        if (e.code === 'Space') {
+            this.spacePressed = false;
+            if (!this.isPanning) this.canvas.style.cursor = '';
+        }
+    }
+    
+    // ===== Toolbar =====
+    
+    setupToolbar() {
+        const self = this;
+        
+        document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                self.activateTool(btn.getAttribute('data-tool'), btn);
+            });
+        });
+        
+        // Фигуры dropdown
+        const shapesToggle = document.getElementById('shapesToggle');
+        const shapesDropdown = document.getElementById('shapesDropdown');
+        const shapesPanel = shapesDropdown.querySelector('.dropdown-panel');
+        
+        this.shapeIcons = {
+            rectangle: 'far fa-square',
+            ellipse:   'far fa-circle',
+            arrow:     'fas fa-long-arrow-alt-right',
+            line:      'fas fa-minus'
+        };
+        this.currentShape = null;
+        
+        shapesToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wasOpen = shapesPanel.classList.contains('open');
+            this.closeAllDropdowns();
+            if (!wasOpen) shapesPanel.classList.add('open');
+        });
+        
+        shapesDropdown.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const tool = item.getAttribute('data-tool');
+                this.currentShape = tool;
+                const icon = document.getElementById('shapesIcon');
+                icon.className = this.shapeIcons[tool] || 'fas fa-shapes';
+                shapesDropdown.querySelectorAll('.dropdown-item').forEach(d => d.classList.remove('active'));
+                item.classList.add('active');
+                this.activateTool(tool, shapesToggle);
+                shapesPanel.classList.remove('open');
+            });
+        });
+        
+        // Ластик
+        document.getElementById('eraserBtn').addEventListener('click', () => {
+            this.activateTool('eraser', document.getElementById('eraserBtn'));
+        });
+        
+        // Цвет линии
+        const strokeDD = document.getElementById('strokeColorDropdown');
+        const strokeTrigger = document.getElementById('strokeColorTrigger');
+        const strokePanel = strokeDD.querySelector('.dropdown-panel');
+        
+        strokeTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wasOpen = strokePanel.classList.contains('open');
+            this.closeAllDropdowns();
+            if (!wasOpen) strokePanel.classList.add('open');
+        });
+        
+        strokeDD.querySelectorAll('.color-opt').forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const color = opt.getAttribute('data-color');
+                this.strokeColor = color;
+                document.getElementById('strokeColor').value = color;
+                document.getElementById('strokeDot').style.background = color;
+                strokeDD.querySelectorAll('.color-opt').forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                strokePanel.classList.remove('open');
+            });
+        });
+        
+        // Цвет заливки
+        const fillDD = document.getElementById('fillColorDropdown');
+        const fillTrigger = document.getElementById('fillColorTrigger');
+        const fillPanel = fillDD.querySelector('.dropdown-panel');
+        
+        fillTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wasOpen = fillPanel.classList.contains('open');
+            this.closeAllDropdowns();
+            if (!wasOpen) fillPanel.classList.add('open');
+        });
+        
+        fillDD.querySelectorAll('.color-opt').forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const color = opt.getAttribute('data-color');
+                this.fillColor = color === 'transparent' ? 'transparent' : color;
+                document.getElementById('fillColor').value = color === 'transparent' ? '#ffffff' : color;
+                const dot = document.getElementById('fillDot');
+                dot.style.background = color === 'transparent' ? '#ffffff' : color;
+                fillDD.querySelectorAll('.color-opt').forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                fillPanel.classList.remove('open');
+            });
+        });
+        
+        // Толщина линии
+        const strokeWidthInput = document.getElementById('strokeWidth');
+        const strokeWidthLabel = document.getElementById('strokeWidthLabel');
+        strokeWidthInput.addEventListener('input', (e) => {
+            this.strokeWidth = parseInt(e.target.value);
+            strokeWidthLabel.textContent = this.strokeWidth;
+        });
+        
+        // Закрытие dropdown при клике снаружи
+        document.addEventListener('click', () => this.closeAllDropdowns());
+        document.querySelectorAll('.dropdown-panel').forEach(panel => {
+            panel.addEventListener('click', (e) => e.stopPropagation());
+        });
+        
+        // Кнопка сброса зума
+        const zoomReset = document.getElementById('zoomReset');
+        if (zoomReset) zoomReset.addEventListener('click', () => this.resetView());
+    }
+    
+    activateTool(tool, activeBtn) {
+        this.currentTool = tool;
+        this.canvas.className = tool;
+        // Сбрасываем инлайн-курсор, чтобы CSS-класс работал корректно
+        this.canvas.style.cursor = '';
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        if (activeBtn) activeBtn.classList.add('active');
+    }
+    
+    setTool(tool) {
+        this.currentTool = tool;
+        this.canvas.className = tool;
+        this.canvas.style.cursor = '';
+    }
+    
+    closeAllDropdowns() {
+        document.querySelectorAll('.dropdown-panel').forEach(p => p.classList.remove('open'));
+    }
+    
+    updatePaletteActive() {}
+    
+    // ===== Resize =====
+    
+    /** Размер ручки в мировых координатах (постоянный на экране) */
+    getHandleSize() {
+        return 8 / this.zoom;
+    }
+    
+    /** Возвращает bounding box элемента */
+    getElementBounds(el) {
+        if (el.type === 'path') {
+            const xs = el.points.map(p => p.x);
+            const ys = el.points.map(p => p.y);
+            const minX = Math.min(...xs), maxX = Math.max(...xs);
+            const minY = Math.min(...ys), maxY = Math.max(...ys);
+            return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+        }
+        return { x: el.x, y: el.y, width: el.width, height: el.height };
+    }
+    
+    /** Проверяет, попали ли в угловую ручку. Возвращает 'nw','ne','sw','se' или null */
+    getResizeHandle(mx, my, el) {
+        const b = this.getElementBounds(el);
+        const hs = this.getHandleSize();
+        
+        const left = Math.min(b.x, b.x + b.width);
+        const right = Math.max(b.x, b.x + b.width);
+        const top = Math.min(b.y, b.y + b.height);
+        const bottom = Math.max(b.y, b.y + b.height);
+        
+        const corners = {
+            nw: { x: left, y: top },
+            ne: { x: right, y: top },
+            sw: { x: left, y: bottom },
+            se: { x: right, y: bottom }
+        };
+        
+        for (const [name, c] of Object.entries(corners)) {
+            if (Math.abs(mx - c.x) <= hs && Math.abs(my - c.y) <= hs) {
+                return name;
+            }
+        }
+        return null;
+    }
+    
+    /** Обрабатывает перетаскивание ручки ресайза */
+    handleResize(mx, my) {
+        const el = this.selectedElement;
+        if (!el || !this.resizeOrigRect) return;
+        
+        const orig = this.resizeOrigRect;
+        const dx = mx - this.resizeStartX;
+        const dy = my - this.resizeStartY;
+        
+        let newX = orig.x;
+        let newY = orig.y;
+        let newW = orig.width;
+        let newH = orig.height;
+        
+        switch (this.resizeHandle) {
+            case 'se':
+                newW = orig.width + dx;
+                newH = orig.height + dy;
+                break;
+            case 'sw':
+                newX = orig.x + dx;
+                newW = orig.width - dx;
+                newH = orig.height + dy;
+                break;
+            case 'ne':
+                newY = orig.y + dy;
+                newW = orig.width + dx;
+                newH = orig.height - dy;
+                break;
+            case 'nw':
+                newX = orig.x + dx;
+                newY = orig.y + dy;
+                newW = orig.width - dx;
+                newH = orig.height - dy;
+                break;
+        }
+        
+        // Для изображений — сохраняем пропорции
+        if (el.type === 'image') {
+            const aspect = orig.width / orig.height;
+            // Используем бóльшее изменение
+            if (Math.abs(newW / orig.width - 1) > Math.abs(newH / orig.height - 1)) {
+                newH = newW / aspect;
+            } else {
+                newW = newH * aspect;
+            }
+            // Пересчитываем позицию для ручек nw/ne/sw
+            if (this.resizeHandle === 'nw') {
+                newX = orig.x + orig.width - newW;
+                newY = orig.y + orig.height - newH;
+            } else if (this.resizeHandle === 'ne') {
+                newY = orig.y + orig.height - newH;
+            } else if (this.resizeHandle === 'sw') {
+                newX = orig.x + orig.width - newW;
+            }
+        }
+        
+        // Минимальный размер
+        if (Math.abs(newW) > 10 && Math.abs(newH) > 10) {
+            el.x = newX;
+            el.y = newY;
+            el.width = newW;
+            el.height = newH;
+            if (el.id) el.timestamp = Date.now();
+            this.redraw();
+        }
+    }
+    
+    // ===== Drawing Logic =====
     
     startDrawing(x, y) {
         this.isDrawing = true;
@@ -206,7 +723,6 @@ class Whiteboard {
         this.startY = y;
         
         if (this.currentTool === 'select') {
-            // Проверяем, кликнули ли на элемент
             this.selectedElement = this.getElementAt(x, y);
             if (this.selectedElement) {
                 this.isDragging = true;
@@ -236,7 +752,7 @@ class Whiteboard {
             return;
         }
         
-        // Создаем новый элемент
+        const now = Date.now();
         this.currentElement = {
             type: this.currentTool,
             x: x,
@@ -246,7 +762,8 @@ class Whiteboard {
             strokeColor: this.strokeColor,
             fillColor: this.fillColor,
             strokeWidth: this.strokeWidth,
-            id: Date.now() + Math.random()
+            id: now + Math.random(),
+            timestamp: now
         };
     }
     
@@ -256,13 +773,18 @@ class Whiteboard {
         if (this.isDragging && this.selectedElement) {
             this.selectedElement.x = x - this.dragOffset.x;
             this.selectedElement.y = y - this.dragOffset.y;
+            if (this.selectedElement.id && this.localElements.has(this.selectedElement.id)) {
+                this.selectedElement.timestamp = Date.now();
+            }
             this.redraw();
             return;
         }
         
         if (this.currentTool === 'draw') {
             this.currentPath.push({ x, y });
-            this.drawPath();
+            // Полный перерисов + текущий путь (для корректной работы с трансформацией)
+            this.redraw();
+            this.drawCurrentPath();
             return;
         }
         
@@ -272,14 +794,15 @@ class Whiteboard {
         }
         
         if (this.currentElement) {
-            const width = x - this.startX;
-            const height = y - this.startY;
-            
-            this.currentElement.width = width;
-            this.currentElement.height = height;
-            
+            this.currentElement.width = x - this.startX;
+            this.currentElement.height = y - this.startY;
             this.redraw();
+            // Рисуем текущий элемент с трансформацией
+            this.ctx.save();
+            this.ctx.translate(this.panX, this.panY);
+            this.ctx.scale(this.zoom, this.zoom);
             this.drawElement(this.ctx, this.currentElement);
+            this.ctx.restore();
         }
     }
     
@@ -290,19 +813,27 @@ class Whiteboard {
         this.isDragging = false;
         
         if (this.currentTool === 'draw' && this.currentPath.length > 0) {
-            this.elements.push({
+            const now = Date.now();
+            const newElement = {
                 type: 'path',
                 points: [...this.currentPath],
                 strokeColor: this.strokeColor,
                 strokeWidth: this.strokeWidth,
-                id: Date.now() + Math.random()
-            });
+                id: now + Math.random(),
+                timestamp: now
+            };
+            this.elements.push(newElement);
+            this.localElements.add(newElement.id);
             this.saveToHistory();
             this.currentPath = [];
         }
         
         if (this.currentElement && (this.currentElement.width !== 0 || this.currentElement.height !== 0)) {
+            if (!this.currentElement.timestamp) {
+                this.currentElement.timestamp = Date.now();
+            }
             this.elements.push(this.currentElement);
+            this.localElements.add(this.currentElement.id);
             this.saveToHistory();
             this.currentElement = null;
         }
@@ -311,8 +842,13 @@ class Whiteboard {
         this.scheduleSave();
     }
     
-    drawPath() {
+    /** Рисует текущий путь (карандаш) во время рисования — с учётом камеры */
+    drawCurrentPath() {
         if (this.currentPath.length < 2) return;
+        
+        this.ctx.save();
+        this.ctx.translate(this.panX, this.panY);
+        this.ctx.scale(this.zoom, this.zoom);
         
         this.ctx.beginPath();
         this.ctx.strokeStyle = this.strokeColor;
@@ -325,21 +861,22 @@ class Whiteboard {
             this.ctx.lineTo(this.currentPath[i].x, this.currentPath[i].y);
         }
         this.ctx.stroke();
+        this.ctx.restore();
     }
     
     eraseAt(x, y) {
-        const eraserSize = this.strokeWidth * 5;
+        const eraserSize = this.strokeWidth * 5 / this.zoom; // Учитываем зум
         const elementsToRemove = [];
         
         this.elements.forEach((element, index) => {
             if (this.isPointInElement(x, y, element, eraserSize)) {
-                elementsToRemove.push(index);
+                elementsToRemove.push({ index, id: element.id });
             }
         });
         
-        // Удаляем в обратном порядке
-        elementsToRemove.reverse().forEach(index => {
-            this.elements.splice(index, 1);
+        elementsToRemove.reverse().forEach(removed => {
+            this.elements.splice(removed.index, 1);
+            this.localElements.delete(removed.id);
         });
         
         if (elementsToRemove.length > 0) {
@@ -351,7 +888,6 @@ class Whiteboard {
     
     isPointInElement(x, y, element, tolerance = 0) {
         if (element.type === 'path') {
-            // Проверяем расстояние до всех точек пути
             for (const point of element.points) {
                 const dist = Math.sqrt(Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2));
                 if (dist <= (element.strokeWidth / 2 + tolerance)) {
@@ -361,12 +897,11 @@ class Whiteboard {
             return false;
         }
         
-        if (element.type === 'text') {
-            return x >= element.x && x <= element.x + element.width &&
-                   y >= element.y && y <= element.y + element.height;
+        if (element.type === 'text' || element.type === 'image') {
+            return x >= element.x - tolerance && x <= element.x + element.width + tolerance &&
+                   y >= element.y - tolerance && y <= element.y + element.height + tolerance;
         }
         
-        // Для фигур
         const left = Math.min(element.x, element.x + element.width);
         const right = Math.max(element.x, element.x + element.width);
         const top = Math.min(element.y, element.y + element.height);
@@ -377,7 +912,6 @@ class Whiteboard {
     }
     
     getElementAt(x, y) {
-        // Ищем с конца, чтобы выбрать верхний элемент
         for (let i = this.elements.length - 1; i >= 0; i--) {
             if (this.isPointInElement(x, y, this.elements[i])) {
                 return this.elements[i];
@@ -393,7 +927,8 @@ class Whiteboard {
         this.ctx.font = `${this.strokeWidth * 10}px Arial`;
         const metrics = this.ctx.measureText(text);
         
-        this.elements.push({
+        const now = Date.now();
+        const newElement = {
             type: 'text',
             x: x,
             y: y,
@@ -402,13 +937,101 @@ class Whiteboard {
             height: this.strokeWidth * 10,
             strokeColor: this.strokeColor,
             strokeWidth: this.strokeWidth,
-            id: Date.now() + Math.random()
-        });
+            id: now + Math.random(),
+            timestamp: now
+        };
+        this.elements.push(newElement);
+        this.localElements.add(newElement.id);
         
         this.saveToHistory();
         this.redraw();
         this.scheduleSave();
     }
+    
+    // ===== Вставка изображений =====
+    
+    handlePaste(e) {
+        // Не перехватываем, если фокус в input/textarea
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        
+        const items = e.clipboardData && e.clipboardData.items;
+        if (!items) return;
+        
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                e.preventDefault();
+                const blob = item.getAsFile();
+                if (!blob) return;
+                
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const dataUrl = ev.target.result;
+                    this.addImageElement(dataUrl);
+                };
+                reader.readAsDataURL(blob);
+                return;
+            }
+        }
+    }
+    
+    addImageElement(dataUrl) {
+        const img = new Image();
+        img.onload = () => {
+            // Вставляем в позицию последнего положения курсора
+            const cx = this.lastMouseWorldX;
+            const cy = this.lastMouseWorldY;
+            
+            // Ограничиваем размер изображения (макс 600px по большей стороне)
+            let w = img.naturalWidth;
+            let h = img.naturalHeight;
+            const maxSize = 600;
+            if (w > maxSize || h > maxSize) {
+                const ratio = Math.min(maxSize / w, maxSize / h);
+                w = Math.round(w * ratio);
+                h = Math.round(h * ratio);
+            }
+            
+            const now = Date.now();
+            const newElement = {
+                type: 'image',
+                x: cx - w / 2,
+                y: cy - h / 2,
+                width: w,
+                height: h,
+                src: dataUrl,
+                id: now + Math.random(),
+                timestamp: now
+            };
+            
+            // Кэшируем Image объект
+            this.imageCache.set(newElement.id, img);
+            
+            this.elements.push(newElement);
+            this.localElements.add(newElement.id);
+            this.saveToHistory();
+            this.redraw();
+            this.scheduleSave();
+        };
+        img.src = dataUrl;
+    }
+    
+    /** Загружает Image объект из кэша или создаёт новый */
+    getImageObj(element) {
+        if (this.imageCache.has(element.id)) {
+            return this.imageCache.get(element.id);
+        }
+        // Создаём и кэшируем
+        const img = new Image();
+        img.src = element.src;
+        img.onload = () => {
+            this.imageCache.set(element.id, img);
+            this.redraw();
+        };
+        this.imageCache.set(element.id, img); // Сохраняем даже до загрузки, чтобы не создавать повторно
+        return img;
+    }
+    
+    // ===== Рисование =====
     
     drawElement(ctx, element) {
         ctx.save();
@@ -449,7 +1072,6 @@ class Whiteboard {
                 ctx.lineTo(element.x + element.width, element.y + element.height);
                 ctx.stroke();
                 
-                // Рисуем наконечник стрелки
                 const angle = Math.atan2(element.height, element.width);
                 const arrowLength = 15;
                 const arrowAngle = Math.PI / 6;
@@ -489,67 +1111,172 @@ class Whiteboard {
                 ctx.fillStyle = element.strokeColor;
                 ctx.fillText(element.text, element.x, element.y + element.height);
                 break;
+                
+            case 'image':
+                const imgObj = this.getImageObj(element);
+                if (imgObj && imgObj.complete && imgObj.naturalWidth > 0) {
+                    ctx.drawImage(imgObj, element.x, element.y, element.width, element.height);
+                } else {
+                    // Плейсхолдер пока грузится
+                    ctx.fillStyle = '#f0f0f0';
+                    ctx.fillRect(element.x, element.y, element.width, element.height);
+                    ctx.strokeStyle = '#ccc';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(element.x, element.y, element.width, element.height);
+                    ctx.fillStyle = '#aaa';
+                    ctx.font = '14px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('Загрузка...', element.x + element.width / 2, element.y + element.height / 2);
+                    ctx.textAlign = 'start';
+                    ctx.textBaseline = 'alphabetic';
+                }
+                break;
         }
         
         ctx.restore();
     }
     
+    /** Рисует бесконечную сетку */
+    drawGrid() {
+        const ctx = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        
+        // Размер ячейки сетки в мировых координатах
+        let gridSize = 20;
+        // Адаптивный размер: при сильном отдалении — крупнее
+        if (this.zoom < 0.4) gridSize = 100;
+        else if (this.zoom < 0.8) gridSize = 50;
+        
+        // Конвертируем углы экрана в мировые координаты
+        const topLeft = this.screenToWorld(0, 0);
+        const bottomRight = this.screenToWorld(w, h);
+        
+        // Начало линий (привязка к сетке)
+        const startX = Math.floor(topLeft.x / gridSize) * gridSize;
+        const startY = Math.floor(topLeft.y / gridSize) * gridSize;
+        
+        ctx.save();
+        ctx.translate(this.panX, this.panY);
+        ctx.scale(this.zoom, this.zoom);
+        
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.06)';
+        ctx.lineWidth = 1 / this.zoom; // Постоянная толщина на экране
+        
+        ctx.beginPath();
+        for (let x = startX; x <= bottomRight.x; x += gridSize) {
+            ctx.moveTo(x, topLeft.y);
+            ctx.lineTo(x, bottomRight.y);
+        }
+        for (let y = startY; y <= bottomRight.y; y += gridSize) {
+            ctx.moveTo(topLeft.x, y);
+            ctx.lineTo(bottomRight.x, y);
+        }
+        ctx.stroke();
+        
+        ctx.restore();
+    }
+    
     redraw() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        const ctx = this.ctx;
+        
+        // Очищаем весь канвас
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Фон
+        ctx.fillStyle = '#fafafa';
+        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Сетка
+        this.drawGrid();
+        
+        // Применяем трансформацию камеры
+        ctx.save();
+        ctx.translate(this.panX, this.panY);
+        ctx.scale(this.zoom, this.zoom);
         
         // Рисуем все элементы
         this.elements.forEach(element => {
-            this.drawElement(this.ctx, element);
+            this.drawElement(ctx, element);
         });
         
-        // Рисуем текущий элемент
+        // Рисуем текущий элемент (фигура в процессе создания)
         if (this.currentElement) {
-            this.drawElement(this.ctx, this.currentElement);
+            this.drawElement(ctx, this.currentElement);
         }
         
         // Рисуем выделение
         if (this.selectedElement) {
             this.drawSelection(this.selectedElement);
         }
+        
+        ctx.restore();
     }
     
     drawSelection(element) {
-        this.ctx.save();
-        this.ctx.strokeStyle = '#667eea';
-        this.ctx.lineWidth = 2;
-        this.ctx.setLineDash([5, 5]);
+        const ctx = this.ctx;
+        const b = this.getElementBounds(element);
         
-        if (element.type === 'path') {
-            // Рисуем границы пути
-            const minX = Math.min(...element.points.map(p => p.x));
-            const maxX = Math.max(...element.points.map(p => p.x));
-            const minY = Math.min(...element.points.map(p => p.y));
-            const maxY = Math.max(...element.points.map(p => p.y));
-            
-            this.ctx.strokeRect(minX - 5, minY - 5, maxX - minX + 10, maxY - minY + 10);
-        } else if (element.type === 'text') {
-            this.ctx.strokeRect(element.x - 5, element.y - 5, element.width + 10, element.height + 10);
-        } else {
-            const left = Math.min(element.x, element.x + element.width);
-            const right = Math.max(element.x, element.x + element.width);
-            const top = Math.min(element.y, element.y + element.height);
-            const bottom = Math.max(element.y, element.y + element.height);
-            
-            this.ctx.strokeRect(left - 5, top - 5, right - left + 10, bottom - top + 10);
-        }
+        const left = Math.min(b.x, b.x + b.width);
+        const right = Math.max(b.x, b.x + b.width);
+        const top = Math.min(b.y, b.y + b.height);
+        const bottom = Math.max(b.y, b.y + b.height);
+        const pad = 4 / this.zoom;
         
-        this.ctx.restore();
+        // Пунктирная рамка
+        ctx.save();
+        ctx.strokeStyle = '#667eea';
+        ctx.lineWidth = 1.5 / this.zoom;
+        ctx.setLineDash([5 / this.zoom, 4 / this.zoom]);
+        ctx.strokeRect(left - pad, top - pad, right - left + pad * 2, bottom - top + pad * 2);
+        ctx.restore();
+        
+        // Угловые ручки
+        const hs = this.getHandleSize();
+        const corners = [
+            { x: left, y: top },
+            { x: right, y: top },
+            { x: left, y: bottom },
+            { x: right, y: bottom }
+        ];
+        
+        ctx.save();
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#667eea';
+        ctx.lineWidth = 1.5 / this.zoom;
+        ctx.setLineDash([]);
+        
+        corners.forEach(c => {
+            ctx.beginPath();
+            ctx.rect(c.x - hs / 2, c.y - hs / 2, hs, hs);
+            ctx.fill();
+            ctx.stroke();
+        });
+        ctx.restore();
     }
     
+    /** Предзагрузка картинок из элементов (после загрузки/синхронизации) */
+    preloadImages() {
+        this.elements.forEach(el => {
+            if (el.type === 'image' && el.src && !this.imageCache.has(el.id)) {
+                const img = new Image();
+                img.onload = () => {
+                    this.imageCache.set(el.id, img);
+                    this.redraw();
+                };
+                img.src = el.src;
+                this.imageCache.set(el.id, img);
+            }
+        });
+    }
+    
+    // ===== History =====
+    
     saveToHistory() {
-        // Удаляем все элементы после текущего индекса
         this.history = this.history.slice(0, this.historyIndex + 1);
-        
-        // Добавляем новое состояние
         this.history.push(JSON.stringify(this.elements));
         this.historyIndex = this.history.length - 1;
-        
-        // Ограничиваем размер истории
         if (this.history.length > 50) {
             this.history.shift();
             this.historyIndex--;
@@ -560,6 +1287,7 @@ class Whiteboard {
         if (this.historyIndex > 0) {
             this.historyIndex--;
             this.elements = JSON.parse(this.history[this.historyIndex]);
+            this.preloadImages();
             this.redraw();
             this.scheduleSave();
         }
@@ -569,39 +1297,37 @@ class Whiteboard {
         if (this.historyIndex < this.history.length - 1) {
             this.historyIndex++;
             this.elements = JSON.parse(this.history[this.historyIndex]);
+            this.preloadImages();
             this.redraw();
             this.scheduleSave();
         }
     }
     
+    // ===== Sync / Save =====
+    
     scheduleSave() {
-        if (this.saveTimeout) {
-            clearTimeout(this.saveTimeout);
-        }
-        
-        this.saveTimeout = setTimeout(() => {
-            this.saveBoardState();
-        }, 1000);
+        if (this.saveTimeout) clearTimeout(this.saveTimeout);
+        this.saveTimeout = setTimeout(() => this.saveBoardState(), 500);
     }
     
     startAutoSave() {
-        // Автосохранение каждые 5 секунд
         this.autoSaveInterval = setInterval(() => {
-            this.saveBoardState();
-        }, 5000);
+            if (!this.isSaving && !this.isDrawing && this.localElements.size > 0) {
+                this.saveBoardState();
+            }
+        }, 3000);
         
-        // Синхронизация с сервером каждые 2 секунды
         this.syncInterval = setInterval(() => {
             this.syncBoardState();
-        }, 2000);
+        }, 1000);
     }
     
     async syncBoardState() {
+        if (this.isSaving || this.isDrawing || this.currentPath.length > 0) return;
+        
         try {
             const response = await fetch(`/whiteboard/api/state/${this.lessonId}`);
-            if (!response.ok) {
-                return; // Игнорируем ошибки при синхронизации
-            }
+            if (!response.ok) return;
             
             const data = await response.json();
             if (data.success && data.boardData) {
@@ -610,92 +1336,172 @@ class Whiteboard {
                     const serverElements = boardData.elements || [];
                     const serverVersion = data.version || 0;
                     
-                    // Проверяем, изменилось ли состояние на сервере
-                    const currentElementsStr = JSON.stringify(this.elements);
-                    const serverElementsStr = JSON.stringify(serverElements);
-                    
-                    // Если состояние на сервере отличается и версия новее, обновляем локальное состояние
-                    if (currentElementsStr !== serverElementsStr && serverVersion > this.lastSyncedVersion) {
-                        // Обновляем только если мы не редактируем сейчас
-                        if (!this.isDrawing && !this.currentElement && this.currentPath.length === 0) {
-                            this.elements = serverElements;
-                            this.lastSyncedVersion = serverVersion;
-                            // Восстанавливаем историю
-                            this.history = [JSON.stringify(this.elements)];
-                            this.historyIndex = 0;
-                            this.redraw();
-                            console.log('Доска синхронизирована с сервером, версия:', serverVersion);
-                        }
-                    } else if (serverVersion > this.lastSyncedVersion) {
-                        // Обновляем версию даже если элементы не изменились
+                    if (serverVersion > this.lastSyncedVersion) {
+                        this.mergeElements(serverElements);
                         this.lastSyncedVersion = serverVersion;
+                        this.lastSyncTime = Date.now();
+                        
+                        this.lastSavedData = JSON.stringify({
+                            elements: this.elements,
+                            appState: boardData.appState || {}
+                        });
+                        
+                        this.history = [JSON.stringify(this.elements)];
+                        this.historyIndex = 0;
+                        this.preloadImages();
+                        this.redraw();
                     }
                 } catch (parseError) {
                     console.debug('Ошибка парсинга при синхронизации:', parseError);
                 }
             }
         } catch (error) {
-            // Игнорируем ошибки синхронизации
             console.debug('Ошибка синхронизации доски:', error);
         }
     }
     
-    async saveBoardState() {
-        try {
-            const boardData = JSON.stringify({
-                elements: this.elements,
-                appState: {
-                    currentTool: this.currentTool,
-                    strokeColor: this.strokeColor,
-                    fillColor: this.fillColor,
-                    strokeWidth: this.strokeWidth
+    mergeElements(serverElements) {
+        const now = Date.now();
+        const serverElementsMap = new Map();
+        const currentElementsMap = new Map();
+        
+        serverElements.forEach(el => {
+            if (el.id) {
+                if (!el.timestamp) el.timestamp = 0;
+                serverElementsMap.set(el.id, el);
+            }
+        });
+        
+        this.elements.forEach(el => {
+            if (el.id) {
+                if (!el.timestamp) el.timestamp = now;
+                currentElementsMap.set(el.id, el);
+            }
+        });
+        
+        const preservedLocalElements = [];
+        this.localElements.forEach(localId => {
+            const localElement = currentElementsMap.get(localId);
+            if (localElement) preservedLocalElements.push(localElement);
+        });
+        
+        const mergedElements = [];
+        const usedIds = new Set();
+        
+        serverElements.forEach(serverEl => {
+            if (serverEl.id) {
+                const isLocal = this.localElements.has(serverEl.id);
+                const localEl = currentElementsMap.get(serverEl.id);
+                
+                if (isLocal && localEl) {
+                    const localTimestamp = localEl.timestamp || now;
+                    const serverTimestamp = serverEl.timestamp || (now - 2000000);
+                    if (localTimestamp >= serverTimestamp) {
+                        usedIds.add(localEl.id);
+                        mergedElements.push(localEl);
+                    } else {
+                        usedIds.add(serverEl.id);
+                        mergedElements.push(serverEl);
+                    }
+                } else {
+                    if (!serverEl.timestamp) serverEl.timestamp = now - 2000000;
+                    usedIds.add(serverEl.id);
+                    mergedElements.push(serverEl);
                 }
-            });
-            
+            } else {
+                mergedElements.push(serverEl);
+            }
+        });
+        
+        preservedLocalElements.forEach(localEl => {
+            const localTimestamp = localEl.timestamp || now;
+            const existingIndex = mergedElements.findIndex(el => el.id === localEl.id);
+            if (existingIndex >= 0) {
+                const existing = mergedElements[existingIndex];
+                if (localTimestamp >= (existing.timestamp || 0)) {
+                    mergedElements[existingIndex] = localEl;
+                }
+            } else {
+                mergedElements.push(localEl);
+                usedIds.add(localEl.id);
+            }
+        });
+        
+        this.elements = mergedElements;
+    }
+    
+    async saveBoardState() {
+        if (this.isSaving) {
+            this.pendingSave = true;
+            return;
+        }
+        
+        const boardData = JSON.stringify({
+            elements: this.elements,
+            appState: {
+                currentTool: this.currentTool,
+                strokeColor: this.strokeColor,
+                fillColor: this.fillColor,
+                strokeWidth: this.strokeWidth
+            }
+        });
+        
+        if (this.lastSavedData === boardData) return;
+        
+        this.isSaving = true;
+        this.pendingSave = false;
+        
+        try {
             const response = await fetch(`/whiteboard/api/state/${this.lessonId}`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ boardData })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ boardData, version: this.lastSyncedVersion })
             });
             
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Ошибка сохранения доски:', response.status, errorText);
+                console.error('Ошибка сохранения доски:', response.status);
+                this.isSaving = false;
                 return;
             }
             
             const data = await response.json();
             if (data.success) {
                 this.lastSyncedVersion = data.version || this.lastSyncedVersion;
-                console.log('Доска сохранена, версия:', this.lastSyncedVersion);
+                this.lastSavedData = boardData;
+                const savedElements = JSON.parse(boardData).elements || [];
+                savedElements.forEach(el => { if (el.id) this.localElements.delete(el.id); });
             } else {
                 console.error('Ошибка сохранения доски:', data.message);
+                if (data.message && data.message.includes("версия")) {
+                    await this.syncBoardState();
+                }
             }
         } catch (error) {
             console.error('Ошибка сохранения доски:', error);
+        } finally {
+            this.isSaving = false;
+            if (this.pendingSave) setTimeout(() => this.saveBoardState(), 500);
         }
     }
     
     async loadBoardState() {
         try {
             const response = await fetch(`/whiteboard/api/state/${this.lessonId}`);
-            
             if (!response.ok) {
-                console.error('Ошибка загрузки доски:', response.status);
-                // Создаем пустое состояние при ошибке
                 this.elements = [];
                 this.redraw();
                 return;
             }
             
             const data = await response.json();
-            
             if (data.success && data.boardData) {
                 try {
                     const boardData = JSON.parse(data.boardData);
-                    this.elements = boardData.elements || [];
+                    const loadedElements = boardData.elements || [];
+                    const now = Date.now();
+                    loadedElements.forEach(el => { if (!el.timestamp) el.timestamp = now - 1000000; });
+                    
+                    this.elements = loadedElements;
                     
                     if (boardData.appState) {
                         this.currentTool = boardData.appState.currentTool || 'select';
@@ -704,13 +1510,18 @@ class Whiteboard {
                         this.strokeWidth = boardData.appState.strokeWidth || 2;
                     }
                     
-                    // Сохраняем версию
                     this.lastSyncedVersion = data.version || 0;
+                    this.lastSyncTime = Date.now();
+                    this.localElements.clear();
                     
-                    // Восстанавливаем историю
+                    this.lastSavedData = JSON.stringify({
+                        elements: this.elements,
+                        appState: boardData.appState || {}
+                    });
+                    
                     this.history = [JSON.stringify(this.elements)];
                     this.historyIndex = 0;
-                    
+                    this.preloadImages();
                     this.redraw();
                     
                     // Обновляем UI
@@ -724,8 +1535,14 @@ class Whiteboard {
                     if (strokeWidthInput) strokeWidthInput.value = this.strokeWidth;
                     if (strokeWidthLabel) strokeWidthLabel.textContent = this.strokeWidth;
                     
-                    document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
-                        btn.classList.toggle('active', btn.getAttribute('data-tool') === this.currentTool);
+                    const strokeDot = document.getElementById('strokeDot');
+                    const fillDot = document.getElementById('fillDot');
+                    if (strokeDot) strokeDot.style.background = this.strokeColor;
+                    if (fillDot) fillDot.style.background = this.fillColor === 'transparent' ? '#ffffff' : this.fillColor;
+                    
+                    document.querySelectorAll('.tool-btn').forEach(btn => {
+                        const t = btn.getAttribute('data-tool');
+                        btn.classList.toggle('active', t === this.currentTool);
                     });
                 } catch (parseError) {
                     console.error('Ошибка парсинга данных доски:', parseError);
@@ -733,13 +1550,11 @@ class Whiteboard {
                     this.redraw();
                 }
             } else {
-                // Если данных нет, создаем пустое состояние
                 this.elements = [];
                 this.redraw();
             }
         } catch (error) {
             console.error('Ошибка загрузки доски:', error);
-            // Создаем пустое состояние при ошибке
             this.elements = [];
             this.redraw();
         }
@@ -750,15 +1565,12 @@ class Whiteboard {
 let whiteboard;
 
 function clearBoard() {
-    if (confirm('Вы уверены, что хотите очистить доску? Это действие нельзя отменить.')) {
+    if (confirm('Вы уверены, что хотите очистить доску?')) {
         whiteboard.elements = [];
         whiteboard.saveToHistory();
         whiteboard.redraw();
         whiteboard.saveBoardState();
-        
-        fetch(`/whiteboard/api/clear/${whiteboard.lessonId}`, {
-            method: 'POST'
-        });
+        fetch(`/whiteboard/api/clear/${whiteboard.lessonId}`, { method: 'POST' });
     }
 }
 
@@ -767,32 +1579,18 @@ function saveBoard() {
     alert('Доска сохранена!');
 }
 
-function undoAction() {
-    whiteboard.undo();
-}
-
-function redoAction() {
-    whiteboard.redo();
-}
+function undoAction() { whiteboard.undo(); }
+function redoAction() { whiteboard.redo(); }
 
 function closeBoard() {
     if (confirm('Вы уверены, что хотите закрыть доску?')) {
-        // Останавливаем синхронизацию
-        if (whiteboard.autoSaveInterval) {
-            clearInterval(whiteboard.autoSaveInterval);
-        }
-        if (whiteboard.syncInterval) {
-            clearInterval(whiteboard.syncInterval);
-        }
-        
-        // Сохраняем перед закрытием
+        if (whiteboard.autoSaveInterval) clearInterval(whiteboard.autoSaveInterval);
+        if (whiteboard.syncInterval) clearInterval(whiteboard.syncInterval);
         whiteboard.saveBoardState();
         window.location.href = '/dashboard';
     }
 }
 
-// Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
     whiteboard = new Whiteboard();
 });
-

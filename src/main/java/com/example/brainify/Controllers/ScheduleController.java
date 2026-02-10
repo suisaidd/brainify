@@ -205,6 +205,16 @@ public class ScheduleController {
                 return ResponseEntity.badRequest().body("Учитель не назначен этому ученику");
             }
 
+            Integer remainingLessons = currentUser.getRemainingLessons();
+            if (remainingLessons == null) remainingLessons = 0;
+            int totalLessonsToCreate = selectedSlots.size() * weeks;
+            int scheduledLessonsCount = Math.toIntExact(lessonRepository.countByStudentAndStatus(currentUser, Lesson.LessonStatus.SCHEDULED));
+            int availableLessons = remainingLessons - scheduledLessonsCount;
+
+            if (availableLessons < totalLessonsToCreate) {
+                return ResponseEntity.badRequest().body("Недостаточно занятий на балансе. Доступно: " + Math.max(availableLessons, 0) + ", требуется: " + totalLessonsToCreate);
+            }
+
             LocalDate weekStart = LocalDate.parse(startDate);
             List<Lesson> createdLessons = new ArrayList<>();
 

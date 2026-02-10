@@ -74,4 +74,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     
     // Поиск пользователей без установленного часового пояса
     List<User> findByTimezoneIsNull();
+
+    @Query("SELECT DISTINCT u FROM User u JOIN u.subjects s " +
+           "WHERE u.role = :role AND s.id = :subjectId AND u.isActive = true")
+    List<User> findActiveByRoleAndSubject(@Param("role") UserRole role,
+                                          @Param("subjectId") Long subjectId);
 } 

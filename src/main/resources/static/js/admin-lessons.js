@@ -921,6 +921,7 @@ async function loadScheduleData() {
                 slots.forEach(slot => {
                     slot.className = 'schedule-slot available';
                     slot.innerHTML = '';
+                    slot.disabled = false;
                 });
                 
                 // Устанавливаем рабочие слоты (желтые)
@@ -948,13 +949,19 @@ async function loadScheduleData() {
                         const slot = document.querySelector(`[data-slot-id="${slotId}"]`);
                         
                         if (slot) {
-                            slot.className = 'schedule-slot lesson-booked';
-                            slot.setAttribute('data-original-class', 'schedule-slot lesson-booked');
+                            const classes = ['schedule-slot', 'lesson-booked'];
+                            if (lesson.isPast) {
+                                classes.push('past-lesson');
+                            }
+                            const className = classes.join(' ');
+                            slot.className = className;
+                            slot.setAttribute('data-original-class', className);
                             slot.setAttribute('data-lesson-id', lesson.lessonId);
                             slot.innerHTML = `
                                 <div class="slot-subject">${lesson.subjectName}</div>
                                 <div class="slot-student">${lesson.studentName}</div>
                             `;
+                            slot.disabled = !!lesson.isPast;
                         }
                     });
                 }
@@ -999,12 +1006,18 @@ async function loadScheduleData() {
                         const slot = document.querySelector(`[data-slot-id="${slotId}"]`);
                         
                         if (slot) {
-                            slot.className = 'schedule-slot occupied-current';
-                            slot.disabled = false;
+                            const classes = ['schedule-slot', 'occupied-current'];
+                            if (slotData.isPast) {
+                                classes.push('past-lesson');
+                            }
+                            const className = classes.join(' ');
+                            slot.className = className;
+                            slot.disabled = !!slotData.isPast;
                             slot.innerHTML = `
                                 <div class="slot-subject">${slotData.subjectName}</div>
                                 <div class="slot-student">Мой урок</div>
                             `;
+                            slot.setAttribute('data-original-class', className);
                         }
                     });
                 }
@@ -1036,6 +1049,10 @@ async function loadScheduleData() {
 }
 
 function handleSlotClick(slot) {
+    if (slot.classList.contains('past-lesson')) {
+        return;
+    }
+
     const currentClass = slot.className;
     
     if (currentUser.type === 'teacher') {

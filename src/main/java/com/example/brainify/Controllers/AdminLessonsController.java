@@ -12,8 +12,10 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpSession;
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.TemporalAdjusters;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -367,6 +369,7 @@ public class AdminLessonsController {
 
             // Получаем уроки преподавателя для отображения занятых слотов
             List<Map<String, Object>> lessonsData = new ArrayList<>();
+            LocalDateTime now = LocalDateTime.now();
             List<Lesson> lessons = lessonRepository.findByTeacherAndLessonDateBetween(
                 teacher,
                 getDateFromDayAndHour("MONDAY", "12", weekOffset),
@@ -380,6 +383,7 @@ public class AdminLessonsController {
                 lessonMap.put("subjectName", lesson.getSubject().getName());
                 lessonMap.put("studentName", lesson.getStudent().getName());
                 lessonMap.put("lessonId", lesson.getId());
+                lessonMap.put("isPast", lesson.getLessonDate().isBefore(now));
                 lessonsData.add(lessonMap);
             }
             
@@ -739,11 +743,13 @@ public class AdminLessonsController {
             if (remainingLessons == null) remainingLessons = 0;
             
             int totalLessonsToCreate = repeatWeekly ? selectedSlots.size() * recurrenceWeeks : selectedSlots.size();
+            int scheduledLessonsCount = Math.toIntExact(lessonRepository.countByStudentAndStatus(student, Lesson.LessonStatus.SCHEDULED));
+            int availableLessons = remainingLessons - scheduledLessonsCount;
             
-            if (remainingLessons < totalLessonsToCreate) {
+            if (availableLessons < totalLessonsToCreate) {
                 return ResponseEntity.ok(Map.of(
                     "status", "error", 
-                    "message", "Недостаточно занятий на балансе. Доступно: " + remainingLessons + ", требуется: " + totalLessonsToCreate
+                    "message", "Недостаточно занятий на балансе. Доступно: " + Math.max(availableLessons, 0) + ", требуется: " + totalLessonsToCreate
                 ));
             }
 
@@ -785,10 +791,6 @@ public class AdminLessonsController {
                     createdLessons++;
                 }
             }
-
-            // Уменьшаем количество оставшихся занятий
-            student.setRemainingLessons(remainingLessons - totalLessonsToCreate);
-            userRepository.save(student);
 
             return ResponseEntity.ok(Map.of(
                 "status", "success", 
@@ -842,11 +844,13 @@ public class AdminLessonsController {
             if (remainingLessons == null) remainingLessons = 0;
             
             int totalLessonsToCreate = lessonDates.size();
+            int scheduledLessonsCount = Math.toIntExact(lessonRepository.countByStudentAndStatus(student, Lesson.LessonStatus.SCHEDULED));
+            int availableLessons = remainingLessons - scheduledLessonsCount;
             
-            if (remainingLessons < totalLessonsToCreate) {
+            if (availableLessons < totalLessonsToCreate) {
                 return ResponseEntity.ok(Map.of(
                     "status", "error", 
-                    "message", "Недостаточно занятий на балансе. Доступно: " + remainingLessons + ", требуется: " + totalLessonsToCreate
+                    "message", "Недостаточно занятий на балансе. Доступно: " + Math.max(availableLessons, 0) + ", требуется: " + totalLessonsToCreate
                 ));
             }
 
@@ -900,10 +904,6 @@ public class AdminLessonsController {
                 createdLessons++;
             }
 
-            // Уменьшаем количество оставшихся занятий
-            student.setRemainingLessons(remainingLessons - totalLessonsToCreate);
-            userRepository.save(student);
-
             return ResponseEntity.ok(Map.of(
                 "status", "success", 
                 "message", "Уроки созданы", 
@@ -918,7 +918,7 @@ public class AdminLessonsController {
     private LocalDateTime getDateFromDayAndHour(String day, String hour, int weekOffset) {
         return getDateFromDayAndHour(day, hour, weekOffset, LocalDateTime.now());
     }
-    
+
     // Перегруженный метод для получения даты из дня недели и часа с базовой датой
     private LocalDateTime getDateFromDayAndHour(String day, String hour, int weekOffset, LocalDateTime baseDate) {
         Map<String, DayOfWeek> dayMap = Map.of(
@@ -931,26 +931,25 @@ public class AdminLessonsController {
             "SUNDAY", DayOfWeek.SUNDAY
         );
 
-        // Получаем начало недели (понедельник) для базовой даты
-        DayOfWeek currentDay = baseDate.getDayOfWeek();
-        int daysFromMonday = currentDay.getValue() - DayOfWeek.MONDAY.getValue();
-        if (daysFromMonday < 0) daysFromMonday += 7;
-        
-        LocalDateTime startOfWeek = baseDate.minusDays(daysFromMonday).withHour(0).withMinute(0).withSecond(0).withNano(0);
-        
-        // Вычисляем день недели для целевого дня
-        DayOfWeek targetDay = dayMap.get(day);
-        int daysToAdd = targetDay.getValue() - DayOfWeek.MONDAY.getValue();
-        if (daysToAdd < 0) daysToAdd += 7;
-        
-        // Добавляем смещение недель
-        daysToAdd += weekOffset * 7;
-        
-        LocalDateTime targetDate = startOfWeek.plusDays(daysToAdd);
-        String[] hourParts = hour.split(":");
-        targetDate = targetDate.withHour(Integer.parseInt(hourParts[0])).withMinute(0).withSecond(0).withNano(0);
-        
-        return targetDate;
+        DayOfWeek targetDay = dayMap.getOrDefault(day, DayOfWeek.MONDAY);
+
+        LocalDate baseMonday = baseDate.toLocalDate()
+            .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            .plusWeeks(weekOffset);
+
+        int dayOffset = targetDay.getValue() - DayOfWeek.MONDAY.getValue();
+        LocalDate targetDate = baseMonday.plusDays(dayOffset);
+
+        String normalizedHour = hour.contains(":") ? hour : hour + ":00";
+        if (normalizedHour.length() == 2) {
+            normalizedHour += ":00";
+        }
+        String[] timeParts = normalizedHour.split(":");
+        int hourValue = Integer.parseInt(timeParts[0]);
+        int minuteValue = timeParts.length > 1 ? Integer.parseInt(timeParts[1]) : 0;
+        LocalTime time = LocalTime.of(hourValue, minuteValue);
+
+        return targetDate.atTime(time);
     }
 
     // API для удаления урока
@@ -973,18 +972,33 @@ public class AdminLessonsController {
                 return ResponseEntity.ok(Map.of("status", "error", "message", "Урок не найден"));
             }
 
-            // Если это повторяющийся урок, удаляем все связанные уроки
-            if (lesson.getIsRecurring() && lesson.getOriginalLessonId() == null) {
-                // Это оригинальный урок, удаляем все связанные
-                List<Lesson> relatedLessons = lessonRepository.findByOriginalLessonId(lessonId);
-                lessonRepository.deleteAll(relatedLessons);
-            } else if (lesson.getIsRecurring() && lesson.getOriginalLessonId() != null) {
-                // Это связанный урок, удаляем только его
-                lessonRepository.delete(lesson);
+            boolean isRecurring = Boolean.TRUE.equals(lesson.getIsRecurring());
+            Long originalLessonId = lesson.getOriginalLessonId();
+
+            List<Lesson> lessonsToRemove = new ArrayList<>();
+
+            if (isRecurring && originalLessonId == null) {
+                lessonsToRemove.add(lesson);
+                lessonsToRemove.addAll(lessonRepository.findByOriginalLessonId(lessonId));
             } else {
-                // Обычный урок, удаляем только его
-                lessonRepository.delete(lesson);
+                lessonsToRemove.add(lesson);
             }
+
+            for (Lesson lessonToRemove : lessonsToRemove) {
+                if (lessonToRemove.getStatus() != Lesson.LessonStatus.COMPLETED) {
+                    User student = lessonToRemove.getStudent();
+                    if (student != null) {
+                        Integer remainingLessons = student.getRemainingLessons();
+                        if (remainingLessons == null) {
+                            remainingLessons = 0;
+                        }
+                        student.setRemainingLessons(remainingLessons + 1);
+                        userRepository.save(student);
+                    }
+                }
+            }
+
+            lessonRepository.deleteAll(lessonsToRemove);
 
             return ResponseEntity.ok(Map.of("status", "success", "message", "Урок удален"));
         } catch (Exception e) {
@@ -1055,6 +1069,7 @@ public class AdminLessonsController {
             }
             
             // Получаем забронированные уроки ученика
+            LocalDateTime now = LocalDateTime.now();
             List<Lesson> studentLessons = lessonRepository.findByStudentAndLessonDateBetween(
                 student,
                 getDateFromDayAndHour("MONDAY", "12", weekOffset),
@@ -1067,6 +1082,8 @@ public class AdminLessonsController {
                 lessonData.put("startTime", lesson.getLessonDate().toLocalTime().toString());
                 lessonData.put("subjectName", lesson.getSubject().getName());
                 lessonData.put("teacherName", lesson.getTeacher().getName());
+                lessonData.put("lessonId", lesson.getId());
+                lessonData.put("isPast", lesson.getLessonDate().isBefore(now));
                 bookedSlots.add(lessonData);
             }
             

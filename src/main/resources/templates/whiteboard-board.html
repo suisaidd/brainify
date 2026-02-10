@@ -34,22 +34,6 @@
         </div>
 
         <div class="board-controls">
-            <button class="btn btn-secondary" onclick="clearBoard()" title="Очистить доску">
-                <i class="fas fa-trash"></i>
-                Очистить
-            </button>
-            <button class="btn btn-secondary" onclick="saveBoard()" title="Сохранить">
-                <i class="fas fa-save"></i>
-                Сохранить
-            </button>
-            <button class="btn btn-secondary" onclick="undoAction()" title="Отменить">
-                <i class="fas fa-undo"></i>
-                Отменить
-            </button>
-            <button class="btn btn-secondary" onclick="redoAction()" title="Повторить">
-                <i class="fas fa-redo"></i>
-                Повторить
-            </button>
             <button class="btn btn-danger" onclick="closeBoard()" title="Закрыть">
                 <i class="fas fa-times"></i>
                 Закрыть
@@ -58,62 +42,205 @@
     </div>
 </header>
 
-<!-- Панель инструментов -->
-<div class="toolbar">
-    <div class="toolbar-section">
+<!-- Контейнер доски -->
+<div class="board-container" id="boardContainer">
+
+    <!-- Панель инструментов -->
+    <div class="toolbar">
         <button class="tool-btn active" data-tool="select" title="Выбрать (V)">
             <i class="fas fa-mouse-pointer"></i>
-        </button>
-        <button class="tool-btn" data-tool="rectangle" title="Прямоугольник (R)">
-            <i class="fas fa-square"></i>
-        </button>
-        <button class="tool-btn" data-tool="ellipse" title="Эллипс (E)">
-            <i class="fas fa-circle"></i>
-        </button>
-        <button class="tool-btn" data-tool="arrow" title="Стрелка (A)">
-            <i class="fas fa-arrow-right"></i>
-        </button>
-        <button class="tool-btn" data-tool="line" title="Линия (L)">
-            <i class="fas fa-minus"></i>
         </button>
         <button class="tool-btn" data-tool="draw" title="Рисование (P)">
             <i class="fas fa-pen"></i>
         </button>
+
+        <!-- Фигуры — выпадающий -->
+        <div class="tool-dropdown" id="shapesDropdown">
+            <button class="tool-btn" id="shapesToggle" title="Фигуры">
+                <i class="fas fa-shapes" id="shapesIcon"></i>
+                <span class="caret"><i class="fas fa-caret-down"></i></span>
+            </button>
+            <div class="dropdown-panel shapes-panel">
+                <button class="dropdown-item" data-tool="rectangle" title="Прямоугольник (R)">
+                    <i class="far fa-square"></i>
+                </button>
+                <button class="dropdown-item" data-tool="ellipse" title="Эллипс (E)">
+                    <i class="far fa-circle"></i>
+                </button>
+                <button class="dropdown-item" data-tool="arrow" title="Стрелка (A)">
+                    <i class="fas fa-long-arrow-alt-right"></i>
+                </button>
+                <button class="dropdown-item" data-tool="line" title="Линия (L)">
+                    <i class="fas fa-minus"></i>
+                </button>
+            </div>
+        </div>
+
         <button class="tool-btn" data-tool="text" title="Текст (T)">
             <i class="fas fa-font"></i>
         </button>
-    </div>
-    
-    <div class="toolbar-section">
-        <div class="color-picker-container">
-            <input type="color" id="strokeColor" value="#000000" title="Цвет линии">
-        </div>
-        <div class="color-picker-container">
-            <input type="color" id="fillColor" value="#ffffff" title="Цвет заливки">
-        </div>
-        <input type="range" id="strokeWidth" min="1" max="20" value="2" title="Толщина линии">
-        <span class="stroke-width-label" id="strokeWidthLabel">2</span>
-    </div>
-    
-    <div class="toolbar-section">
-        <button class="tool-btn" id="eraserBtn" title="Ластик (E)">
+        <button class="tool-btn" id="eraserBtn" title="Ластик">
             <i class="fas fa-eraser"></i>
         </button>
+
+        <div class="toolbar-divider"></div>
+
+        <button class="tool-btn" data-tool="pan" title="Перемещение (H)">
+            <i class="fas fa-hand-paper"></i>
+        </button>
+
+        <div class="toolbar-divider"></div>
+
+        <!-- Цвет линии -->
+        <div class="color-dropdown" id="strokeColorDropdown">
+            <button class="color-trigger" id="strokeColorTrigger" title="Цвет линии">
+                <span class="color-dot" id="strokeDot" style="background:#000000"></span>
+            </button>
+            <div class="dropdown-panel color-grid">
+                <button class="color-opt" data-target="stroke" data-color="#000000" style="background:#000000"></button>
+                <button class="color-opt" data-target="stroke" data-color="#343a40" style="background:#343a40"></button>
+                <button class="color-opt" data-target="stroke" data-color="#495057" style="background:#495057"></button>
+                <button class="color-opt" data-target="stroke" data-color="#868e96" style="background:#868e96"></button>
+                <button class="color-opt" data-target="stroke" data-color="#e03131" style="background:#e03131"></button>
+                <button class="color-opt" data-target="stroke" data-color="#c2255c" style="background:#c2255c"></button>
+                <button class="color-opt" data-target="stroke" data-color="#e8590c" style="background:#e8590c"></button>
+                <button class="color-opt" data-target="stroke" data-color="#f08c00" style="background:#f08c00"></button>
+                <button class="color-opt" data-target="stroke" data-color="#fcc419" style="background:#fcc419"></button>
+                <button class="color-opt" data-target="stroke" data-color="#37b24d" style="background:#37b24d"></button>
+                <button class="color-opt" data-target="stroke" data-color="#0ca678" style="background:#0ca678"></button>
+                <button class="color-opt" data-target="stroke" data-color="#1098ad" style="background:#1098ad"></button>
+                <button class="color-opt" data-target="stroke" data-color="#1c7ed6" style="background:#1c7ed6"></button>
+                <button class="color-opt" data-target="stroke" data-color="#6741d9" style="background:#6741d9"></button>
+                <button class="color-opt" data-target="stroke" data-color="#9c36b5" style="background:#9c36b5"></button>
+                <button class="color-opt" data-target="stroke" data-color="#ffffff" style="background:#ffffff"></button>
+            </div>
+        </div>
+
+        <!-- Цвет заливки -->
+        <div class="color-dropdown" id="fillColorDropdown">
+            <button class="color-trigger" id="fillColorTrigger" title="Цвет заливки">
+                <span class="color-dot fill-dot" id="fillDot" style="background:#ffffff"></span>
+            </button>
+            <div class="dropdown-panel color-grid">
+                <button class="color-opt" data-target="fill" data-color="transparent" title="Без заливки" style="background:transparent">
+                    <i class="fas fa-ban" style="font-size:9px;color:#bbb"></i>
+                </button>
+                <button class="color-opt" data-target="fill" data-color="#ffffff" style="background:#ffffff"></button>
+                <button class="color-opt" data-target="fill" data-color="#f8f9fa" style="background:#f8f9fa"></button>
+                <button class="color-opt" data-target="fill" data-color="#fff3bf" style="background:#fff3bf"></button>
+                <button class="color-opt" data-target="fill" data-color="#fff9db" style="background:#fff9db"></button>
+                <button class="color-opt" data-target="fill" data-color="#d3f9d8" style="background:#d3f9d8"></button>
+                <button class="color-opt" data-target="fill" data-color="#b2f2bb" style="background:#b2f2bb"></button>
+                <button class="color-opt" data-target="fill" data-color="#d0ebff" style="background:#d0ebff"></button>
+                <button class="color-opt" data-target="fill" data-color="#a5d8ff" style="background:#a5d8ff"></button>
+                <button class="color-opt" data-target="fill" data-color="#e5dbff" style="background:#e5dbff"></button>
+                <button class="color-opt" data-target="fill" data-color="#d0bfff" style="background:#d0bfff"></button>
+                <button class="color-opt" data-target="fill" data-color="#ffe3e3" style="background:#ffe3e3"></button>
+                <button class="color-opt" data-target="fill" data-color="#ffc9c9" style="background:#ffc9c9"></button>
+                <button class="color-opt" data-target="fill" data-color="#ffe8cc" style="background:#ffe8cc"></button>
+                <button class="color-opt" data-target="fill" data-color="#e03131" style="background:#e03131"></button>
+                <button class="color-opt" data-target="fill" data-color="#1c7ed6" style="background:#1c7ed6"></button>
+            </div>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <!-- Толщина -->
+        <div class="width-control">
+            <input type="range" id="strokeWidth" min="1" max="20" value="2" title="Толщина">
+            <span class="width-label" id="strokeWidthLabel">2</span>
+        </div>
     </div>
+
+    <canvas id="whiteboardCanvas"></canvas>
 </div>
 
-<!-- Контейнер доски -->
-<div class="board-container" id="boardContainer">
-    <canvas id="whiteboardCanvas"></canvas>
+
+<!-- Кнопки отмены/повтора -->
+<div class="floating-history-controls">
+    <button class="history-btn" onclick="undoAction()" title="Отменить (Ctrl+Z)">
+        <i class="fas fa-undo"></i>
+    </button>
+    <button class="history-btn" onclick="redoAction()" title="Повторить (Ctrl+Shift+Z)">
+        <i class="fas fa-redo"></i>
+    </button>
+</div>
+
+<!-- Индикатор зума -->
+<div class="zoom-controls">
+    <button class="history-btn" id="zoomReset" title="Сбросить (Ctrl+0)">
+        <span id="zoomIndicator">100%</span>
+    </button>
+</div>
+
+<!-- ======== Видеозвонок ======== -->
+<div id="videoPanel" class="video-panel">
+    <div class="video-panel-header" id="videoPanelHeader">
+        <span><i class="fas fa-video"></i> Видеозвонок</span>
+        <div class="video-panel-btns">
+            <button id="videoPanelMinimize" title="Свернуть">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+        </div>
+    </div>
+    <div class="video-panel-body" id="videoPanelBody">
+        <div class="video-feeds">
+            <div class="video-feed remote-feed">
+                <video id="remoteVideo" autoplay playsinline></video>
+                <div class="video-label" id="remoteLabel">Собеседник</div>
+                <div class="video-placeholder" id="remotePlaceholder">
+                    <i class="fas fa-user"></i>
+                    <span>Ожидание подключения…</span>
+                </div>
+            </div>
+            <div class="video-feed local-feed">
+                <video id="localVideo" autoplay playsinline muted></video>
+                <div class="video-label">Вы</div>
+            </div>
+        </div>
+        <div class="video-controls">
+            <button id="toggleMicBtn" class="video-ctrl-btn active" title="Микрофон">
+                <i class="fas fa-microphone"></i>
+            </button>
+            <button id="toggleCamBtn" class="video-ctrl-btn active" title="Камера">
+                <i class="fas fa-video"></i>
+            </button>
+            <button id="toggleScreenBtn" class="video-ctrl-btn" title="Демонстрация экрана">
+                <i class="fas fa-desktop"></i>
+            </button>
+            <button id="toggleFullscreenBtn" class="video-ctrl-btn" title="Во весь экран">
+                <i class="fas fa-expand"></i>
+            </button>
+        </div>
+    </div>
+    <!-- Ресайз-ручки: 4 угла + 4 грани -->
+    <div class="vp-resize vp-n"  data-edge="n"></div>
+    <div class="vp-resize vp-s"  data-edge="s"></div>
+    <div class="vp-resize vp-e"  data-edge="e"></div>
+    <div class="vp-resize vp-w"  data-edge="w"></div>
+    <div class="vp-resize vp-nw" data-edge="nw"></div>
+    <div class="vp-resize vp-ne" data-edge="ne"></div>
+    <div class="vp-resize vp-sw" data-edge="sw"></div>
+    <div class="vp-resize vp-se" data-edge="se"></div>
 </div>
 
 <!-- Скрытые данные -->
 <input type="hidden" id="lessonId" th:value="${lesson.id}">
 <input type="hidden" id="currentUserId" th:value="${currentUser.id}">
 <input type="hidden" id="currentUserName" th:value="${currentUser.name}">
+<input type="hidden" id="currentUserRole" th:value="${currentUser.role}">
+
+<!-- Hidden inputs for JS compatibility -->
+<input type="hidden" id="strokeColor" value="#000000">
+<input type="hidden" id="fillColor" value="#ffffff">
+
+<!-- SockJS + STOMP -->
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
 
 <!-- Подключение JavaScript -->
 <script th:src="@{/js/whiteboard.js}"></script>
+<script th:src="@{/js/webrtc.js}"></script>
 
 </body>
 </html>

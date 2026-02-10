@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} ?: 'Управление тестами - Brainify'">Управление тестами - Brainify</title>
+
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/admin.css}">
+    <link rel="stylesheet" th:href="@{/css/admin-tests.css}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="admin-body">
+    <header class="admin-header">
+        <div class="admin-header-content">
+            <div class="admin-header-left">
+                <h1 class="admin-title">
+                    <i class="fas fa-clipboard-list"></i>
+                    Управление тестами
+                </h1>
+            </div>
+            <div class="admin-header-right">
+                <div class="admin-user-info">
+                    <span class="admin-user-name" th:text="${currentUser.name}">Администратор</span>
+                    <span class="admin-user-role" th:text="${currentUser.role.displayName}">Роль</span>
+                </div>
+                <a href="/admin-role" class="admin-btn admin-btn-secondary">
+                    <i class="fas fa-arrow-left"></i>
+                    Назад к панели
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="admin-main">
+        <div class="admin-container tests-container">
+            <section class="tests-section">
+                <div class="section-heading">
+                    <div>
+                        <h2>
+                            <i class="fas fa-layer-group"></i>
+                            Базовые тесты
+                        </h2>
+                        <p>Создайте набор тестов, доступный всем ученикам выбранного предмета.</p>
+                    </div>
+                    <div class="section-hint">
+                        <i class="fas fa-info-circle"></i>
+                        Уровни сложности используются для группировки тестов по сложности.
+                    </div>
+                </div>
+
+                <div class="tests-grid">
+                    <div class="form-card">
+                        <h3>
+                            <i class="fas fa-plus-circle"></i>
+                            Создание теста
+                        </h3>
+                        <form id="createBasicTestForm">
+                            <div class="form-row">
+                                <label for="basicTestSubject">Предмет</label>
+                                <select id="basicTestSubject" name="subjectId" required>
+                                    <option value="" disabled selected>Выберите предмет</option>
+                                    <option th:each="subject : ${subjects}"
+                                            th:value="${subject.id}"
+                                            th:text="${subject.name}">
+                                    </option>
+                                </select>
+                            </div>
+
+                            <div class="form-row">
+                                <label for="basicTestDifficulty">Уровень сложности</label>
+                                <select id="basicTestDifficulty" name="difficultyLevel" required>
+                                    <option value="" disabled selected>Выберите уровень</option>
+                                    <option value="1">1 уровень (базовый)</option>
+                                    <option value="2">2 уровень</option>
+                                    <option value="3">3 уровень</option>
+                                    <option value="4">4 уровень</option>
+                                    <option value="5">5 уровень (повышенный)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-row">
+                                <label for="basicTestTitle">Название (опционально)</label>
+                                <input type="text" id="basicTestTitle" name="title" placeholder="Введите название теста">
+                            </div>
+
+                            <div class="form-row">
+                                <label for="basicTestDescription">Описание (опционально)</label>
+                                <textarea id="basicTestDescription" name="description" rows="3" placeholder="Добавьте примечание для преподавателей и учеников"></textarea>
+                            </div>
+
+                            <button type="submit" class="admin-btn admin-btn-primary">
+                                <i class="fas fa-save"></i>
+                                Создать тест
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="list-card">
+                        <div class="list-card-header">
+                            <h3>
+                                <i class="fas fa-clipboard-check"></i>
+                                Созданные тесты
+                            </h3>
+                            <button id="refreshBasicTests" class="admin-btn admin-btn-tertiary">
+                                <i class="fas fa-rotate"></i>
+                                Обновить
+                            </button>
+                        </div>
+                        <div id="basicTestsList" class="tests-list empty">
+                            <div class="empty-state">
+                                <i class="fas fa-box-open"></i>
+                                <h4>Тесты ещё не созданы</h4>
+                                <p>Создайте первый тест, чтобы ученики могли начать подготовку.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <div id="testQuestionsBackdrop" class="test-modal-backdrop"></div>
+    <div id="testQuestionsModal" class="test-modal" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="modal-content">
+            <div class="test-modal-header">
+                <div>
+                    <h3 id="modalTestTitle">Тест</h3>
+                    <p id="modalTestMeta" class="modal-meta"></p>
+                </div>
+                <button class="close-modal-btn" id="closeQuestionsModal" type="button" aria-label="Закрыть">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="test-modal-body">
+                <form id="questionForm" class="question-form">
+                    <div class="form-row">
+                        <label for="questionNumber">Номер задания</label>
+                        <input type="text" id="questionNumber" name="questionNumber" placeholder="Например, №1" required>
+                    </div>
+                    <div class="form-row">
+                        <label for="questionText">Условие</label>
+                        <textarea id="questionText" name="questionText" rows="4" placeholder="Введите условие задания" required></textarea>
+                    </div>
+                    <div class="form-row">
+                        <label for="correctAnswer">Правильный ответ</label>
+                        <textarea id="correctAnswer" name="correctAnswer" rows="2" placeholder="Введите правильный ответ" required></textarea>
+                    </div>
+                    <div class="form-row">
+                        <label for="questionImage">Изображение (опционально)</label>
+                        <input type="file" id="questionImage" name="image" accept="image/*">
+                    </div>
+                    <label class="remove-image-row" id="removeImageRow">
+                        <input type="checkbox" id="removeImageCheckbox">
+                        Удалить текущее изображение
+                    </label>
+                    <div class="form-actions">
+                        <button type="submit" id="submitQuestionBtn" class="admin-btn admin-btn-primary">
+                            <i class="fas fa-plus"></i>
+                            Добавить задание
+                        </button>
+                        <button type="button" id="resetQuestionForm" class="admin-btn admin-btn-tertiary">
+                            <i class="fas fa-undo"></i>
+                            Сбросить
+                        </button>
+                    </div>
+                </form>
+
+                <div class="questions-container" id="questionsList">
+                    <div class="empty-state">
+                        <i class="fas fa-clipboard"></i>
+                        <h4>Заданий пока нет</h4>
+                        <p>Добавьте первое задание, чтобы сформировать тест.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script th:src="@{/js/admin-tests.js}"></script>
+</body>
+</html>
+

@@ -9,11 +9,12 @@
     <link rel="stylesheet" th:href="@{/css/main.css}">
     <link rel="stylesheet" th:href="@{/css/dashboard.css}">
     <link rel="stylesheet" th:href="@{/css/notes.css}">
+    <link rel="stylesheet" th:href="@{/css/messages.css}">
     
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="dashboard-body">
+<body class="dashboard-body" th:data-current-user-id="${currentUser?.id}">
     <!-- Боковое меню -->
     <nav class="sidebar">
         <div class="sidebar-header">
@@ -41,6 +42,10 @@
                         <i class="fas fa-calendar-alt"></i>
                         <span>Расписание</span>
                     </a>
+                    <a href="#" class="sidebar-item" data-tab="messages-tab">
+                        <i class="fas fa-comments"></i>
+                        <span>Сообщения</span>
+                    </a>
                     <a href="#" class="sidebar-item" data-tab="equipment-tab">
                         <i class="fas fa-desktop"></i>
                         <span>Проверка оборудования</span>
@@ -66,6 +71,10 @@
                     <a href="#" class="sidebar-item" data-tab="students-tab">
                         <i class="fas fa-users"></i>
                         <span>Мои ученики</span>
+                    </a>
+                    <a href="#" class="sidebar-item" data-tab="tests-tab">
+                        <i class="fas fa-clipboard-list"></i>
+                        <span>Тесты</span>
                     </a>
                 </div>
             </div>
@@ -102,7 +111,7 @@
             </div>
             
             <div class="header-right">
-                <button class="header-btn" title="Сообщения">
+                <button class="header-btn" id="headerMessagesBtn" title="Сообщения">
                     <i class="fas fa-envelope"></i>
                     <span class="notification-badge" id="notificationCount">0</span>
                 </button>
@@ -815,6 +824,71 @@
                 </div>
             </div>
 
+            <!-- Вкладка: Тесты -->
+            <div id="tests-tab" class="dashboard-tab">
+                <div class="teacher-tests-header">
+                    <div>
+                        <h2>Промежуточные тесты</h2>
+                        <p class="teacher-tests-subtitle">Создавайте тесты для учеников, закреплённых за вами по выбранным предметам.</p>
+                    </div>
+                    <button class="teacher-tests-refresh" id="refreshTeacherTests">
+                        <i class="fas fa-rotate"></i>
+                        Обновить список
+                    </button>
+                </div>
+
+                <div class="teacher-tests-grid">
+                    <div class="teacher-tests-card">
+                        <h3>
+                            <i class="fas fa-plus-circle"></i>
+                            Создать тест
+                        </h3>
+                        <form id="teacherTestForm" class="teacher-tests-form">
+                            <div class="form-group">
+                                <label for="teacherTestSubject">Предмет</label>
+                                <select id="teacherTestSubject" required>
+                                    <option value="" disabled selected>Выберите предмет</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="teacherTestTitle">Название (опционально)</label>
+                                <input type="text" id="teacherTestTitle" placeholder="Например, «Проверочная работа по теме 5»">
+                            </div>
+                            <div class="form-group">
+                                <label for="teacherTestStudents">Выберите учеников</label>
+                                <div id="teacherTestStudentsContainer" class="students-select-container">
+                                    <div class="students-select-loading">Загрузка учеников...</div>
+                                </div>
+                            </div>
+                            <button type="submit" class="teacher-tests-submit">
+                                <i class="fas fa-paper-plane"></i>
+                                Создать тест
+                            </button>
+                        </form>
+                        <div class="teacher-tests-hint">
+                            <i class="fas fa-info-circle"></i>
+                            После создания нажмите «Добавить номер», чтобы заполнить задания теста.
+                        </div>
+                    </div>
+
+                    <div class="teacher-tests-card">
+                        <div class="teacher-tests-list-header">
+                            <h3>
+                                <i class="fas fa-clipboard-check"></i>
+                                Созданные тесты
+                            </h3>
+                        </div>
+                        <div id="teacherTestsList" class="teacher-tests-list">
+                            <div class="empty-state">
+                                <i class="fas fa-box-open"></i>
+                                <h3>Тестов пока нет</h3>
+                                <p>После создания тесты появятся в этом списке.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Вкладка: Система вознаграждений -->
             <div id="rewards-tab" class="dashboard-tab">
                 <div class="rewards-header">
@@ -1203,6 +1277,71 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Вкладка: Сообщения -->
+            <div id="messages-tab" class="dashboard-tab">
+                <div class="chat-container">
+                    <!-- Список контактов -->
+                    <div class="chat-contacts">
+                        <div class="chat-contacts-header">
+                            <h3><i class="fas fa-comments"></i> Сообщения</h3>
+                        </div>
+                        <div class="chat-search">
+                            <input type="text" id="chatSearchInput" placeholder="Поиск контакта...">
+                        </div>
+                        <div class="chat-contacts-list" id="chatContactsList">
+                            <div class="chat-loading"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
+                        </div>
+                    </div>
+
+                    <!-- Область чата -->
+                    <div class="chat-area">
+                        <div class="chat-area-empty" id="chatEmptyState">
+                            <i class="fas fa-comments"></i>
+                            <span>Выберите чат для начала общения</span>
+                        </div>
+
+                        <div id="chatActiveArea" style="display:none; flex-direction:column; flex:1;">
+                            <div class="chat-header">
+                                <button class="chat-back-btn" id="chatBackBtn">
+                                    <i class="fas fa-arrow-left"></i>
+                                </button>
+                                <div class="contact-avatar" id="chatHeaderAvatar"></div>
+                                <div class="chat-header-info">
+                                    <h4 id="chatHeaderName"></h4>
+                                    <span id="chatHeaderSub"></span>
+                                </div>
+                            </div>
+
+                            <div class="chat-messages" id="chatMessages"></div>
+
+                            <div class="chat-input-area">
+                                <div class="chat-input-wrapper">
+                                    <div class="chat-file-preview" id="chatFilePreview">
+                                        <i class="fas fa-paperclip"></i>
+                                        <span class="chat-file-preview-name" id="chatFilePreviewName"></span>
+                                        <button class="chat-file-preview-remove" id="chatFileRemoveBtn">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                    <div class="chat-input-row">
+                                        <button class="chat-attach-btn" id="chatAttachBtn" title="Прикрепить файл">
+                                            <i class="fas fa-paperclip"></i>
+                                        </button>
+                                        <textarea id="chatInput" rows="1" placeholder="Введите сообщение..."></textarea>
+                                        <button class="chat-send-btn" id="chatSendBtn" title="Отправить">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <input type="file" id="chatFileInput" style="display:none"
+                                       accept="image/*,.doc,.docx,.xls,.xlsx,.pdf,.txt">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </main>
 
@@ -1446,8 +1585,66 @@
     
     <!-- Подключение скриптов -->
     <script th:src="@{/js/main.js}"></script>
+    <script th:src="@{/js/messages.js}"></script>
     <script th:src="@{/js/dashboard.js}"></script>
     <script th:src="@{/js/notes.js}"></script>
     <script th:src="@{/js/payroll.js}"></script>
+
+    <div id="teacherTestBackdrop" class="teacher-test-backdrop"></div>
+    <div id="teacherTestModal" class="teacher-test-modal" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="teacher-test-modal-content">
+            <div class="teacher-test-modal-header">
+                <div>
+                    <h3 id="teacherModalTitle">Тест</h3>
+                    <p id="teacherModalMeta" class="teacher-modal-meta"></p>
+                </div>
+                <button type="button" id="closeTeacherTestModal" class="teacher-modal-close" aria-label="Закрыть">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="teacher-test-modal-body">
+                <form id="teacherQuestionForm" class="teacher-question-form">
+                    <div class="form-group">
+                        <label for="teacherQuestionNumber">Номер задания</label>
+                        <input id="teacherQuestionNumber" type="text" placeholder="Например, №1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="teacherQuestionText">Условие</label>
+                        <textarea id="teacherQuestionText" rows="4" placeholder="Опишите условие задания" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="teacherCorrectAnswer">Правильный ответ</label>
+                        <textarea id="teacherCorrectAnswer" rows="2" placeholder="Введите правильный ответ" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="teacherQuestionImage">Изображение (опционально)</label>
+                        <input id="teacherQuestionImage" type="file" accept="image/*">
+                    </div>
+                    <label class="teacher-remove-image" id="teacherRemoveImageRow">
+                        <input type="checkbox" id="teacherRemoveImageCheckbox">
+                        Удалить текущее изображение
+                    </label>
+                    <div class="teacher-question-actions">
+                        <button type="submit" id="teacherSubmitQuestionBtn" class="lesson-btn primary">
+                            <i class="fas fa-plus"></i>
+                            Добавить задание
+                        </button>
+                        <button type="button" id="teacherResetQuestionForm" class="lesson-btn secondary">
+                            <i class="fas fa-undo"></i>
+                            Сбросить
+                        </button>
+                    </div>
+                </form>
+
+                <div class="teacher-questions-list" id="teacherQuestionsList">
+                    <div class="empty-state">
+                        <i class="fas fa-clipboard"></i>
+                        <h4>Заданий пока нет</h4>
+                        <p>Добавьте первое задание, чтобы ученики получили доступ.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html> 

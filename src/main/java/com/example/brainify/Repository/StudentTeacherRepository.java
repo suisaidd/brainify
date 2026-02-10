@@ -31,6 +31,10 @@ public interface StudentTeacherRepository extends JpaRepository<StudentTeacher, 
     @Query("SELECT st FROM StudentTeacher st WHERE st.teacher = :teacher AND st.isActive = true")
     List<StudentTeacher> findActiveByTeacher(@Param("teacher") User teacher);
     
+    @Query("SELECT st FROM StudentTeacher st WHERE st.teacher = :teacher AND st.subject = :subject AND st.isActive = true")
+    List<StudentTeacher> findActiveByTeacherAndSubject(@Param("teacher") User teacher,
+                                                       @Param("subject") Subject subject);
+    
     // Найти связь по студенту, преподавателю и предмету
     @Query("SELECT st FROM StudentTeacher st WHERE st.student = :student AND st.teacher = :teacher AND st.subject = :subject AND st.isActive = true")
     Optional<StudentTeacher> findActiveByStudentTeacherAndSubject(@Param("student") User student, @Param("teacher") User teacher, @Param("subject") Subject subject);

@@ -636,24 +636,8 @@ function checkEquipmentResults() {
         continueBtn.disabled = false;
         continueAnywayBtn.style.display = 'none';
         updateConnectionStatus('connected', 'Все проверки пройдены');
-        showToast('Все проверки пройдены успешно!', 'success');
+        showToast('Все проверки пройдены! Нажмите «Подключиться к уроку»', 'success');
         console.log('✓ Все проверки пройдены успешно!');
-        
-        // Автоматически создаем сессию и переходим к уроку через 3 секунды
-        // Показываем обратный отсчет
-        let countdown = 3;
-        const countdownInterval = setInterval(() => {
-            showToast(`Автоматический переход к уроку через ${countdown} сек...`, 'info');
-            countdown--;
-            
-            if (countdown < 0) {
-                clearInterval(countdownInterval);
-                autoCreateSessionAndRedirect();
-            }
-        }, 1000);
-        
-        // Сохраняем интервал для возможности отмены
-        window.autoRedirectInterval = countdownInterval;
         
     } else if (completedChecks === statusBoxes.length) {
         continueBtn.disabled = true;
@@ -767,26 +751,14 @@ async function skipEquipmentCheck() {
     // Останавливаем медиа стрим
     stopActiveStream();
     
-    // Отменяем автоматический переход, если он был запущен
-    if (window.autoRedirectInterval) {
-        clearInterval(window.autoRedirectInterval);
-        window.autoRedirectInterval = null;
-    }
-    
     // Переходим к уроку
     await continueToLesson();
 }
 
-// Переход к уроку
+// Переход к уроку (в этой же вкладке)
 async function continueToLesson() {
     console.log('=== Переход к уроку ===');
     
-    // Отменяем автоматический переход, если он был запущен
-    if (window.autoRedirectInterval) {
-        clearInterval(window.autoRedirectInterval);
-        window.autoRedirectInterval = null;
-    }
-    
     // Останавливаем медиа стрим
     stopActiveStream();
     
@@ -802,83 +774,12 @@ async function continueToLesson() {
         return;
     }
     
-    // Показываем сообщение о переходе к доске
-    showToast('Переход к доске урока...', 'info');
+    // Очищаем кеш Excalidraw перед переходом
+    showToast('Подготовка к уроку...', 'info');
+    await clearExcalidrawCache();
     
-    // Открываем доску в новой вкладке
-    const boardWindow = window.open(`/whiteboard/board/${lessonId}`, '_blank', 'noopener,noreferrer');
-    
-    if (boardWindow) {
-        showToast('Доска урока открыта в новой вкладке', 'success');
-        boardWindow.focus();
-        
-        // Закрываем текущую вкладку проверки оборудования
-        setTimeout(() => {
-            window.close();
-        }, 1000);
-    } else {
-        showToast('Не удалось открыть доску. Проверьте блокировку всплывающих окон.', 'error');
-        // Fallback - перенаправляем в текущей вкладке
-        window.location.href = `/whiteboard/board/${lessonId}`;
-    }
-}
-
-// Автоматическое создание сессии и переход к уроку (новая функция)
-async function autoCreateSessionAndRedirect() {
-    console.log('=== Автоматическое создание сессии ===');
-    
-    // Отменяем интервал обратного отсчета
-    if (window.autoRedirectInterval) {
-        clearInterval(window.autoRedirectInterval);
-        window.autoRedirectInterval = null;
-    }
-    
-    // Останавливаем медиа стрим
-    stopActiveStream();
-    
-    // Получаем ID урока из URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const lessonId = urlParams.get('lessonId');
-    
-    if (!lessonId) {
-        showToast('Ошибка: ID урока не найден', 'error');
-        setTimeout(() => {
-            window.location.href = '/dashboard';
-        }, 2000);
-        return;
-    }
-    
-    // Показываем сообщение о переходе к доске
-    showToast('Очистка кеша и переход к доске урока...', 'info');
-    
-    // Принудительно очищаем кеш Excalidraw перед переходом
-    console.log('Очищаем кеш Excalidraw перед автоматическим переходом к доске...');
-    const cacheCleared = await clearExcalidrawCache();
-    
-    if (cacheCleared) {
-        showToast('Кеш очищен! Переход к доске...', 'success');
-    } else {
-        showToast('Переход к доске (очистка кеша не удалась)...', 'warning');
-    }
-    
-    // Открываем доску Excalidraw в новой вкладке
-    setTimeout(() => {
-        const boardWindow = window.open(`/whiteboard/board/${lessonId}`, '_blank', 'noopener,noreferrer');
-        
-        if (boardWindow) {
-            showToast('Доска урока открыта в новой вкладке', 'success');
-            boardWindow.focus();
-            
-            // Закрываем текущую вкладку проверки оборудования
-            setTimeout(() => {
-                window.close();
-            }, 2000);
-        } else {
-            showToast('Не удалось открыть доску. Проверьте блокировку всплывающих окон.', 'error');
-            // Fallback - перенаправляем в текущей вкладке
-            window.location.href = `/whiteboard/board/${lessonId}`;
-        }
-    }, 1500);
+    // Переходим к доске в этой же вкладке
+    window.location.href = `/whiteboard/board/${lessonId}`;
 }
 
 // Остановка активного медиа стрима

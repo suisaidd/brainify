@@ -8,11 +8,12 @@
     <!-- Подключение стилей -->
     <link rel="stylesheet" th:href="@{/css/main.css}">
     <link rel="stylesheet" th:href="@{/css/dashboard.css}">
+    <link rel="stylesheet" th:href="@{/css/messages.css}">
     
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="dashboard-body" th:data-student-id="${currentUser.id}" th:data-remaining-lessons="${currentUser.remainingLessons}">
+<body class="dashboard-body" th:data-student-id="${currentUser.id}" th:data-current-user-id="${currentUser.id}" th:data-remaining-lessons="${currentUser.remainingLessons}">
     <!-- Боковое меню -->
     <nav class="sidebar">
         <div class="sidebar-header">
@@ -40,6 +41,10 @@
                         <i class="fas fa-calendar-alt"></i>
                         <span>Моё расписание</span>
                     </a>
+                    <a href="#" class="sidebar-item" data-tab="messages-tab">
+                        <i class="fas fa-comments"></i>
+                        <span>Сообщения</span>
+                    </a>
                     <a href="#" class="sidebar-item" data-tab="equipment-tab">
                         <i class="fas fa-desktop"></i>
                         <span>Проверка оборудования</span>
@@ -54,9 +59,9 @@
                     <span class="section-title">Обучение</span>
                 </div>
                 <div class="section-items">
-                    <a href="#" class="sidebar-item" data-tab="lessons-tab">
-                        <i class="fas fa-book-open"></i>
-                        <span>Мои уроки</span>
+                    <a href="#" class="sidebar-item" data-tab="tests-tab">
+                        <i class="fas fa-clipboard-list"></i>
+                        <span>Мои тесты</span>
                     </a>
                     <a href="#" class="sidebar-item" data-tab="progress-tab">
                         <i class="fas fa-chart-line"></i>
@@ -79,6 +84,19 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Остаток занятий -->
+        <div class="sidebar-remaining">
+            <div class="remaining-badge">
+                <div class="remaining-icon">
+                    <i class="fas fa-book-open"></i>
+                </div>
+                <div class="remaining-info">
+                    <span class="remaining-label">Осталось занятий</span>
+                    <span class="remaining-count" id="sidebarRemainingLessons" th:text="${currentUser.remainingLessons} ?: '0'">0</span>
+                </div>
+            </div>
+        </div>
     </nav>
     
     <!-- Основной контент -->
@@ -93,7 +111,7 @@
             </div>
             
             <div class="header-right">
-                <button class="header-btn" title="Сообщения">
+                <button class="header-btn" id="headerMessagesBtn" title="Сообщения">
                     <i class="fas fa-envelope"></i>
                     <span class="notification-badge" id="notificationCount">0</span>
                 </button>
@@ -344,50 +362,46 @@
                 </div>
             </div>
 
-            <!-- Вкладка: Мои уроки -->
-            <div id="lessons-tab" class="dashboard-tab">
-                <div class="lessons-header">
-                    <h2>Мои уроки</h2>
-                    <div class="lessons-tabs">
-                        <button class="lesson-tab active" data-tab="upcoming-lessons">
-                            <i class="fas fa-clock"></i>
-                            Ближайшие уроки
+            <!-- Вкладка: Мои тесты -->
+            <div id="tests-tab" class="dashboard-tab">
+                <div class="tests-header">
+                    <h2>Мои тесты</h2>
+                    <div class="tests-tabs">
+                        <button class="test-tab active" data-tab="basic-tests">
+                            <i class="fas fa-layer-group"></i>
+                            Базовые тесты
                         </button>
-                        <button class="lesson-tab" data-tab="all-lessons">
-                            <i class="fas fa-calendar"></i>
-                            Все уроки
+                        <button class="test-tab" data-tab="intermediate-tests">
+                            <i class="fas fa-users"></i>
+                            Промежуточные тесты
                         </button>
                     </div>
                 </div>
                 
-                <!-- Вкладка ближайших уроков -->
-                <div id="upcoming-lessons" class="lessons-tab-content active">
-                    <div class="lessons-list" id="upcomingLessonsList">
-                        <!-- Ближайшие уроки будут загружаться динамически -->
+                <div id="basic-tests" class="tests-tab-content active">
+                    <div class="tests-list" id="basicTestsList">
+                        <!-- Базовые тесты будут загружаться динамически -->
                     </div>
                     
-                    <!-- Сообщение об отсутствии ближайших уроков -->
-                    <div class="no-lessons-message" id="noUpcomingLessonsMessage" style="display: none;">
+                    <div class="no-tests-message" id="noBasicTestsMessage" style="display: none;">
                         <div class="empty-state">
-                            <i class="fas fa-calendar-times"></i>
-                            <h3>Ближайших уроков нет</h3>
-                            <p>Запланированные уроки появятся здесь</p>
+                            <i class="fas fa-clipboard-check"></i>
+                            <h3>Базовых тестов пока нет</h3>
+                            <p>Как только администратор создаст тесты, они появятся здесь</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Вкладка всех уроков -->
-                <div id="all-lessons" class="lessons-tab-content">
-                    <div class="lessons-list" id="allLessonsList">
-                        <!-- Все уроки будут загружаться динамически -->
+                <div id="intermediate-tests" class="tests-tab-content">
+                    <div class="tests-list" id="intermediateTestsList">
+                        <!-- Промежуточные тесты будут загружаться динамически -->
                     </div>
                     
-                    <!-- Сообщение об отсутствии уроков -->
-                    <div class="no-lessons-message" id="noAllLessonsMessage" style="display: none;">
+                    <div class="no-tests-message" id="noIntermediateTestsMessage" style="display: none;">
                         <div class="empty-state">
-                            <i class="fas fa-calendar"></i>
-                            <h3>Уроков пока нет</h3>
-                            <p>После записи на уроки они появятся здесь</p>
+                            <i class="fas fa-users"></i>
+                            <h3>Промежуточных тестов пока нет</h3>
+                            <p>Ваш преподаватель создаст тесты при необходимости</p>
                         </div>
                     </div>
                 </div>
@@ -396,15 +410,103 @@
             <!-- Вкладка: Прогресс -->
             <div id="progress-tab" class="dashboard-tab">
                 <div class="progress-header">
-                    <h2>Мой прогресс</h2>
-                    <p class="progress-subtitle">Отслеживайте свой прогресс в обучении</p>
+                    <h2>Прогресс по тестам</h2>
+                    <p class="progress-subtitle">Отслеживайте результаты прохождения базовых и промежуточных тестов</p>
                 </div>
-                
-                <div class="progress-content">
-                    <div class="empty-state">
-                        <i class="fas fa-chart-line"></i>
-                        <h3>Раздел в разработке</h3>
-                        <p>Здесь будет отображаться ваш прогресс в обучении</p>
+
+                <div class="tests-progress-grid">
+                    <div class="tests-progress-card">
+                        <div class="tests-progress-card-header">
+                            <h3><i class="fas fa-layer-group"></i> Базовые тесты</h3>
+                            <span class="tests-progress-count" id="progressBasicCount">0</span>
+                        </div>
+                        <div class="tests-progress-list" id="progressBasicTests">
+                            <div class="empty-state">
+                                <i class="fas fa-clipboard"></i>
+                                <h4>Пока нет результатов</h4>
+                                <p>После прохождения базовых тестов ваши результаты отобразятся здесь.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tests-progress-card">
+                        <div class="tests-progress-card-header">
+                            <h3><i class="fas fa-users"></i> Промежуточные тесты</h3>
+                            <span class="tests-progress-count" id="progressIntermediateCount">0</span>
+                        </div>
+                        <div class="tests-progress-list" id="progressIntermediateTests">
+                            <div class="empty-state">
+                                <i class="fas fa-clipboard-check"></i>
+                                <h4>Пока нет результатов</h4>
+                                <p>После прохождения тестов от преподавателя результаты появятся здесь.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Вкладка: Сообщения -->
+            <div id="messages-tab" class="dashboard-tab">
+                <div class="chat-container">
+                    <!-- Список контактов -->
+                    <div class="chat-contacts">
+                        <div class="chat-contacts-header">
+                            <h3><i class="fas fa-comments"></i> Сообщения</h3>
+                        </div>
+                        <div class="chat-search">
+                            <input type="text" id="chatSearchInput" placeholder="Поиск контакта...">
+                        </div>
+                        <div class="chat-contacts-list" id="chatContactsList">
+                            <div class="chat-loading"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
+                        </div>
+                    </div>
+
+                    <!-- Область чата -->
+                    <div class="chat-area">
+                        <!-- Пустое состояние -->
+                        <div class="chat-area-empty" id="chatEmptyState">
+                            <i class="fas fa-comments"></i>
+                            <span>Выберите чат для начала общения</span>
+                        </div>
+
+                        <!-- Активный чат -->
+                        <div id="chatActiveArea" style="display:none; flex-direction:column; flex:1;">
+                            <div class="chat-header">
+                                <button class="chat-back-btn" id="chatBackBtn">
+                                    <i class="fas fa-arrow-left"></i>
+                                </button>
+                                <div class="contact-avatar" id="chatHeaderAvatar"></div>
+                                <div class="chat-header-info">
+                                    <h4 id="chatHeaderName"></h4>
+                                    <span id="chatHeaderSub"></span>
+                                </div>
+                            </div>
+
+                            <div class="chat-messages" id="chatMessages"></div>
+
+                            <div class="chat-input-area">
+                                <div class="chat-input-wrapper">
+                                    <div class="chat-file-preview" id="chatFilePreview">
+                                        <i class="fas fa-paperclip"></i>
+                                        <span class="chat-file-preview-name" id="chatFilePreviewName"></span>
+                                        <button class="chat-file-preview-remove" id="chatFileRemoveBtn">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                    <div class="chat-input-row">
+                                        <button class="chat-attach-btn" id="chatAttachBtn" title="Прикрепить файл">
+                                            <i class="fas fa-paperclip"></i>
+                                        </button>
+                                        <textarea id="chatInput" rows="1" placeholder="Введите сообщение..."></textarea>
+                                        <button class="chat-send-btn" id="chatSendBtn" title="Отправить">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <input type="file" id="chatFileInput" style="display:none"
+                                       accept="image/*,.doc,.docx,.xls,.xlsx,.pdf,.txt">
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -433,7 +535,38 @@
     
     <!-- Подключение скриптов -->
     <script th:src="@{/js/main.js}"></script>
+    <script th:src="@{/js/messages.js}"></script>
     <script th:src="@{/js/dashboard-student.js}"></script>
+
+    <div id="studentTestBackdrop" class="student-test-backdrop"></div>
+    <div id="studentTestModal" class="student-test-modal" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="student-test-modal-content">
+            <div class="student-test-modal-header">
+                <div>
+                    <h3 id="studentTestTitle">Тест</h3>
+                    <p id="studentTestMeta" class="student-test-meta"></p>
+                </div>
+                <button type="button" id="closeStudentTestModal" class="student-test-close" aria-label="Закрыть">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="student-test-modal-body">
+                <div id="studentTestQuestions" class="student-test-questions">
+                    <div class="empty-state">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <h4>Загружаем тест...</h4>
+                    </div>
+                </div>
+                <div id="studentTestFooter" class="student-test-footer">
+                    <button type="button" id="submitStudentTest" class="lesson-btn primary">
+                        <i class="fas fa-check"></i>
+                        Проверить ответы
+                    </button>
+                    <span id="studentTestResult" class="student-test-result"></span>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
 

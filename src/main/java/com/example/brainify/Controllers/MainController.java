@@ -136,6 +136,7 @@ public class MainController {
                 return "redirect:/dashboard-student";
             case TEACHER:
                 model.addAttribute("pageTitle", "Личный кабинет - Brainify");
+                model.addAttribute("currentUser", currentUser);
                 return "dashboard";
             case MANAGER:
             case ADMIN:

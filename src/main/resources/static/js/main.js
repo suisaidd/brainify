@@ -211,16 +211,25 @@ function initMobileNavButtons() {
 // Плавная прокрутка для якорных ссылок
 function initSmoothScrolling() {
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        // Пропускаем элементы сайдбара — у них своя логика переключения вкладок
+        if (anchor.classList.contains('sidebar-item')) return;
+
+        const targetId = anchor.getAttribute('href');
+        // Пропускаем пустые якоря (href="#")
+        if (!targetId || targetId === '#') return;
+
         anchor.addEventListener('click', function (e) {
             e.preventDefault();
-            const targetId = this.getAttribute('href');
-            const targetElement = document.querySelector(targetId);
-            
-            if (targetElement) {
-                targetElement.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
+            try {
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            } catch (err) {
+                // Невалидный селектор — игнорируем
             }
         });
     });

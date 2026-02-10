@@ -1177,10 +1177,27 @@ body .assign-teacher-info p {
 
 /* Слоты с уроками у преподавателей */
 .schedule-slot.lesson-booked {
-    background: var(--error-red);
+    background: linear-gradient(135deg, #ef4444, #dc2626);
     color: white;
-    cursor: pointer;
-    transition: all 0.3s ease;
+    border: 1px solid #ef4444;
+    box-shadow: 0 8px 20px rgba(239, 68, 68, 0.2);
+}
+
+.schedule-slot.past-lesson {
+    background: #e2e8f0 !important;
+    color: #94a3b8 !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+}
+
+.schedule-slot.past-lesson:hover {
+    transform: none !important;
+}
+
+.schedule-slot.past-lesson .slot-subject,
+.schedule-slot.past-lesson .slot-student {
+    color: inherit;
 }
 
 .schedule-slot.lesson-booked:hover {

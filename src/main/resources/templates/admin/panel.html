@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${pageTitle}">Админ панель - Brainify</title>
     <link rel="stylesheet" href="/css/admin.css">
+    <link rel="stylesheet" href="/css/messages.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body>
+<body th:data-current-user-id="${currentUser?.id}">
     <div class="admin-container">
         <!-- Хедер -->
         <header class="admin-header">
@@ -57,6 +58,18 @@
                         <div class="nav-content">
                             <h3>Управление занятиями</h3>
                             <p>Планирование и контроль учебного процесса</p>
+                        </div>
+                        <div class="nav-arrow">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                    </a>
+                    <a href="/admin/tests" class="nav-card tests-card">
+                        <div class="nav-icon">
+                            <i class="fas fa-clipboard-list"></i>
+                        </div>
+                        <div class="nav-content">
+                            <h3>Управление тестами</h3>
+                            <p>Создание базовых тестов и назначение их ученикам</p>
                         </div>
                         <div class="nav-arrow">
                             <i class="fas fa-arrow-right"></i>
@@ -198,6 +211,77 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Сообщения -->
+            <div class="users-section" id="adminMessagesSection" style="margin-top: 2rem;">
+                <div class="section-header" style="cursor:pointer" onclick="toggleAdminChat()">
+                    <h2>
+                        <i class="fas fa-comments"></i>
+                        Сообщения
+                    </h2>
+                </div>
+                <div id="adminChatWrapper" class="chat-container" style="height: 600px; display: none;">
+                    <!-- Список контактов -->
+                    <div class="chat-contacts">
+                        <div class="chat-contacts-header">
+                            <h3><i class="fas fa-comments"></i> Чаты</h3>
+                        </div>
+                        <div class="chat-search">
+                            <input type="text" id="chatSearchInput" placeholder="Поиск контакта...">
+                        </div>
+                        <div class="chat-contacts-list" id="chatContactsList">
+                            <div class="chat-loading"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
+                        </div>
+                    </div>
+
+                    <!-- Область чата -->
+                    <div class="chat-area">
+                        <div class="chat-area-empty" id="chatEmptyState">
+                            <i class="fas fa-comments"></i>
+                            <span>Выберите чат для начала общения</span>
+                        </div>
+
+                        <div id="chatActiveArea" style="display:none; flex-direction:column; flex:1;">
+                            <div class="chat-header">
+                                <button class="chat-back-btn" id="chatBackBtn">
+                                    <i class="fas fa-arrow-left"></i>
+                                </button>
+                                <div class="contact-avatar" id="chatHeaderAvatar"></div>
+                                <div class="chat-header-info">
+                                    <h4 id="chatHeaderName"></h4>
+                                    <span id="chatHeaderSub"></span>
+                                </div>
+                            </div>
+
+                            <div class="chat-messages" id="chatMessages"></div>
+
+                            <div class="chat-input-area">
+                                <div class="chat-input-wrapper">
+                                    <div class="chat-file-preview" id="chatFilePreview">
+                                        <i class="fas fa-paperclip"></i>
+                                        <span class="chat-file-preview-name" id="chatFilePreviewName"></span>
+                                        <button class="chat-file-preview-remove" id="chatFileRemoveBtn">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                    <div class="chat-input-row">
+                                        <button class="chat-attach-btn" id="chatAttachBtn" title="Прикрепить файл">
+                                            <i class="fas fa-paperclip"></i>
+                                        </button>
+                                        <textarea id="chatInput" rows="1" placeholder="Введите сообщение..."></textarea>
+                                        <button class="chat-send-btn" id="chatSendBtn" title="Отправить">
+                                            <i class="fas fa-paper-plane"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <input type="file" id="chatFileInput" style="display:none"
+                                       accept="image/*,.doc,.docx,.xls,.xlsx,.pdf,.txt">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
 
@@ -317,6 +401,22 @@
     </div>
 
     <!-- Загрузка скриптов -->
+    <script src="/js/messages.js"></script>
     <script src="/js/admin.js"></script>
+    <script>
+        let adminChatInitialized = false;
+        function toggleAdminChat() {
+            const wrapper = document.getElementById('adminChatWrapper');
+            if (wrapper.style.display === 'none') {
+                wrapper.style.display = 'flex';
+                if (!adminChatInitialized) {
+                    adminChatInitialized = true;
+                    window.brainifyChat.init();
+                }
+            } else {
+                wrapper.style.display = 'none';
+            }
+        }
+    </script>
 </body>
 </html> 

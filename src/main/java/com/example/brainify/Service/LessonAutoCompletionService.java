@@ -2,9 +2,11 @@ package com.example.brainify.Service;
 
 import com.example.brainify.Model.Lesson;
 import com.example.brainify.Model.LessonCancellation;
+import com.example.brainify.Model.User;
 
 import com.example.brainify.Repository.LessonRepository;
 import com.example.brainify.Repository.LessonCancellationRepository;
+import com.example.brainify.Repository.UserRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -22,6 +24,9 @@ public class LessonAutoCompletionService {
 
     @Autowired
     private LessonCancellationRepository lessonCancellationRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     /**
      * Отметить вход преподавателя в урок
@@ -79,7 +84,8 @@ public class LessonAutoCompletionService {
                 lesson.setStatus(Lesson.LessonStatus.COMPLETED);
                 lesson.setAutoCompleted(true);
                 lessonRepository.save(lesson);
-                
+                deductStudentLessonBalance(lesson);
+
                 System.out.println("Урок " + lesson.getId() + " автоматически завершен (преподаватель вошел)");
             } else {
                 // Преподаватель не вошел - отмечаем как пропущенный и применяем штраф
@@ -115,6 +121,28 @@ public class LessonAutoCompletionService {
 
         System.out.println("Применен автоматический штраф 600₽ за урок " + lesson.getId() + 
                           " (преподаватель: " + lesson.getTeacher().getName() + ")");
+    }
+
+    private void deductStudentLessonBalance(Lesson lesson) {
+        User student = lesson.getStudent();
+        if (student == null) {
+            return;
+        }
+
+        User managedStudent = userRepository.findById(student.getId()).orElse(null);
+        if (managedStudent == null) {
+            return;
+        }
+
+        Integer remainingLessons = managedStudent.getRemainingLessons();
+        if (remainingLessons == null) {
+            remainingLessons = 0;
+        }
+
+        if (remainingLessons > 0) {
+            managedStudent.setRemainingLessons(remainingLessons - 1);
+            userRepository.save(managedStudent);
+        }
     }
 
     /**

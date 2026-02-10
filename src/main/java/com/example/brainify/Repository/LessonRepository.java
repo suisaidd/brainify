@@ -51,6 +51,8 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     // Найти уроки по originalLessonId
     List<Lesson> findByOriginalLessonId(Long originalLessonId);
     
+    long countByStudentAndStatus(User student, Lesson.LessonStatus status);
+    
     // Найти уроки преподавателя по ID преподавателя в указанном временном интервале
     @Query("SELECT l FROM Lesson l WHERE l.teacher.id = :teacherId AND " +
            "l.lessonDate BETWEEN :startDate AND :endDate")

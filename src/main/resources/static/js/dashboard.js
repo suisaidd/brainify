@@ -21,9 +21,21 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Инициализируем навигацию базы знаний
     initKnowledgeBaseNavigation();
+
+    const refreshTeacherTestsBtn = document.getElementById('refreshTeacherTests');
+    if (refreshTeacherTestsBtn) {
+        refreshTeacherTestsBtn.addEventListener('click', () => loadTeacherTestsSection(true));
+    }
+
+    initializeTeacherTestModal();
 });
 // Инициализация проверки оборудования
 let activeMediaStream = null;
+let teacherTestsInitialized = false;
+let teacherSelectedTemplateId = null;
+let teacherEditingQuestionId = null;
+let teacherQuestionsCache = [];
+let teacherTestModalElements = {};
 
 function initEquipmentCheck() {
     updateTimeStatus();
@@ -332,6 +344,10 @@ function loadTeacherStudents() {
                         <i class="fas fa-user"></i>
                         Профиль
                     </button>
+                    <button class="view-tests-btn" onclick="viewStudentTests(${student.id})">
+                        <i class="fas fa-clipboard-check"></i>
+                        Тесты
+                    </button>
                 </div>
             </div>
         `).join('');
@@ -627,6 +643,114 @@ function viewStudentProfile(studentId) {
     showToast('Функция просмотра профиля будет реализована позже', 'info');
 }
 
+// Функция для просмотра тестов ученика
+async function viewStudentTests(studentId) {
+    try {
+        const response = await fetch(`/api/teacher/tests/student/${studentId}/tests`);
+        if (!response.ok) {
+            throw new Error('Не удалось загрузить тесты ученика');
+        }
+
+        const data = await response.json();
+        openStudentTestsModal(data);
+    } catch (error) {
+        console.error('Ошибка загрузки тестов ученика:', error);
+        showToast('Не удалось загрузить тесты ученика', 'error');
+    }
+}
+
+// Открытие модального окна с тестами ученика
+function openStudentTestsModal(data) {
+    const modal = document.getElementById('studentTestsModal');
+    if (!modal) {
+        // Создаём модальное окно, если его нет
+        const modalHtml = `
+            <div id="studentTestsModal" class="modal">
+                <div class="modal-content student-tests-modal-content">
+                    <div class="modal-header">
+                        <h2>Тесты ученика: ${data.studentName || 'Неизвестно'}</h2>
+                        <button class="modal-close" onclick="closeStudentTestsModal()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body" id="studentTestsModalBody">
+                        <!-- Контент будет загружен динамически -->
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    const modalBody = document.getElementById('studentTestsModalBody');
+    if (!modalBody) return;
+
+    if (!data.results || data.results.length === 0) {
+        modalBody.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-clipboard"></i>
+                <h3>Решённых тестов пока нет</h3>
+                <p>Ученик ещё не решил ни одного теста.</p>
+            </div>
+        `;
+    } else {
+        modalBody.innerHTML = `
+            <div class="student-tests-results-list">
+                ${data.results.map(result => `
+                    <div class="student-test-result-card">
+                        <div class="student-test-result-header">
+                            <h3>${result.templateTitle}</h3>
+                            <span class="test-category-badge ${result.category === 'BASIC' ? 'basic' : 'intermediate'}">
+                                ${result.category === 'BASIC' ? 'Базовый тест' : 'Промежуточный тест'}
+                            </span>
+                        </div>
+                        <div class="student-test-result-info">
+                            <div class="result-info-item">
+                                <i class="fas fa-book"></i>
+                                <span>${result.subjectName}</span>
+                            </div>
+                            ${result.difficultyLevel ? `
+                                <div class="result-info-item">
+                                    <i class="fas fa-layer-group"></i>
+                                    <span>Уровень ${result.difficultyLevel}</span>
+                                </div>
+                            ` : ''}
+                            <div class="result-info-item">
+                                <i class="fas fa-calendar-check"></i>
+                                <span>${formatDateTime(result.submittedAt)}</span>
+                            </div>
+                        </div>
+                        <div class="student-test-result-score">
+                            <div class="score-circle ${getScoreClass(result.scorePercentage)}">
+                                <span class="score-value">${Number(result.scorePercentage).toFixed(1)}%</span>
+                            </div>
+                            <div class="score-details">
+                                <span>${result.correctAnswers} из ${result.totalQuestions} правильных ответов</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    document.getElementById('studentTestsModal').style.display = 'flex';
+}
+
+function closeStudentTestsModal() {
+    const modal = document.getElementById('studentTestsModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function getScoreClass(score) {
+    if (score >= 80) return 'excellent';
+    if (score >= 60) return 'good';
+    if (score >= 40) return 'average';
+    return 'poor';
+}
+
 // Инициализация модального окна конспектов
 document.addEventListener('DOMContentLoaded', function() {
     // Привязываем обработчики для модального окна конспектов
@@ -823,41 +947,7 @@ function initHeaderButtons() {
 
 // Инициализация элементов сайдбара
 function initSidebarItems() {
-    const sidebarItems = document.querySelectorAll('.sidebar-item');
-    const pageTitle = document.querySelector('.page-title');
-
-    sidebarItems.forEach(item => {
-        item.addEventListener('click', (e) => {
-            e.preventDefault();
-            
-            // Убираем активный класс со всех элементов
-            sidebarItems.forEach(otherItem => {
-                otherItem.classList.remove('active');
-            });
-            
-            // Добавляем активный класс к выбранному элементу
-            item.classList.add('active');
-            
-            // Обновляем заголовок страницы
-            const itemText = item.querySelector('span').textContent;
-            if (pageTitle) {
-                pageTitle.textContent = itemText;
-            }
-            
-            // Показываем уведомление
-            showToast(`Переход в раздел "${itemText}"`, 'info');
-            
-            // Закрываем сайдбар на мобильных устройствах
-            if (window.innerWidth <= 768) {
-                const sidebar = document.querySelector('.sidebar');
-                sidebar.classList.remove('open');
-                const overlay = document.querySelector('.sidebar-overlay');
-                if (overlay) {
-                    overlay.remove();
-                }
-            }
-        });
-    });
+    // Логика переключения вкладок перенесена в initTabSwitching / switchToTab
 }
 
 
@@ -2829,68 +2919,59 @@ function confirmCancellation(lessonId) {
 }
 
 // Функции для работы с вкладками
-function initTabSwitching() {
+function switchToTab(targetTab) {
     const sidebarItems = document.querySelectorAll('.sidebar-item[data-tab]');
     const tabs = document.querySelectorAll('.dashboard-tab');
+    
+    sidebarItems.forEach(otherItem => otherItem.classList.remove('active'));
+    tabs.forEach(tab => tab.classList.remove('active'));
+    
+    const sidebarItem = document.querySelector(`.sidebar-item[data-tab="${targetTab}"]`);
+    if (sidebarItem) sidebarItem.classList.add('active');
+    
+    const targetTabElement = document.getElementById(targetTab);
+    if (targetTabElement) targetTabElement.classList.add('active');
+    
+    // Обновляем заголовок
+    const pageTitle = document.querySelector('.page-title');
+    if (pageTitle && sidebarItem) {
+        const span = sidebarItem.querySelector('span');
+        if (span) pageTitle.textContent = span.textContent;
+    }
+    
+    if (targetTab === 'schedule-tab') loadTeacherSchedule();
+    if (targetTab === 'equipment-tab') initEquipmentCheck();
+    if (targetTab === 'notes-tab') loadTeacherNotes();
+    if (targetTab === 'students-tab') loadTeacherStudents();
+    if (targetTab === 'tests-tab') loadTeacherTestsSection();
+    if (targetTab === 'messages-tab' && window.brainifyChat) window.brainifyChat.init();
+    
+    if (window.innerWidth <= 768) {
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar) sidebar.classList.remove('open');
+        const overlay = document.querySelector('.sidebar-overlay');
+        if (overlay) overlay.remove();
+    }
+}
+
+function initTabSwitching() {
+    const sidebarItems = document.querySelectorAll('.sidebar-item[data-tab]');
     
     sidebarItems.forEach(item => {
         item.addEventListener('click', function(e) {
             e.preventDefault();
-            
-            const targetTab = this.getAttribute('data-tab');
-            
-            // Убираем активный класс со всех элементов
-            sidebarItems.forEach(otherItem => {
-                otherItem.classList.remove('active');
-            });
-            tabs.forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Добавляем активный класс к выбранному элементу и вкладке
-            this.classList.add('active');
-            const targetTabElement = document.getElementById(targetTab);
-            if (targetTabElement) {
-                targetTabElement.classList.add('active');
-            }
-            
-            // Если переключаемся на расписание, загружаем его
-            if (targetTab === 'schedule-tab') {
-                loadTeacherSchedule();
-            }
-
-            // Если переключаемся на проверку оборудования, инициализируем
-            if (targetTab === 'equipment-tab') {
-                initEquipmentCheck();
-            }
-            
-            // Если переключаемся на конспекты, загружаем их
-            if (targetTab === 'notes-tab') {
-                loadTeacherNotes();
-            }
-            
-            // Если переключаемся на учеников, загружаем их
-            if (targetTab === 'students-tab') {
-                loadTeacherStudents();
-            }
-            
-            // Если переключаемся на систему вознаграждений
-            if (targetTab === 'rewards-tab') {
-                // Вкладка система вознаграждений не требует дополнительной загрузки данных
-                // так как содержит статическую информацию
-            }
-            
-            // Закрываем сайдбар на мобильных устройствах
-            if (window.innerWidth <= 768) {
-                const sidebar = document.querySelector('.sidebar');
-                sidebar.classList.remove('open');
-                const overlay = document.querySelector('.sidebar-overlay');
-                if (overlay) {
-                    overlay.remove();
-                }
-            }
+            e.stopPropagation();
+            switchToTab(this.getAttribute('data-tab'));
         });
     });
+    
+    // Кнопка "Сообщения" в шапке → переключает на вкладку сообщений
+    const headerMessagesBtn = document.getElementById('headerMessagesBtn');
+    if (headerMessagesBtn) {
+        headerMessagesBtn.addEventListener('click', function() {
+            switchToTab('messages-tab');
+        });
+    }
 }
 
 // Функции для работы с расписанием
@@ -3861,4 +3942,556 @@ function initKnowledgeBaseNavigation() {
             }
         });
     });
-} 
+}
+
+async function loadTeacherTestsSection(forceReload = false) {
+    try {
+        if (!teacherTestsInitialized || forceReload) {
+            await loadTeacherTestSubjects();
+            initTeacherTestForm();
+            teacherTestsInitialized = true;
+        }
+
+        await loadTeacherIntermediateTests(forceReload);
+    } catch (error) {
+        console.error('Ошибка загрузки тестов преподавателя:', error);
+        showToast('Не удалось загрузить тесты', 'error');
+    }
+}
+
+async function loadTeacherTestSubjects() {
+    const subjectSelect = document.getElementById('teacherTestSubject');
+    if (!subjectSelect) {
+        return;
+    }
+
+    subjectSelect.innerHTML = '<option value="" disabled selected>Загрузка предметов...</option>';
+
+    try {
+        const response = await fetch('/api/teacher/tests/subjects');
+        if (!response.ok) {
+            throw new Error('Не удалось загрузить список предметов');
+        }
+
+        const subjects = await response.json();
+
+        if (!subjects || subjects.length === 0) {
+            subjectSelect.innerHTML = '<option value="" disabled selected>Предметы не назначены</option>';
+            return;
+        }
+
+        subjectSelect.innerHTML = '<option value="" disabled selected>Выберите предмет</option>' +
+            subjects.map(subject => `<option value="${subject.id}">${subject.name}</option>`).join('');
+    } catch (error) {
+        console.error('Ошибка загрузки предметов преподавателя:', error);
+        subjectSelect.innerHTML = '<option value="" disabled selected>Ошибка загрузки предметов</option>';
+        showToast('Не удалось загрузить список предметов', 'error');
+    }
+}
+
+function initTeacherTestForm() {
+    const form = document.getElementById('teacherTestForm');
+    if (!form || form.dataset.initialized === 'true') {
+        return;
+    }
+
+    const subjectSelect = document.getElementById('teacherTestSubject');
+    if (subjectSelect) {
+        subjectSelect.addEventListener('change', async () => {
+            await loadStudentsForSubject(subjectSelect.value);
+        });
+    }
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const titleInput = document.getElementById('teacherTestTitle');
+        const submitButton = form.querySelector('button[type="submit"]');
+
+        if (!subjectSelect || !subjectSelect.value) {
+            showToast('Выберите предмет для теста', 'warning');
+            return;
+        }
+
+        const selectedStudentIds = getSelectedStudentIds();
+        if (!selectedStudentIds || selectedStudentIds.length === 0) {
+            showToast('Выберите хотя бы одного ученика', 'warning');
+            return;
+        }
+
+        const payload = {
+            subjectId: subjectSelect.value,
+            title: titleInput?.value?.trim() || null,
+            studentIds: selectedStudentIds
+        };
+
+        try {
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Создание...';
+            }
+
+            const response = await fetch('/api/teacher/tests/intermediate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Не удалось создать тест');
+            }
+
+            showToast('Тест создан и назначен ученикам', 'success');
+            form.reset();
+            subjectSelect.selectedIndex = 0;
+            const studentsContainer = document.getElementById('teacherTestStudentsContainer');
+            if (studentsContainer) {
+                studentsContainer.innerHTML = '<div class="students-select-loading">Загрузка учеников...</div>';
+            }
+
+            const createdTemplateId = result.templateId;
+            await loadTeacherIntermediateTests(true);
+            if (createdTemplateId) {
+                openTeacherTestModal(createdTemplateId);
+            }
+        } catch (error) {
+            console.error('Ошибка создания теста преподавателя:', error);
+            showToast(error.message || 'Не удалось создать тест', 'error');
+        } finally {
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.innerHTML = '<i class="fas fa-paper-plane"></i> Создать тест';
+            }
+        }
+    });
+
+    form.dataset.initialized = 'true';
+}
+
+async function loadStudentsForSubject(subjectId) {
+    const container = document.getElementById('teacherTestStudentsContainer');
+    if (!container || !subjectId) {
+        return;
+    }
+
+    container.innerHTML = '<div class="students-select-loading">Загрузка учеников...</div>';
+
+    try {
+        const response = await fetch(`/api/teacher/tests/students/${subjectId}`);
+        if (!response.ok) {
+            throw new Error('Не удалось загрузить учеников');
+        }
+
+        const students = await response.json();
+        
+        if (!students || students.length === 0) {
+            container.innerHTML = '<div class="students-select-empty">Нет учеников по этому предмету</div>';
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="students-select-list">
+                ${students.map(student => `
+                    <label class="student-checkbox-item">
+                        <input type="checkbox" value="${student.id}" class="student-checkbox">
+                        <span class="student-checkbox-label">
+                            <strong>${student.name}</strong>
+                            <span class="student-checkbox-email">${student.email}</span>
+                        </span>
+                    </label>
+                `).join('')}
+            </div>
+            <div class="students-select-actions">
+                <button type="button" class="students-select-all-btn">Выбрать всех</button>
+                <button type="button" class="students-select-none-btn">Снять выбор</button>
+            </div>
+        `;
+
+        // Обработчики для кнопок выбора всех/ничего
+        const selectAllBtn = container.querySelector('.students-select-all-btn');
+        const selectNoneBtn = container.querySelector('.students-select-none-btn');
+        const checkboxes = container.querySelectorAll('.student-checkbox');
+
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', () => {
+                checkboxes.forEach(cb => cb.checked = true);
+            });
+        }
+
+        if (selectNoneBtn) {
+            selectNoneBtn.addEventListener('click', () => {
+                checkboxes.forEach(cb => cb.checked = false);
+            });
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки учеников:', error);
+        container.innerHTML = '<div class="students-select-error">Ошибка загрузки учеников</div>';
+    }
+}
+
+function getSelectedStudentIds() {
+    const checkboxes = document.querySelectorAll('.student-checkbox:checked');
+    return Array.from(checkboxes).map(cb => parseInt(cb.value));
+}
+
+async function loadTeacherIntermediateTests(showToastOnSuccess = false) {
+    const listContainer = document.getElementById('teacherTestsList');
+    if (!listContainer) {
+        return;
+    }
+
+    listContainer.innerHTML = `
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Загружаем тесты...</p>
+        </div>
+    `;
+
+    try {
+        const response = await fetch('/api/teacher/tests/intermediate');
+        if (!response.ok) {
+            throw new Error('Не удалось загрузить тесты');
+        }
+
+        const tests = await response.json();
+        renderTeacherTests(listContainer, tests);
+
+        if (showToastOnSuccess) {
+            showToast('Список тестов обновлён', 'info');
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки тестов преподавателя:', error);
+        listContainer.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-triangle-exclamation"></i>
+                <h3>Не удалось загрузить тесты</h3>
+                <p>Попробуйте обновить страницу позже.</p>
+            </div>
+        `;
+        showToast(error.message || 'Ошибка загрузки тестов', 'error');
+    }
+}
+
+function renderTeacherTests(container, tests) {
+    if (!container) return;
+
+    if (!tests || tests.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-box-open"></i>
+                <h3>Тестов пока нет</h3>
+                <p>Создайте первый тест, чтобы ученики получили доступ к заданиям.</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = tests.map(test => `
+        <div class="teacher-test-row">
+            <div class="teacher-test-main">
+                <strong>${test.title}</strong>
+                <span>${test.subjectName}</span>
+            </div>
+            <div class="teacher-test-meta">
+                <span>
+                    <i class="fas fa-users"></i>
+                    Назначено ученикам: ${test.assignments}
+                </span>
+            </div>
+            <div class="teacher-test-date">
+                <span>Создан: ${formatTeacherTestDate(test.createdAt)}</span>
+                <span>ID: ${test.id}</span>
+            </div>
+            <div class="teacher-test-actions">
+                <button class="lesson-btn primary teacher-test-manage" data-template-id="${test.id}">
+                    <i class="fas fa-plus"></i>
+                    Добавить номер
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function formatTeacherTestDate(date) {
+    if (!date) {
+        return '—';
+    }
+
+    const parsed = new Date(date);
+    if (Number.isNaN(parsed.getTime())) {
+        return '—';
+    }
+
+    return parsed.toLocaleString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function initializeTeacherTestModal() {
+    teacherTestModalElements = {
+        backdrop: document.getElementById('teacherTestBackdrop'),
+        modal: document.getElementById('teacherTestModal'),
+        title: document.getElementById('teacherModalTitle'),
+        meta: document.getElementById('teacherModalMeta'),
+        form: document.getElementById('teacherQuestionForm'),
+        number: document.getElementById('teacherQuestionNumber'),
+        text: document.getElementById('teacherQuestionText'),
+        answer: document.getElementById('teacherCorrectAnswer'),
+        image: document.getElementById('teacherQuestionImage'),
+        removeImageRow: document.getElementById('teacherRemoveImageRow'),
+        removeImageCheckbox: document.getElementById('teacherRemoveImageCheckbox'),
+        submitBtn: document.getElementById('teacherSubmitQuestionBtn'),
+        resetBtn: document.getElementById('teacherResetQuestionForm'),
+        closeBtn: document.getElementById('closeTeacherTestModal'),
+        list: document.getElementById('teacherQuestionsList')
+    };
+
+    if (!teacherTestModalElements.modal) {
+        return;
+    }
+
+    teacherTestModalElements.form?.addEventListener('submit', submitTeacherQuestion);
+    teacherTestModalElements.resetBtn?.addEventListener('click', resetTeacherQuestionForm);
+    teacherTestModalElements.closeBtn?.addEventListener('click', closeTeacherTestModal);
+    teacherTestModalElements.backdrop?.addEventListener('click', closeTeacherTestModal);
+
+    document.body.addEventListener('click', handleTeacherModalClicks);
+}
+
+function handleTeacherModalClicks(event) {
+    const manageBtn = event.target.closest('.teacher-test-manage');
+    if (manageBtn) {
+        const templateId = manageBtn.getAttribute('data-template-id');
+        if (templateId) {
+            openTeacherTestModal(templateId);
+        }
+        return;
+    }
+
+    const editBtn = event.target.closest('.teacher-question-edit');
+    if (editBtn) {
+        const questionId = parseInt(editBtn.getAttribute('data-question-id'), 10);
+        if (!Number.isNaN(questionId)) {
+            fillTeacherQuestionForm(questionId);
+        }
+        return;
+    }
+
+    const deleteBtn = event.target.closest('.teacher-question-delete');
+    if (deleteBtn) {
+        const questionId = parseInt(deleteBtn.getAttribute('data-question-id'), 10);
+        if (!Number.isNaN(questionId)) {
+            deleteTeacherQuestion(questionId);
+        }
+    }
+}
+
+async function openTeacherTestModal(templateId) {
+    teacherSelectedTemplateId = templateId;
+    teacherEditingQuestionId = null;
+    clearTeacherQuestionForm();
+
+    try {
+        const response = await fetch(`/api/teacher/tests/template/${templateId}`);
+        if (!response.ok) {
+            throw new Error('Не удалось загрузить тест');
+        }
+
+        const data = await response.json();
+        teacherQuestionsCache = data.questions || [];
+
+        if (teacherTestModalElements.title) {
+            teacherTestModalElements.title.textContent = data.template.title;
+        }
+        if (teacherTestModalElements.meta) {
+            teacherTestModalElements.meta.textContent = `${data.template.subjectName}`;
+        }
+
+        populateTeacherQuestionsList(teacherQuestionsCache);
+        showTeacherTestModal();
+    } catch (error) {
+        console.error('Ошибка загрузки теста преподавателя:', error);
+        showToast(error.message || 'Не удалось загрузить тест', 'error');
+    }
+}
+
+function showTeacherTestModal() {
+    teacherTestModalElements.backdrop?.classList.add('open');
+    teacherTestModalElements.modal?.classList.add('open');
+    teacherTestModalElements.modal?.setAttribute('aria-hidden', 'false');
+}
+
+function closeTeacherTestModal() {
+    teacherSelectedTemplateId = null;
+    teacherEditingQuestionId = null;
+    teacherTestModalElements.backdrop?.classList.remove('open');
+    teacherTestModalElements.modal?.classList.remove('open');
+    teacherTestModalElements.modal?.setAttribute('aria-hidden', 'true');
+}
+
+function populateTeacherQuestionsList(questions) {
+    if (!teacherTestModalElements.list) {
+        return;
+    }
+
+    if (!questions || questions.length === 0) {
+        teacherTestModalElements.list.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-clipboard"></i>
+                <h4>Заданий пока нет</h4>
+                <p>Добавьте первое задание, чтобы ученики получили доступ.</p>
+            </div>
+        `;
+        return;
+    }
+
+    teacherTestModalElements.list.innerHTML = questions.map(renderTeacherQuestionCard).join('');
+}
+
+function renderTeacherQuestionCard(question) {
+    const imageSection = question.imageUrl ? `
+        <div class="teacher-question-image">
+            <img src="${question.imageUrl}" alt="Изображение задания">
+        </div>
+    ` : '';
+
+    return `
+        <div class="teacher-question-card" data-question-id="${question.id}">
+            <div class="teacher-question-body">
+                <span class="question-number">${question.questionNumber}</span>
+                <div class="question-text">${question.questionText.replace(/\n/g, '<br>')}</div>
+                ${imageSection}
+                <div class="question-answer"><strong>Ответ:</strong> ${question.correctAnswer.replace(/\n/g, '<br>')}</div>
+            </div>
+            <div class="teacher-question-actions">
+                <button class="lesson-btn secondary teacher-question-edit" data-question-id="${question.id}">
+                    <i class="fas fa-pen"></i>
+                    Изменить
+                </button>
+                <button class="lesson-btn danger teacher-question-delete" data-question-id="${question.id}">
+                    <i class="fas fa-trash"></i>
+                    Удалить
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function fillTeacherQuestionForm(questionId) {
+    const question = teacherQuestionsCache.find(q => q.id === questionId);
+    if (!question || !teacherTestModalElements.form) {
+        return;
+    }
+
+    teacherEditingQuestionId = questionId;
+    teacherTestModalElements.number.value = question.questionNumber || '';
+    teacherTestModalElements.text.value = question.questionText || '';
+    teacherTestModalElements.answer.value = question.correctAnswer || '';
+    teacherTestModalElements.image.value = '';
+
+    if (question.imagePath) {
+        teacherTestModalElements.removeImageRow.classList.add('visible');
+        teacherTestModalElements.removeImageCheckbox.checked = false;
+    } else {
+        teacherTestModalElements.removeImageRow.classList.remove('visible');
+        teacherTestModalElements.removeImageCheckbox.checked = false;
+    }
+
+    teacherTestModalElements.submitBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить изменения';
+}
+
+function resetTeacherQuestionForm() {
+    teacherEditingQuestionId = null;
+    teacherTestModalElements.form?.reset();
+    teacherTestModalElements.image.value = '';
+    teacherTestModalElements.removeImageCheckbox.checked = false;
+    teacherTestModalElements.removeImageRow.classList.remove('visible');
+    teacherTestModalElements.submitBtn.innerHTML = '<i class="fas fa-plus"></i> Добавить задание';
+}
+
+function clearTeacherQuestionForm() {
+    resetTeacherQuestionForm();
+}
+
+async function submitTeacherQuestion(event) {
+    event.preventDefault();
+    if (!teacherSelectedTemplateId) {
+        showToast('Выберите тест', 'warning');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('questionNumber', teacherTestModalElements.number.value.trim());
+    formData.append('questionText', teacherTestModalElements.text.value.trim());
+    formData.append('correctAnswer', teacherTestModalElements.answer.value.trim());
+
+    const file = teacherTestModalElements.image.files[0];
+    if (file) {
+        formData.append('image', file);
+    }
+
+    let url;
+    let method;
+    if (teacherEditingQuestionId) {
+        url = `/api/teacher/tests/questions/${teacherEditingQuestionId}`;
+        method = 'PUT';
+        formData.append('removeImage', teacherTestModalElements.removeImageCheckbox.checked);
+    } else {
+        url = `/api/teacher/tests/template/${teacherSelectedTemplateId}/questions`;
+        method = 'POST';
+    }
+
+    try {
+        const response = await fetch(url, {
+            method,
+            body: formData
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.error || 'Не удалось сохранить задание');
+        }
+
+        showToast(teacherEditingQuestionId ? 'Задание обновлено' : 'Задание создано', 'success');
+        await openTeacherTestModal(teacherSelectedTemplateId);
+        resetTeacherQuestionForm();
+    } catch (error) {
+        console.error('Ошибка сохранения задания преподавателя:', error);
+        showToast(error.message || 'Не удалось сохранить задание', 'error');
+    }
+}
+
+async function deleteTeacherQuestion(questionId) {
+    if (!teacherSelectedTemplateId) {
+        return;
+    }
+
+    if (!confirm('Удалить выбранное задание?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/teacher/tests/questions/${questionId}`, {
+            method: 'DELETE'
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.error || 'Не удалось удалить задание');
+        }
+
+        showToast('Задание удалено', 'success');
+        await openTeacherTestModal(teacherSelectedTemplateId);
+    } catch (error) {
+        console.error('Ошибка удаления задания преподавателя:', error);
+        showToast(error.message || 'Не удалось удалить задание', 'error');
+    }
+}

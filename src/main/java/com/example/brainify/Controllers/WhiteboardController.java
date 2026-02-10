@@ -162,7 +162,22 @@ public class WhiteboardController {
                 return ResponseEntity.badRequest().body(response);
             }
             
-            var boardState = whiteboardService.saveBoardState(lessonId, boardData);
+            // Получаем текущую версию из запроса (опционально)
+            Long clientVersion = null;
+            Object versionObj = request.get("version");
+            if (versionObj != null) {
+                if (versionObj instanceof Number) {
+                    clientVersion = ((Number) versionObj).longValue();
+                } else if (versionObj instanceof String) {
+                    try {
+                        clientVersion = Long.parseLong((String) versionObj);
+                    } catch (NumberFormatException e) {
+                        // Игнорируем ошибку парсинга
+                    }
+                }
+            }
+            
+            var boardState = whiteboardService.saveBoardState(lessonId, boardData, clientVersion);
             
             response.put("success", true);
             response.put("version", boardState.getVersion());
