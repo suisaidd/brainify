@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle}">Конструктор теста — Brainify</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/test-builder.css}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+<div class="tb-page"
+     th:data-template-id="${templateId}"
+     th:data-user-role="${currentUser.role}"
+     th:data-user-id="${currentUser.id}">
+
+    <!-- Хедер -->
+    <header class="tb-header">
+        <div class="tb-header-left">
+            <a href="/dashboard" class="tb-logo"><span class="accent">Brain</span>ify</a>
+            <span class="tb-sep">|</span>
+            <span class="tb-page-title" id="headerTitle">Конструктор теста</span>
+        </div>
+        <div class="tb-header-right">
+            <span class="tb-status-badge" id="statusBadge">Черновик</span>
+            <button class="tb-btn tb-btn-outline" id="btnSaveMeta"><i class="fas fa-save"></i> Сохранить</button>
+            <button class="tb-btn tb-btn-primary" id="btnPublish"><i class="fas fa-paper-plane"></i> Отправить тест</button>
+            <a href="/dashboard" class="tb-btn tb-btn-ghost"><i class="fas fa-times"></i></a>
+        </div>
+    </header>
+
+    <main class="tb-main">
+        <!-- Левая панель: метаданные теста -->
+        <aside class="tb-sidebar" id="testMeta">
+            <h3>Информация о тесте</h3>
+            <div class="tb-field">
+                <label>Название</label>
+                <input type="text" id="testTitle" placeholder="Введите название теста">
+            </div>
+            <div class="tb-field">
+                <label>Описание</label>
+                <textarea id="testDescription" rows="3" placeholder="Описание (необязательно)"></textarea>
+            </div>
+            <div class="tb-field" id="metaSubject">
+                <label>Предмет</label>
+                <span id="subjectName" class="tb-meta-value">—</span>
+            </div>
+            <div class="tb-field" id="metaStatus">
+                <label>Статус</label>
+                <span id="statusText" class="tb-meta-value">Черновик</span>
+            </div>
+            <div class="tb-field">
+                <label>Заданий: <strong id="questionCount">0</strong></label>
+            </div>
+        </aside>
+
+        <!-- Центр: список заданий -->
+        <section class="tb-content">
+            <div class="tb-questions-header">
+                <h3>Задания</h3>
+                <button class="tb-btn tb-btn-accent" id="btnAddQuestion">
+                    <i class="fas fa-plus"></i> Добавить задание
+                </button>
+            </div>
+
+            <div class="tb-questions-list" id="questionsList">
+                <div class="tb-empty" id="emptyState">
+                    <i class="fas fa-clipboard-list"></i>
+                    <p>Заданий пока нет. Нажмите «Добавить задание» чтобы начать.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Модалка: Добавить/Редактировать задание -->
+    <div class="tb-modal-overlay" id="questionModal">
+        <div class="tb-modal">
+            <div class="tb-modal-header">
+                <h3 id="modalTitle">Новое задание</h3>
+                <button class="tb-modal-close" id="modalClose"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="tb-modal-body">
+                <input type="hidden" id="editQuestionId" value="">
+
+                <div class="tb-field">
+                    <label>Номер задания *</label>
+                    <input type="text" id="qNumber" placeholder="Например: 1, 2a, 3">
+                </div>
+                <div class="tb-field">
+                    <label>Текст задания *</label>
+                    <textarea id="qText" rows="4" placeholder="Условие задания..."></textarea>
+                </div>
+                <div class="tb-field">
+                    <label>Изображение</label>
+                    <input type="file" id="qImage" accept="image/*">
+                    <div id="qImagePreview" class="tb-image-preview"></div>
+                </div>
+                <div class="tb-field tb-checkbox-field">
+                    <label>
+                        <input type="checkbox" id="qExtended">
+                        Развёрнутый ответ (ученик рисует на доске)
+                    </label>
+                </div>
+                <div class="tb-field" id="correctAnswerField">
+                    <label>Правильный ответ *</label>
+                    <input type="text" id="qAnswer" placeholder="Правильный ответ">
+                </div>
+            </div>
+            <div class="tb-modal-footer">
+                <button class="tb-btn tb-btn-ghost" id="modalCancel">Отмена</button>
+                <button class="tb-btn tb-btn-primary" id="modalSave">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка: Публикация (выбор учеников) -->
+    <div class="tb-modal-overlay" id="publishModal">
+        <div class="tb-modal">
+            <div class="tb-modal-header">
+                <h3>Отправить тест ученикам</h3>
+                <button class="tb-modal-close" id="publishClose"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="tb-modal-body">
+                <p class="tb-publish-info">Выберите учеников, которым будет назначен тест:</p>
+                <div class="tb-student-search">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="publishStudentSearch" placeholder="Поиск по имени или email...">
+                </div>
+                <div class="tb-field tb-checkbox-field">
+                    <label><input type="checkbox" id="selectAllStudents"> Выбрать всех</label>
+                </div>
+                <div class="tb-student-list" id="publishStudentList">
+                    <div class="tb-loading"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
+                </div>
+            </div>
+            <div class="tb-modal-footer">
+                <button class="tb-btn tb-btn-ghost" id="publishCancel">Отмена</button>
+                <button class="tb-btn tb-btn-primary" id="publishConfirm">
+                    <i class="fas fa-paper-plane"></i> Отправить
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="tb-toast" id="toast"></div>
+
+<script th:src="@{/js/test-builder.js}"></script>
+</body>
+</html>

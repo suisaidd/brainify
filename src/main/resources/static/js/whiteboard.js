@@ -67,6 +67,13 @@ class Whiteboard {
         this.localElements = new Set();
         this.lastSyncTime = 0;
         
+        // Реальное время — STOMP
+        this.stompClient = null;
+        this.remoteDrawing = null;        // элемент/путь, который рисует собеседник прямо сейчас
+        this.remoteDrawPath = [];         // точки пути собеседника
+        this.lastBroadcastTime = 0;
+        this.broadcastThrottle = 60;      // мс между отправками
+        
         this.init();
     }
     
@@ -76,17 +83,36 @@ class Whiteboard {
         this.setupToolbar();
         this.loadBoardState();
         this.startAutoSave();
+        // Realtime STOMP подключение — в try-catch, чтобы ошибка не ломала всю доску
+        try { this.connectRealtimeStomp(); } catch (e) { console.warn('Whiteboard: STOMP init error:', e); }
     }
     
     setupCanvas() {
         const container = document.getElementById('boardContainer');
         const resizeCanvas = () => {
-            this.canvas.width = container.clientWidth;
-            this.canvas.height = container.clientHeight;
-            this.redraw();
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            if (w > 0 && h > 0 && (this.canvas.width !== w || this.canvas.height !== h)) {
+                this.canvas.width = w;
+                this.canvas.height = h;
+                this.redraw();
+            }
         };
         
+        // Начальный размер
         resizeCanvas();
+        
+        // Fallback: при flex-раскладке размеры могут быть 0 на DOMContentLoaded
+        // — повторяем после того как браузер закончит layout
+        requestAnimationFrame(() => resizeCanvas());
+        // И ещё раз на window.load (все ресурсы загружены)
+        window.addEventListener('load', () => resizeCanvas());
+        
+        // ResizeObserver — надёжнее всего: реагирует когда контейнер получает размеры
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(() => resizeCanvas()).observe(container);
+        }
+        
         window.addEventListener('resize', resizeCanvas);
     }
     
@@ -739,6 +765,12 @@ class Whiteboard {
         
         if (this.currentTool === 'draw') {
             this.currentPath = [{ x, y }];
+            this._lastBroadcastPathIndex = 0;
+            this.broadcastDrawImmediate({
+                type: 'path-start',
+                strokeColor: this.strokeColor,
+                strokeWidth: this.strokeWidth
+            });
             return;
         }
         
@@ -773,8 +805,15 @@ class Whiteboard {
         if (this.isDragging && this.selectedElement) {
             this.selectedElement.x = x - this.dragOffset.x;
             this.selectedElement.y = y - this.dragOffset.y;
-            if (this.selectedElement.id && this.localElements.has(this.selectedElement.id)) {
+            if (this.selectedElement.id) {
                 this.selectedElement.timestamp = Date.now();
+                // Транслируем перемещение собеседнику
+                this.broadcastDraw({
+                    type: 'move-progress',
+                    elementId: this.selectedElement.id,
+                    x: this.selectedElement.x,
+                    y: this.selectedElement.y
+                });
             }
             this.redraw();
             return;
@@ -782,6 +821,8 @@ class Whiteboard {
         
         if (this.currentTool === 'draw') {
             this.currentPath.push({ x, y });
+            // Отправляем новые точки собеседнику (с throttle)
+            this._broadcastPathBatch();
             // Полный перерисов + текущий путь (для корректной работы с трансформацией)
             this.redraw();
             this.drawCurrentPath();
@@ -796,6 +837,20 @@ class Whiteboard {
         if (this.currentElement) {
             this.currentElement.width = x - this.startX;
             this.currentElement.height = y - this.startY;
+            // Отправляем форму собеседнику
+            this.broadcastDraw({
+                type: 'shape-progress',
+                element: {
+                    type: this.currentElement.type,
+                    x: this.currentElement.x,
+                    y: this.currentElement.y,
+                    width: this.currentElement.width,
+                    height: this.currentElement.height,
+                    strokeColor: this.currentElement.strokeColor,
+                    fillColor: this.currentElement.fillColor,
+                    strokeWidth: this.currentElement.strokeWidth
+                }
+            });
             this.redraw();
             // Рисуем текущий элемент с трансформацией
             this.ctx.save();
@@ -812,7 +867,17 @@ class Whiteboard {
         this.isDrawing = false;
         this.isDragging = false;
         
+        let createdElementId = null;
+        
         if (this.currentTool === 'draw' && this.currentPath.length > 0) {
+            // Очищаем pending таймер и отправляем оставшиеся точки
+            if (this._pathBatchTimer) { clearTimeout(this._pathBatchTimer); this._pathBatchTimer = null; }
+            const fromIdx = this._lastBroadcastPathIndex || 0;
+            const remaining = this.currentPath.slice(fromIdx);
+            if (remaining.length > 0) {
+                this.broadcastDrawImmediate({ type: 'path-progress', points: remaining });
+            }
+            
             const now = Date.now();
             const newElement = {
                 type: 'path',
@@ -826,6 +891,8 @@ class Whiteboard {
             this.localElements.add(newElement.id);
             this.saveToHistory();
             this.currentPath = [];
+            this._lastBroadcastPathIndex = 0;
+            createdElementId = newElement.id;
         }
         
         if (this.currentElement && (this.currentElement.width !== 0 || this.currentElement.height !== 0)) {
@@ -835,7 +902,13 @@ class Whiteboard {
             this.elements.push(this.currentElement);
             this.localElements.add(this.currentElement.id);
             this.saveToHistory();
+            createdElementId = this.currentElement.id;
             this.currentElement = null;
+        }
+        
+        // Сообщаем собеседнику, что рисование завершено (включаем ID элемента)
+        if (createdElementId !== null) {
+            this.broadcastDrawImmediate({ type: 'draw-done', elementId: createdElementId });
         }
         
         this.redraw();
@@ -874,12 +947,14 @@ class Whiteboard {
             }
         });
         
+        const removedIds = elementsToRemove.map(r => r.id);
         elementsToRemove.reverse().forEach(removed => {
             this.elements.splice(removed.index, 1);
             this.localElements.delete(removed.id);
         });
         
         if (elementsToRemove.length > 0) {
+            this.broadcastDrawImmediate({ type: 'erase', ids: removedIds });
             this.saveToHistory();
             this.redraw();
             this.scheduleSave();
@@ -1212,6 +1287,9 @@ class Whiteboard {
         }
         
         ctx.restore();
+        
+        // Рисуем то, что рисует собеседник прямо сейчас
+        this.drawRemoteDrawing();
     }
     
     drawSelection(element) {
@@ -1320,6 +1398,187 @@ class Whiteboard {
         this.syncInterval = setInterval(() => {
             this.syncBoardState();
         }, 1000);
+    }
+    
+    // ===== Realtime drawing via STOMP =====
+    
+    connectRealtimeStomp() {
+        // SockJS / Stomp загружаются из CDN на странице whiteboard-board.html
+        if (typeof SockJS === 'undefined' || typeof Stomp === 'undefined') {
+            console.warn('Whiteboard: SockJS/Stomp не загружены — realtime отключён');
+            return;
+        }
+        try {
+            const socket = new SockJS('/ws');
+            this.stompClient = Stomp.over(socket);
+            // Отключаем debug-логи (noop-функция, null вызывает TypeError)
+            this.stompClient.debug = function() {};
+            
+            this.stompClient.connect({}, () => {
+                console.log('Whiteboard: STOMP realtime подключён');
+                this.stompClient.subscribe(`/topic/whiteboard/${this.lessonId}`, (msg) => {
+                    try {
+                        const data = JSON.parse(msg.body);
+                        if (String(data.senderId) === String(this.currentUserId)) return;
+                        this.handleRemoteDraw(data);
+                    } catch (e) {
+                        console.warn('Whiteboard: ошибка обработки сообщения:', e);
+                    }
+                });
+            }, (err) => {
+                console.warn('Whiteboard: STOMP ошибка подключения:', err);
+                // Переподключение
+                setTimeout(() => {
+                    try { this.connectRealtimeStomp(); } catch (e) { /* ignore */ }
+                }, 5000);
+            });
+        } catch (e) {
+            console.warn('Whiteboard: не удалось инициализировать STOMP:', e);
+        }
+    }
+    
+    /** Отправить событие рисования (с throttle) */
+    broadcastDraw(data) {
+        const now = Date.now();
+        if (now - this.lastBroadcastTime < this.broadcastThrottle) return;
+        this.lastBroadcastTime = now;
+        if (!this.stompClient || !this.stompClient.connected) return;
+        data.senderId = this.currentUserId;
+        this.stompClient.send(`/app/whiteboard/draw/${this.lessonId}`, {}, JSON.stringify(data));
+    }
+    
+    /** Отправить немедленно (для draw-done и т.п.) */
+    broadcastDrawImmediate(data) {
+        if (!this.stompClient || !this.stompClient.connected) return;
+        data.senderId = this.currentUserId;
+        this.stompClient.send(`/app/whiteboard/draw/${this.lessonId}`, {}, JSON.stringify(data));
+    }
+    
+    /** Отправить накопленные точки пути (с throttle) */
+    _broadcastPathBatch() {
+        const now = Date.now();
+        if (now - this.lastBroadcastTime < this.broadcastThrottle) {
+            // Планируем отправку оставшегося через остаток throttle
+            if (!this._pathBatchTimer) {
+                this._pathBatchTimer = setTimeout(() => {
+                    this._pathBatchTimer = null;
+                    this._broadcastPathBatch();
+                }, this.broadcastThrottle);
+            }
+            return;
+        }
+        const fromIdx = this._lastBroadcastPathIndex || 0;
+        if (fromIdx >= this.currentPath.length) return;
+        const newPoints = this.currentPath.slice(fromIdx);
+        this.lastBroadcastTime = now;
+        this._lastBroadcastPathIndex = this.currentPath.length;
+        if (!this.stompClient || !this.stompClient.connected) return;
+        const data = { type: 'path-progress', points: newPoints, senderId: this.currentUserId };
+        this.stompClient.send(`/app/whiteboard/draw/${this.lessonId}`, {}, JSON.stringify(data));
+    }
+    
+    /** Обработать входящее событие рисования от собеседника */
+    handleRemoteDraw(data) {
+        switch (data.type) {
+            case 'path-start':
+                this.remoteDrawPath = [];
+                this.remoteDrawing = {
+                    type: 'path',
+                    strokeColor: data.strokeColor || '#000000',
+                    strokeWidth: data.strokeWidth || 2
+                };
+                break;
+                
+            case 'path-progress':
+                if (data.points && data.points.length) {
+                    this.remoteDrawPath.push(...data.points);
+                    this.redraw();
+                }
+                break;
+                
+            case 'shape-progress':
+                this.remoteDrawing = data.element;
+                this.redraw();
+                break;
+                
+            case 'draw-done':
+                // Превращаем превью в настоящий элемент — без паузы
+                if (this.remoteDrawing) {
+                    const now = Date.now();
+                    if (this.remoteDrawing.type === 'path' && this.remoteDrawPath.length > 1) {
+                        this.elements.push({
+                            type: 'path',
+                            points: [...this.remoteDrawPath],
+                            strokeColor: this.remoteDrawing.strokeColor,
+                            strokeWidth: this.remoteDrawing.strokeWidth,
+                            id: data.elementId || (now + Math.random()),
+                            timestamp: now
+                        });
+                    } else if (this.remoteDrawing.type && this.remoteDrawing.type !== 'path') {
+                        this.elements.push({
+                            ...this.remoteDrawing,
+                            id: data.elementId || (now + Math.random()),
+                            timestamp: now
+                        });
+                    }
+                }
+                this.remoteDrawing = null;
+                this.remoteDrawPath = [];
+                this.redraw();
+                // Синхронизация подтянет «канонический» элемент с сервера
+                // и merge заменит наш локально созданный
+                this.syncBoardState();
+                break;
+                
+            case 'erase':
+                if (data.ids && data.ids.length) {
+                    const idsSet = new Set(data.ids);
+                    this.elements = this.elements.filter(el => !idsSet.has(el.id));
+                    this.redraw();
+                }
+                break;
+                
+            case 'move-progress':
+                if (data.elementId != null) {
+                    const el = this.elements.find(e => e.id === data.elementId);
+                    if (el) {
+                        el.x = data.x;
+                        el.y = data.y;
+                        el.timestamp = Date.now();
+                        this.redraw();
+                    }
+                }
+                break;
+        }
+    }
+    
+    /** Рисует то, что рисует собеседник прямо сейчас */
+    drawRemoteDrawing() {
+        if (!this.remoteDrawing) return;
+        
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(this.panX, this.panY);
+        ctx.scale(this.zoom, this.zoom);
+        
+        if (this.remoteDrawing.type === 'path' && this.remoteDrawPath.length > 1) {
+            ctx.beginPath();
+            ctx.strokeStyle = this.remoteDrawing.strokeColor;
+            ctx.lineWidth = this.remoteDrawing.strokeWidth;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.globalAlpha = 0.7;
+            ctx.moveTo(this.remoteDrawPath[0].x, this.remoteDrawPath[0].y);
+            for (let i = 1; i < this.remoteDrawPath.length; i++) {
+                ctx.lineTo(this.remoteDrawPath[i].x, this.remoteDrawPath[i].y);
+            }
+            ctx.stroke();
+        } else if (this.remoteDrawing.type && this.remoteDrawing.type !== 'path') {
+            ctx.globalAlpha = 0.6;
+            this.drawElement(ctx, this.remoteDrawing);
+        }
+        
+        ctx.restore();
     }
     
     async syncBoardState() {
@@ -1592,5 +1851,21 @@ function closeBoard() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    whiteboard = new Whiteboard();
+    try {
+        whiteboard = new Whiteboard();
+    } catch (e) {
+        console.error('Whiteboard: ошибка инициализации:', e);
+        // Пробуем показать хотя бы пустую доску
+        try {
+            const canvas = document.getElementById('whiteboardCanvas');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                const container = document.getElementById('boardContainer');
+                canvas.width = container.clientWidth;
+                canvas.height = container.clientHeight;
+                ctx.fillStyle = '#fafafa';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        } catch (_) {}
+    }
 });

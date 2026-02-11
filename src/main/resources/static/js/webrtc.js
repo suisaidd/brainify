@@ -41,19 +41,26 @@
 
     // ──── Инициализация при загрузке ────
     document.addEventListener('DOMContentLoaded', () => {
-        lessonId = document.getElementById('lessonId')?.value;
-        currentUserId = document.getElementById('currentUserId')?.value;
-        currentUserName = document.getElementById('currentUserName')?.value;
+        try {
+            lessonId = document.getElementById('lessonId')?.value;
+            currentUserId = document.getElementById('currentUserId')?.value;
+            currentUserName = document.getElementById('currentUserName')?.value;
 
-        if (!lessonId || !currentUserId) {
-            console.warn('WebRTC: нет lessonId или currentUserId');
-            return;
+            if (!lessonId || !currentUserId) {
+                console.warn('WebRTC: нет lessonId или currentUserId');
+                return;
+            }
+
+            initPanel();
+            startLocalMedia().then(() => {
+                connectStomp();
+            }).catch(e => {
+                console.warn('WebRTC: ошибка запуска медиа:', e);
+                connectStomp();
+            });
+        } catch (e) {
+            console.error('WebRTC: ошибка инициализации:', e);
         }
-
-        initPanel();
-        startLocalMedia().then(() => {
-            connectStomp();
-        });
     });
 
     // ════════════════════════════════════════
@@ -112,22 +119,29 @@
     // ════════════════════════════════════════
 
     function connectStomp() {
-        const socket = new SockJS('/ws');
-        stompClient = Stomp.over(socket);
-        stompClient.debug = null;
+        try {
+            const socket = new SockJS('/ws');
+            stompClient = Stomp.over(socket);
+            stompClient.debug = function() {};
 
-        stompClient.connect({}, () => {
-            console.log('WebRTC: STOMP подключён');
-            stompClient.subscribe(`/topic/webrtc/${lessonId}`, (message) => {
-                const signal = JSON.parse(message.body);
-                if (String(signal.senderId) === String(currentUserId)) return;
-                handleSignal(signal);
+            stompClient.connect({}, () => {
+                console.log('WebRTC: STOMP подключён');
+                stompClient.subscribe(`/topic/webrtc/${lessonId}`, (message) => {
+                    try {
+                        const signal = JSON.parse(message.body);
+                        if (String(signal.senderId) === String(currentUserId)) return;
+                        handleSignal(signal);
+                    } catch (e) { console.warn('WebRTC: ошибка обработки сигнала:', e); }
+                });
+                sendSignal({ type: 'join', name: currentUserName });
+            }, (err) => {
+                console.error('WebRTC: STOMP ошибка', err);
+                setTimeout(connectStomp, 5000);
             });
-            sendSignal({ type: 'join', name: currentUserName });
-        }, (err) => {
-            console.error('WebRTC: STOMP ошибка', err);
+        } catch (e) {
+            console.warn('WebRTC: не удалось подключить STOMP:', e);
             setTimeout(connectStomp, 5000);
-        });
+        }
     }
 
     function sendSignal(data) {

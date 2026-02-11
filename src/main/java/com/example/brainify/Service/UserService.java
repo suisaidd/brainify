@@ -136,6 +136,39 @@ public class UserService {
         return page.getContent();
     }
     
+    // ==================== МЕТОДЫ ДЛЯ РАБОТЫ С КУПЛЕННЫМИ КУРСАМИ ====================
+    
+    // Получить купленные курсы пользователя
+    public List<Subject> getUserPurchasedCourses(Long userId) throws Exception {
+        User user = getUserById(userId);
+        return user.getPurchasedCourses().stream().toList();
+    }
+    
+    // Назначить купленные курсы пользователю
+    @Transactional
+    public void assignCoursesToUser(Long userId, List<Long> courseIds) throws Exception {
+        User user = getUserById(userId);
+        
+        // Очищаем текущие курсы
+        user.getPurchasedCourses().clear();
+        
+        // Добавляем новые курсы
+        for (Long courseId : courseIds) {
+            Subject subject = subjectRepository.findById(courseId).orElse(null);
+            if (subject != null && subject.getIsActive()) {
+                user.addPurchasedCourse(subject);
+            }
+        }
+        
+        userRepository.save(user);
+    }
+    
+    // Проверить, купил ли пользователь курс
+    public boolean hasUserPurchasedCourse(Long userId, Long subjectId) throws Exception {
+        User user = getUserById(userId);
+        return user.hasPurchasedCourse(subjectId);
+    }
+    
     // Обновить количество занятий у ученика
     @Transactional
     public void updateStudentLessons(Long userId, Integer remainingLessons) throws Exception {

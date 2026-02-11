@@ -1356,4 +1356,134 @@ function forceShowLoginButtons() {
     });
     
     console.log('Кнопки входа принудительно показаны');
+}
+
+// ==================== Перехват клика на «Карта подготовки» для неавторизованных ====================
+
+(function() {
+    // Перехват клика на кнопку «Карта подготовки»
+    const studyMapBtn = document.getElementById('studyMapBtn');
+    if (studyMapBtn) {
+        studyMapBtn.addEventListener('click', function(e) {
+            // Если пользователь авторизован — пропускаем, переходим по ссылке
+            if (document.body.classList.contains('user-authenticated')) return;
+
+            // Блокируем переход
+            e.preventDefault();
+            showStudyMapAuthModal();
+        });
+    }
+
+    // Если перенаправили с защищённой страницы — показываем модальное окно
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('authRequired') === 'true') {
+        // Убираем параметр из URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        // Показываем модальное окно с небольшой задержкой, чтобы страница успела отрисоваться
+        setTimeout(function() {
+            showStudyMapAuthModal();
+        }, 300);
+    }
+})();
+
+function showStudyMapAuthModal() {
+    // Удаляем предыдущее окно, если есть
+    const old = document.getElementById('studyMapAuthModal');
+    if (old) old.remove();
+
+    // Добавляем стили (один раз)
+    if (!document.getElementById('studyMapAuthStyles')) {
+        const style = document.createElement('style');
+        style.id = 'studyMapAuthStyles';
+        style.textContent = `
+            @keyframes smOverlayIn { from { opacity:0 } to { opacity:1 } }
+            @keyframes smCardIn   { from { opacity:0;transform:scale(0.9) translateY(30px) } to { opacity:1;transform:scale(1) translateY(0) } }
+            .sm-auth-overlay {
+                position:fixed;top:0;left:0;width:100%;height:100%;
+                background:rgba(0,0,0,0.55);backdrop-filter:blur(6px);
+                display:flex;align-items:center;justify-content:center;
+                z-index:9999;animation:smOverlayIn 0.25s ease;
+            }
+            .sm-auth-card {
+                background:#fff;border-radius:24px;padding:2.5rem 2rem;max-width:420px;width:90%;
+                box-shadow:0 25px 60px rgba(0,0,0,0.25);animation:smCardIn 0.3s ease;text-align:center;
+                font-family:'Nunito','Montserrat',sans-serif;
+            }
+            .sm-auth-icon {
+                width:72px;height:72px;border-radius:50%;margin:0 auto 1.5rem;
+                background:linear-gradient(135deg,#8b5cf6,#7c3aed);
+                display:flex;align-items:center;justify-content:center;
+            }
+            .sm-auth-icon i { font-size:1.8rem;color:#fff; }
+            .sm-auth-card h3 { margin:0 0 0.5rem;font-size:1.4rem;font-weight:700;color:#1e293b; }
+            .sm-auth-card p.sm-desc { margin:0 0 2rem;color:#64748b;font-size:0.95rem;line-height:1.5; }
+            .sm-auth-actions { display:flex;flex-direction:column;gap:0.75rem; }
+            .sm-auth-btn-primary {
+                display:flex;align-items:center;justify-content:center;gap:0.5rem;
+                padding:0.9rem 1.5rem;border-radius:14px;font-weight:700;font-size:1rem;
+                text-decoration:none;color:#fff;
+                background:linear-gradient(135deg,#8b5cf6,#7c3aed);
+                box-shadow:0 4px 15px rgba(139,92,246,0.35);
+                transition:transform 0.2s ease,box-shadow 0.2s ease;
+            }
+            .sm-auth-btn-primary:hover {
+                transform:translateY(-2px);box-shadow:0 8px 25px rgba(139,92,246,0.4);
+            }
+            .sm-auth-btn-secondary {
+                display:flex;align-items:center;justify-content:center;gap:0.5rem;
+                padding:0.9rem 1.5rem;border-radius:14px;font-weight:700;font-size:1rem;
+                text-decoration:none;color:#7c3aed;
+                background:#f5f3ff;border:2px solid #e9e5ff;
+                transition:transform 0.2s ease,background 0.2s ease;
+            }
+            .sm-auth-btn-secondary:hover {
+                transform:translateY(-2px);background:#ede9fe;
+            }
+            .sm-auth-close {
+                margin-top:1.5rem;background:none;border:none;color:#94a3b8;
+                font-size:0.9rem;cursor:pointer;padding:0.5rem;transition:color 0.2s ease;
+            }
+            .sm-auth-close:hover { color:#64748b; }
+        `;
+        document.head.appendChild(style);
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'studyMapAuthModal';
+    overlay.className = 'sm-auth-overlay';
+
+    overlay.innerHTML = `
+        <div class="sm-auth-card">
+            <div class="sm-auth-icon">
+                <i class="fas fa-lock"></i>
+            </div>
+            <h3>Доступ к карте подготовки</h3>
+            <p class="sm-desc">Для доступа к курсам и карте подготовки необходимо войти в аккаунт или зарегистрироваться</p>
+            <div class="sm-auth-actions">
+                <a href="/auth/login" class="sm-auth-btn-primary">
+                    <i class="fas fa-sign-in-alt"></i> Войти
+                </a>
+                <a href="/auth/register" class="sm-auth-btn-secondary">
+                    <i class="fas fa-user-plus"></i> Зарегистрироваться
+                </a>
+            </div>
+            <button class="sm-auth-close" id="studyMapAuthClose">Закрыть</button>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Закрытие по кнопке «Закрыть»
+    document.getElementById('studyMapAuthClose').addEventListener('click', function() {
+        overlay.remove();
+    });
+
+    // Закрытие по клику на оверлей
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) overlay.remove();
+    });
+
+    // Закрытие по Escape
+    function onEsc(e) { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onEsc); } }
+    document.addEventListener('keydown', onEsc);
 } 

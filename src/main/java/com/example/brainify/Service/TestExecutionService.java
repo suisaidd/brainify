@@ -36,8 +36,20 @@ public class TestExecutionService {
         return testQuestionRepository.findByTemplateOrderByDisplayOrderAsc(template);
     }
 
+    /**
+     * Оценить попытку. answers — карта questionId -> ответ текстом.
+     * drawingAnswers — карта questionId -> base64 PNG (для развёрнутых ответов).
+     */
     @Transactional
-    public StudentTestAttempt evaluateAttempt(User student, Long assignmentId, Map<Long, String> answers) {
+    public StudentTestAttempt evaluateAttempt(User student, Long assignmentId,
+                                              Map<Long, String> answers) {
+        return evaluateAttempt(student, assignmentId, answers, Collections.emptyMap());
+    }
+
+    @Transactional
+    public StudentTestAttempt evaluateAttempt(User student, Long assignmentId,
+                                              Map<Long, String> answers,
+                                              Map<Long, String> drawingAnswers) {
         if (answers == null || answers.isEmpty()) {
             throw new IllegalArgumentException("Ответы отсутствуют");
         }
@@ -52,32 +64,51 @@ public class TestExecutionService {
 
         int totalQuestions = questions.size();
         int correctAnswers = 0;
+        boolean hasExtended = false;
 
         List<Map<String, Object>> attemptAnswers = new ArrayList<>();
 
         for (TestQuestion question : questions) {
             String userAnswer = answers.getOrDefault(question.getId(), "");
-            boolean isCorrect = compareAnswers(question.getCorrectAnswer(), userAnswer);
-            if (isCorrect) {
-                correctAnswers++;
-            }
+            boolean isExtended = Boolean.TRUE.equals(question.getIsExtendedAnswer());
 
             Map<String, Object> answerInfo = new HashMap<>();
             answerInfo.put("questionId", question.getId());
             answerInfo.put("questionNumber", question.getQuestionNumber());
-            answerInfo.put("userAnswer", userAnswer);
-            answerInfo.put("correctAnswer", question.getCorrectAnswer());
-            answerInfo.put("isCorrect", isCorrect);
+            answerInfo.put("isExtendedAnswer", isExtended);
+
+            if (isExtended) {
+                hasExtended = true;
+                // Развёрнутые ответы проверяет учитель
+                String drawingData = drawingAnswers != null
+                        ? drawingAnswers.getOrDefault(question.getId(), "") : "";
+                answerInfo.put("userAnswer", userAnswer);
+                answerInfo.put("drawingData", drawingData);
+                answerInfo.put("correctAnswer", question.getCorrectAnswer());
+                answerInfo.put("isCorrect", false); // Ожидает проверки учителем
+                answerInfo.put("teacherGrade", null);
+            } else {
+                boolean isCorrect = compareAnswers(question.getCorrectAnswer(), userAnswer);
+                if (isCorrect) {
+                    correctAnswers++;
+                }
+                answerInfo.put("userAnswer", userAnswer);
+                answerInfo.put("correctAnswer", question.getCorrectAnswer());
+                answerInfo.put("isCorrect", isCorrect);
+            }
+
             attemptAnswers.add(answerInfo);
         }
 
-        double scorePercentage = ((double) correctAnswers / (double) totalQuestions) * 100.0;
+        double scorePercentage = totalQuestions > 0
+                ? ((double) correctAnswers / (double) totalQuestions) * 100.0 : 0.0;
 
         StudentTestAttempt attempt = new StudentTestAttempt();
         attempt.setStudentTest(assignment);
         attempt.setTotalQuestions(totalQuestions);
         attempt.setCorrectAnswers(correctAnswers);
         attempt.setScorePercentage(Math.round(scorePercentage * 10.0) / 10.0);
+        attempt.setIsReviewed(!hasExtended); // Автоматически проверен если нет развёрнутых
         attempt.setSubmittedAt(LocalDateTime.now());
         try {
             attempt.setAnswersJson(objectMapper.writeValueAsString(attemptAnswers));
@@ -95,13 +126,8 @@ public class TestExecutionService {
     }
 
     private boolean compareAnswers(String correct, String userAnswer) {
-        if (correct == null) {
-            return false;
-        }
-        if (userAnswer == null) {
-            return false;
-        }
+        if (correct == null) return false;
+        if (userAnswer == null) return false;
         return correct.trim().equalsIgnoreCase(userAnswer.trim());
     }
 }
-

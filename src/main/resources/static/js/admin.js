@@ -49,6 +49,16 @@ function initEventListeners() {
             closeLessonsModal();
         }
     });
+    
+    // Закрытие модального окна курсов по клику вне его
+    const coursesModal = document.getElementById('coursesModal');
+    if (coursesModal) {
+        coursesModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeCoursesModal();
+            }
+        });
+    }
 }
 
 // Форматирование ввода телефона
@@ -178,6 +188,18 @@ function createUserRow(user) {
                     <button class="btn btn-warning" onclick="openLessonsModal(${user.id}, '${user.name}', '${user.email}', ${user.remainingLessons || 0})" style="padding: 0.5rem 1rem; font-size: 0.75rem;">
                         <i class="fas fa-calendar-alt"></i>
                         Занятия
+                    </button>
+                ` : ''}
+                ${user.role === 'STUDENT' ? `
+                    <button class="btn btn-info" onclick="openStudentTestsModal(${user.id}, '${escapeSingleQuotes(user.name)}', '${escapeSingleQuotes(user.email)}')" style="padding: 0.5rem 1rem; font-size: 0.75rem; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none;">
+                        <i class="fas fa-clipboard-list"></i>
+                        Тесты
+                    </button>
+                ` : ''}
+                ${user.role === 'STUDENT' ? `
+                    <button class="btn" onclick="openCoursesModal(${user.id}, '${escapeSingleQuotes(user.name)}', '${escapeSingleQuotes(user.email)}')" style="padding: 0.5rem 1rem; font-size: 0.75rem; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none;">
+                        <i class="fas fa-graduation-cap"></i>
+                        Курсы
                     </button>
                 ` : ''}
                 ${(user.role === 'TEACHER' || user.role === 'STUDENT') ? `
@@ -916,4 +938,210 @@ async function saveStudentLessons() {
         saveBtn.innerHTML = '<i class="fas fa-save"></i> Сохранить';
         saveBtn.disabled = false;
     }
-} 
+}
+
+// ==================== ФУНКЦИИ ДЛЯ ПРОСМОТРА ТЕСТОВ УЧЕНИКА ====================
+
+function escapeSingleQuotes(str) {
+    return (str || '').replace(/'/g, "\\'");
+}
+
+// Открытие модального окна с тестами ученика
+async function openStudentTestsModal(studentId, studentName, studentEmail) {
+    document.getElementById('testsModalStudentName').textContent = studentName;
+    document.getElementById('testsModalStudentEmail').textContent = studentEmail;
+
+    const modal = document.getElementById('studentTestsModal');
+    const body = document.getElementById('studentTestsBody');
+    body.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;"><span class="loading"></span> Загрузка тестов...</div>';
+    modal.classList.add('show');
+
+    try {
+        const response = await fetch(`/test-builder/api/student/${studentId}/attempts`);
+        if (!response.ok) throw new Error('Ошибка загрузки');
+        const tests = await response.json();
+
+        if (!tests || tests.length === 0) {
+            body.innerHTML = `
+                <div style="text-align:center;padding:2rem;color:#94a3b8;">
+                    <i class="fas fa-inbox" style="font-size:2rem;display:block;margin-bottom:0.75rem;opacity:.5;"></i>
+                    <p>У этого ученика пока нет назначенных тестов.</p>
+                </div>`;
+            return;
+        }
+
+        body.innerHTML = `
+            <table class="student-tests-table">
+                <thead>
+                    <tr>
+                        <th>Тест</th>
+                        <th>Предмет</th>
+                        <th>Статус</th>
+                        <th>Результат</th>
+                        <th>Дата</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tests.map(t => renderStudentTestRow(t)).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (e) {
+        body.innerHTML = '<div style="text-align:center;padding:2rem;color:#e53935;">Не удалось загрузить тесты</div>';
+    }
+}
+
+function renderStudentTestRow(t) {
+    const statusMap = {
+        'ASSIGNED': '<span class="st-badge st-assigned">Назначен</span>',
+        'COMPLETED': '<span class="st-badge st-completed">Пройден</span>',
+        'IN_PROGRESS': '<span class="st-badge st-progress">В процессе</span>'
+    };
+    const status = statusMap[t.status] || `<span class="st-badge">${t.status}</span>`;
+
+    let result = '—';
+    if (t.scorePercentage !== undefined && t.scorePercentage !== null) {
+        const pct = t.scorePercentage;
+        const color = pct >= 70 ? '#4CAF50' : pct >= 40 ? '#ff9800' : '#e53935';
+        result = `<span style="font-weight:700;color:${color};">${t.correctAnswers}/${t.totalQuestions} (${pct}%)</span>`;
+        if (t.isReviewed === false) {
+            result += ' <span style="font-size:0.7rem;color:#ff9800;">⏳ Ждёт проверки</span>';
+        }
+    }
+
+    const date = t.submittedAt ? formatDate(t.submittedAt) : (t.assignedAt ? formatDate(t.assignedAt) : '—');
+
+    const reviewBtn = t.attemptId
+        ? `<a href="/test-builder/review/${t.attemptId}" class="btn btn-primary" style="padding:0.35rem 0.75rem;font-size:0.7rem;text-decoration:none;display:inline-flex;align-items:center;gap:4px;" target="_blank"><i class="fas fa-eye"></i> Подробнее</a>`
+        : '';
+
+    return `
+        <tr>
+            <td style="font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.testTitle || 'Без названия'}</td>
+            <td style="color:#667eea;font-weight:500;">${t.subjectName || '—'}</td>
+            <td>${status}</td>
+            <td>${result}</td>
+            <td style="color:#94a3b8;font-size:0.8rem;white-space:nowrap;">${date}</td>
+            <td>${reviewBtn}</td>
+        </tr>
+    `;
+}
+
+function closeStudentTestsModal() {
+    document.getElementById('studentTestsModal').classList.remove('show');
+}
+
+// ==================== ФУНКЦИИ ДЛЯ РАБОТЫ С КУРСАМИ УЧЕНИКА ====================
+
+let currentCourseStudent = null;
+
+// Открытие модального окна для назначения курсов
+async function openCoursesModal(userId, userName, userEmail) {
+    try {
+        currentCourseStudent = { id: userId, name: userName, email: userEmail };
+        
+        document.getElementById('coursesModalStudentName').textContent = userName;
+        document.getElementById('coursesModalStudentEmail').textContent = userEmail;
+        
+        // Загружаем текущие курсы ученика
+        const response = await fetch(`/admin-role/api/users/${userId}/courses`);
+        let studentCourses = [];
+        if (response.ok) {
+            studentCourses = await response.json();
+        }
+        
+        // Создаем список курсов с чекбоксами
+        const coursesList = document.getElementById('coursesList');
+        coursesList.innerHTML = '';
+        
+        if (allSubjects.length === 0) {
+            coursesList.innerHTML = '<div style="padding: 1rem; text-align: center; color: #666;">Нет доступных курсов</div>';
+        } else {
+            allSubjects.forEach(subject => {
+                const isSelected = studentCourses.some(c => c.id === subject.id);
+                
+                const courseDiv = document.createElement('div');
+                courseDiv.className = `subject-checkbox ${isSelected ? 'selected' : ''}`;
+                
+                courseDiv.innerHTML = `
+                    <input type="checkbox" 
+                           id="course_${subject.id}" 
+                           value="${subject.id}" 
+                           ${isSelected ? 'checked' : ''}>
+                    <label for="course_${subject.id}">${subject.name}</label>
+                `;
+                
+                courseDiv.addEventListener('click', function(e) {
+                    if (e.target.type !== 'checkbox') {
+                        const checkbox = this.querySelector('input[type="checkbox"]');
+                        checkbox.checked = !checkbox.checked;
+                    }
+                    if (this.querySelector('input[type="checkbox"]').checked) {
+                        this.classList.add('selected');
+                    } else {
+                        this.classList.remove('selected');
+                    }
+                });
+                
+                coursesList.appendChild(courseDiv);
+            });
+        }
+        
+        document.getElementById('coursesModal').style.display = 'flex';
+        
+    } catch (error) {
+        console.error('Ошибка открытия модального окна курсов:', error);
+        showToast('Ошибка загрузки данных курсов', 'error');
+    }
+}
+
+// Закрытие модального окна курсов
+function closeCoursesModal() {
+    document.getElementById('coursesModal').style.display = 'none';
+    currentCourseStudent = null;
+    document.getElementById('coursesList').innerHTML = '';
+    document.getElementById('coursesModalStudentName').textContent = '';
+    document.getElementById('coursesModalStudentEmail').textContent = '';
+}
+
+// Сохранение курсов ученика
+async function saveStudentCourses() {
+    if (!currentCourseStudent) {
+        showToast('Ошибка: ученик не выбран', 'error');
+        return;
+    }
+    
+    try {
+        const selectedCheckboxes = document.querySelectorAll('#coursesList input[type="checkbox"]:checked');
+        const selectedCourseIds = Array.from(selectedCheckboxes).map(cb => parseInt(cb.value));
+        
+        const formData = new FormData();
+        if (selectedCourseIds.length > 0) {
+            selectedCourseIds.forEach(id => {
+                formData.append('courseIds', id);
+            });
+        } else {
+            // Если не выбрано ни одного — отправляем 0, который будет отфильтрован на сервере
+            formData.append('courseIds', '0');
+        }
+        
+        const response = await fetch(`/admin-role/api/users/${currentCourseStudent.id}/courses`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Ошибка сохранения курсов');
+        }
+        
+        const result = await response.json();
+        showToast(result.message || 'Курсы успешно назначены', 'success');
+        closeCoursesModal();
+        
+    } catch (error) {
+        console.error('Ошибка сохранения курсов:', error);
+        showToast('Ошибка сохранения курсов: ' + error.message, 'error');
+    }
+}

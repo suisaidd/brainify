@@ -40,6 +40,10 @@ public class TestTemplate {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 32)
+    private TestTemplateStatus status = TestTemplateStatus.DRAFT;
+
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
@@ -114,6 +118,14 @@ public class TestTemplate {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public TestTemplateStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(TestTemplateStatus status) {
+        this.status = status;
     }
 
     public Boolean getIsActive() {

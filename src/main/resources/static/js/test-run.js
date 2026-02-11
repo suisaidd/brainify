@@ -70,7 +70,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             function complete() {
-                const payload = Object.keys(answers).map(id => ({ taskId: parseInt(id), answer: answers[id] || '' }));
+                // Отправляем ответы на ВСЕ задания, даже если пользователь не ответил
+                const payload = questions.map(q => ({
+                    taskId: q.id,
+                    answer: answers[q.id] || ''
+                }));
                 fetch('/test/api/complete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

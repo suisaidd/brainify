@@ -696,13 +696,18 @@ function openStudentTestsModal(data) {
     } else {
         modalBody.innerHTML = `
             <div class="student-tests-results-list">
-                ${data.results.map(result => `
-                    <div class="student-test-result-card">
+                ${data.results.map(result => {
+                    const pct = Number(result.scorePercentage).toFixed(1);
+                    const needsReview = result.isReviewed === false;
+                    const reviewLabel = needsReview ? '<i class="fas fa-edit"></i> Проверить ответы' : '<i class="fas fa-eye"></i> Подробнее';
+                    return `
+                    <div class="student-test-result-card ${needsReview ? 'needs-review' : ''}">
                         <div class="student-test-result-header">
                             <h3>${result.templateTitle}</h3>
                             <span class="test-category-badge ${result.category === 'BASIC' ? 'basic' : 'intermediate'}">
                                 ${result.category === 'BASIC' ? 'Базовый тест' : 'Промежуточный тест'}
                             </span>
+                            ${needsReview ? '<span class="needs-review-badge"><i class="fas fa-clock"></i> Ждёт проверки</span>' : ''}
                         </div>
                         <div class="student-test-result-info">
                             <div class="result-info-item">
@@ -722,14 +727,15 @@ function openStudentTestsModal(data) {
                         </div>
                         <div class="student-test-result-score">
                             <div class="score-circle ${getScoreClass(result.scorePercentage)}">
-                                <span class="score-value">${Number(result.scorePercentage).toFixed(1)}%</span>
+                                <span class="score-value">${pct}%</span>
                             </div>
                             <div class="score-details">
                                 <span>${result.correctAnswers} из ${result.totalQuestions} правильных ответов</span>
+                                ${result.reviewUrl ? `<a href="${result.reviewUrl}" target="_blank" class="review-link-btn ${needsReview ? 'needs-review' : ''}">${reviewLabel}</a>` : ''}
                             </div>
                         </div>
-                    </div>
-                `).join('')}
+                    </div>`;
+                }).join('')}
             </div>
         `;
     }
@@ -3950,9 +3956,17 @@ async function loadTeacherTestsSection(forceReload = false) {
             await loadTeacherTestSubjects();
             initTeacherTestForm();
             teacherTestsInitialized = true;
+
+            // Bind refresh results button
+            const refreshResultsBtn = document.getElementById('refreshTeacherResults');
+            if (refreshResultsBtn && !refreshResultsBtn.dataset.bound) {
+                refreshResultsBtn.dataset.bound = 'true';
+                refreshResultsBtn.addEventListener('click', () => loadTeacherResults());
+            }
         }
 
         await loadTeacherIntermediateTests(forceReload);
+        loadTeacherResults();
     } catch (error) {
         console.error('Ошибка загрузки тестов преподавателя:', error);
         showToast('Не удалось загрузить тесты', 'error');
@@ -4045,18 +4059,18 @@ function initTeacherTestForm() {
                 throw new Error(result.error || 'Не удалось создать тест');
             }
 
-            showToast('Тест создан и назначен ученикам', 'success');
-            form.reset();
-            subjectSelect.selectedIndex = 0;
-            const studentsContainer = document.getElementById('teacherTestStudentsContainer');
-            if (studentsContainer) {
-                studentsContainer.innerHTML = '<div class="students-select-loading">Загрузка учеников...</div>';
-            }
+            showToast('Тест создан! Переход в конструктор...', 'success');
 
             const createdTemplateId = result.templateId;
-            await loadTeacherIntermediateTests(true);
             if (createdTemplateId) {
-                openTeacherTestModal(createdTemplateId);
+                // Переходим на страницу конструктора теста
+                setTimeout(() => {
+                    window.location.href = `/test-builder/${createdTemplateId}`;
+                }, 500);
+            } else {
+                form.reset();
+                subjectSelect.selectedIndex = 0;
+                await loadTeacherIntermediateTests(true);
             }
         } catch (error) {
             console.error('Ошибка создания теста преподавателя:', error);
@@ -4094,9 +4108,13 @@ async function loadStudentsForSubject(subjectId) {
         }
 
         container.innerHTML = `
+            <div class="students-search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" class="students-search-input" placeholder="Поиск по имени или email...">
+            </div>
             <div class="students-select-list">
                 ${students.map(student => `
-                    <label class="student-checkbox-item">
+                    <label class="student-checkbox-item" data-name="${(student.name || '').toLowerCase()}" data-email="${(student.email || '').toLowerCase()}">
                         <input type="checkbox" value="${student.id}" class="student-checkbox">
                         <span class="student-checkbox-label">
                             <strong>${student.name}</strong>
@@ -4111,6 +4129,19 @@ async function loadStudentsForSubject(subjectId) {
             </div>
         `;
 
+        // Поиск учеников
+        const searchInput = container.querySelector('.students-search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const q = searchInput.value.trim().toLowerCase();
+                container.querySelectorAll('.student-checkbox-item').forEach(item => {
+                    const name = item.dataset.name || '';
+                    const email = item.dataset.email || '';
+                    item.style.display = (!q || name.includes(q) || email.includes(q)) ? '' : 'none';
+                });
+            });
+        }
+
         // Обработчики для кнопок выбора всех/ничего
         const selectAllBtn = container.querySelector('.students-select-all-btn');
         const selectNoneBtn = container.querySelector('.students-select-none-btn');
@@ -4118,7 +4149,7 @@ async function loadStudentsForSubject(subjectId) {
 
         if (selectAllBtn) {
             selectAllBtn.addEventListener('click', () => {
-                checkboxes.forEach(cb => cb.checked = true);
+                container.querySelectorAll('.student-checkbox-item:not([style*="display: none"]) .student-checkbox').forEach(cb => cb.checked = true);
             });
         }
 
@@ -4207,10 +4238,10 @@ function renderTeacherTests(container, tests) {
                 <span>ID: ${test.id}</span>
             </div>
             <div class="teacher-test-actions">
-                <button class="lesson-btn primary teacher-test-manage" data-template-id="${test.id}">
-                    <i class="fas fa-plus"></i>
-                    Добавить номер
-                </button>
+                <a href="/test-builder/${test.id}" class="lesson-btn primary" style="text-decoration:none">
+                    <i class="fas fa-edit"></i>
+                    Редактировать
+                </a>
             </div>
         </div>
     `).join('');
@@ -4233,6 +4264,71 @@ function formatTeacherTestDate(date) {
         hour: '2-digit',
         minute: '2-digit'
     });
+}
+
+// ==================== РЕЗУЛЬТАТЫ УЧЕНИКОВ ====================
+
+async function loadTeacherResults() {
+    const container = document.getElementById('teacherResultsList');
+    if (!container) return;
+
+    container.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Загружаем результаты...</p></div>`;
+
+    try {
+        const response = await fetch('/api/teacher/tests/results');
+        if (!response.ok) throw new Error('Ошибка загрузки');
+        const students = await response.json();
+        renderTeacherResultsList(container, students);
+    } catch (e) {
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><h3>Не удалось загрузить</h3><p>Попробуйте обновить позже.</p></div>`;
+    }
+}
+
+function renderTeacherResultsList(container, students) {
+    if (!students || students.length === 0) {
+        container.innerHTML = `<div class="empty-state"><i class="fas fa-clipboard-check"></i><h3>Результатов пока нет</h3><p>Когда ученики пройдут ваши тесты, результаты появятся здесь.</p></div>`;
+        return;
+    }
+
+    container.innerHTML = students.map(student => {
+        const results = student.results || [];
+        const needsReviewCount = results.filter(r => r.isReviewed === false).length;
+
+        return `
+            <div class="tr-student-group">
+                <div class="tr-student-header">
+                    <div class="tr-student-avatar">${(student.studentName || '?').charAt(0).toUpperCase()}</div>
+                    <div class="tr-student-info">
+                        <strong>${student.studentName || 'Ученик'}</strong>
+                        <span>${student.studentEmail || ''}</span>
+                    </div>
+                    ${needsReviewCount > 0 ? `<span class="tr-needs-review-count"><i class="fas fa-clock"></i> ${needsReviewCount} ${needsReviewCount === 1 ? 'ответ' : 'ответов'} ждёт проверки</span>` : ''}
+                </div>
+                <div class="tr-student-results">
+                    ${results.map(r => {
+                        const pct = Number(r.scorePercentage || 0).toFixed(1);
+                        const needsReview = r.isReviewed === false;
+                        const scoreColor = needsReview ? '#ff9800' : (pct >= 70 ? '#4CAF50' : pct >= 40 ? '#ff9800' : '#e53935');
+                        return `
+                        <div class="tr-result-row ${needsReview ? 'needs-review' : ''}">
+                            <div class="tr-result-title">
+                                <strong>${r.templateTitle || 'Тест'}</strong>
+                                <span>${r.subjectName || ''}</span>
+                            </div>
+                            <div class="tr-result-score" style="color:${scoreColor}">
+                                ${r.correctAnswers}/${r.totalQuestions} (${pct}%)
+                            </div>
+                            <div class="tr-result-date">${formatTeacherTestDate(r.submittedAt)}</div>
+                            <div class="tr-result-action">
+                                ${needsReview
+                                    ? `<a href="${r.reviewUrl}" target="_blank" class="tr-review-btn needs-review"><i class="fas fa-edit"></i> Проверить</a>`
+                                    : (r.reviewUrl ? `<a href="${r.reviewUrl}" target="_blank" class="tr-review-btn"><i class="fas fa-eye"></i> Подробнее</a>` : '')}
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+    }).join('');
 }
 
 function initializeTeacherTestModal() {

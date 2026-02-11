@@ -62,10 +62,18 @@ public class StudentTestController {
         }
 
         List<StudentTest> basicAssignments = studentTestRepository
-                .findByStudentAndTemplate_CategoryOrderByAssignedAtDesc(student, TestTemplateCategory.BASIC);
+                .findByStudentAndTemplate_CategoryOrderByAssignedAtDesc(student, TestTemplateCategory.BASIC)
+                .stream()
+                .filter(a -> a.getTemplate().getStatus() == TestTemplateStatus.PUBLISHED
+                        || a.getTemplate().getStatus() == null) // null = старые тесты до миграции
+                .collect(Collectors.toList());
 
         List<StudentTest> intermediateAssignments = studentTestRepository
-                .findByStudentAndTemplate_CategoryOrderByAssignedAtDesc(student, TestTemplateCategory.INTERMEDIATE);
+                .findByStudentAndTemplate_CategoryOrderByAssignedAtDesc(student, TestTemplateCategory.INTERMEDIATE)
+                .stream()
+                .filter(a -> a.getTemplate().getStatus() == TestTemplateStatus.PUBLISHED
+                        || a.getTemplate().getStatus() == null)
+                .collect(Collectors.toList());
 
         Map<String, Object> response = Map.of(
                 "basicTests", basicAssignments.stream().map(this::mapAssignment).collect(Collectors.toList()),
@@ -135,18 +143,22 @@ public class StudentTestController {
         }
 
         Map<Long, String> answersMap = new HashMap<>();
+        Map<Long, String> drawingMap = new HashMap<>();
         for (Object element : answerList) {
             if (!(element instanceof Map<?, ?> answerData)) {
                 continue;
             }
             Object questionIdObj = answerData.get("questionId");
-            Object answerValueObj = answerData.get("answer");
-            if (questionIdObj == null || answerValueObj == null) {
-                continue;
-            }
+            if (questionIdObj == null) continue;
             Long questionId = Long.valueOf(questionIdObj.toString());
-            String answerValue = answerValueObj.toString();
-            answersMap.put(questionId, answerValue);
+
+            Object answerValueObj = answerData.get("answer");
+            answersMap.put(questionId, answerValueObj != null ? answerValueObj.toString() : "");
+
+            Object drawingDataObj = answerData.get("drawingData");
+            if (drawingDataObj != null && !drawingDataObj.toString().isBlank()) {
+                drawingMap.put(questionId, drawingDataObj.toString());
+            }
         }
 
         if (answersMap.isEmpty()) {
@@ -154,7 +166,7 @@ public class StudentTestController {
         }
 
         try {
-            StudentTestAttempt attempt = testExecutionService.evaluateAttempt(student, assignmentId, answersMap);
+            StudentTestAttempt attempt = testExecutionService.evaluateAttempt(student, assignmentId, answersMap, drawingMap);
             StudentTest assignment = testExecutionService.getAssignmentForStudent(student, assignmentId);
             return ResponseEntity.ok(Map.of(
                     "status", "success",
@@ -232,6 +244,7 @@ public class StudentTestController {
         data.put("questionText", question.getQuestionText());
         data.put("imageUrl", question.getImagePath() != null ? "/tests/media/" + question.getImagePath() : null);
         data.put("displayOrder", question.getDisplayOrder());
+        data.put("isExtendedAnswer", question.getIsExtendedAnswer());
         return data;
     }
 
@@ -246,6 +259,8 @@ public class StudentTestController {
         data.put("totalQuestions", attempt.getTotalQuestions());
         data.put("correctAnswers", attempt.getCorrectAnswers());
         data.put("scorePercentage", attempt.getScorePercentage());
+        data.put("isReviewed", attempt.getIsReviewed());
+        data.put("reviewUrl", "/test-builder/review/" + attempt.getId());
         return data;
     }
 }

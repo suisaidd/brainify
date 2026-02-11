@@ -1,12 +1,10 @@
 package com.example.brainify.Service;
 
-import com.example.brainify.Model.TestQuestion;
-import com.example.brainify.Model.TestTemplate;
-import com.example.brainify.Model.TestTemplateCategory;
-import com.example.brainify.Model.User;
-import com.example.brainify.Model.UserRole;
+import com.example.brainify.Model.*;
 import com.example.brainify.Repository.TestQuestionRepository;
 import com.example.brainify.Repository.TestTemplateRepository;
+import com.example.brainify.Repository.StudentTestRepository;
+import com.example.brainify.Repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,18 +20,20 @@ public class TestManagementService {
     @Autowired
     private TestQuestionRepository testQuestionRepository;
 
+    @Autowired
+    private StudentTestRepository studentTestRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    // studentTeacherRepository и subjectRepository — используются в publishTest косвенно через userRepository
+
     public TestTemplate getTemplateForAdmin(User user, Long templateId) {
-        if (user == null || user.getRole() != UserRole.ADMIN) {
+        if (user == null || (user.getRole() != UserRole.ADMIN && user.getRole() != UserRole.MANAGER)) {
             throw new IllegalArgumentException("Недостаточно прав для доступа к тесту");
         }
 
         return testTemplateRepository.findById(templateId)
-                .map(template -> {
-                    if (template.getCategory() != TestTemplateCategory.BASIC) {
-                        throw new IllegalArgumentException("Администратор может управлять только базовыми тестами");
-                    }
-                    return template;
-                })
                 .orElseThrow(() -> new IllegalArgumentException("Тест не найден"));
     }
 
@@ -44,10 +44,6 @@ public class TestManagementService {
 
         TestTemplate template = testTemplateRepository.findById(templateId)
                 .orElseThrow(() -> new IllegalArgumentException("Тест не найден"));
-
-        if (template.getCategory() != TestTemplateCategory.INTERMEDIATE) {
-            throw new IllegalArgumentException("Преподаватель может управлять только промежуточными тестами");
-        }
 
         if (!template.getCreatedBy().getId().equals(user.getId())) {
             throw new IllegalArgumentException("Вы не можете управлять чужим тестом");
@@ -75,6 +71,17 @@ public class TestManagementService {
                                     String questionText,
                                     String correctAnswer,
                                     String imagePath) {
+        return addQuestion(creator, templateId, questionNumber, questionText, correctAnswer, imagePath, false);
+    }
+
+    @Transactional
+    public TestQuestion addQuestion(User creator,
+                                    Long templateId,
+                                    String questionNumber,
+                                    String questionText,
+                                    String correctAnswer,
+                                    String imagePath,
+                                    boolean isExtendedAnswer) {
         TestTemplate template = resolveTemplateForCreator(creator, templateId);
 
         if (questionNumber == null || questionNumber.isBlank()) {
@@ -83,7 +90,8 @@ public class TestManagementService {
         if (questionText == null || questionText.isBlank()) {
             throw new IllegalArgumentException("Условие задания обязательно");
         }
-        if (correctAnswer == null || correctAnswer.isBlank()) {
+        // Для развёрнутого ответа правильный ответ не обязателен (оценивает учитель)
+        if (!isExtendedAnswer && (correctAnswer == null || correctAnswer.isBlank())) {
             throw new IllegalArgumentException("Ответ обязателен");
         }
 
@@ -91,7 +99,8 @@ public class TestManagementService {
         question.setTemplate(template);
         question.setQuestionNumber(questionNumber.trim());
         question.setQuestionText(questionText.trim());
-        question.setCorrectAnswer(correctAnswer.trim());
+        question.setCorrectAnswer(correctAnswer != null ? correctAnswer.trim() : "");
+        question.setIsExtendedAnswer(isExtendedAnswer);
         if (imagePath != null && !imagePath.isBlank()) {
             question.setImagePath(imagePath.trim());
         }
@@ -137,6 +146,74 @@ public class TestManagementService {
     public void deleteQuestion(User creator, Long questionId) {
         TestQuestion question = getQuestionForCreator(creator, questionId);
         testQuestionRepository.delete(question);
+    }
+
+    /**
+     * Изменить порядок заданий
+     */
+    @Transactional
+    public void reorderQuestions(User creator, Long templateId, List<Long> questionIdsInOrder) {
+        resolveTemplateForCreator(creator, templateId);
+        for (int i = 0; i < questionIdsInOrder.size(); i++) {
+            testQuestionRepository.findById(questionIdsInOrder.get(i)).ifPresent(q -> {
+                q.setDisplayOrder(questionIdsInOrder.indexOf(q.getId()) + 1);
+                testQuestionRepository.save(q);
+            });
+        }
+    }
+
+    /**
+     * Опубликовать тест — назначить ученикам
+     */
+    @Transactional
+    public TestTemplate publishTest(User creator, Long templateId, List<Long> studentIds) {
+        TestTemplate template = resolveTemplateForCreator(creator, templateId);
+
+        List<TestQuestion> questions = testQuestionRepository.findByTemplateOrderByDisplayOrderAsc(template);
+        if (questions.isEmpty()) {
+            throw new IllegalArgumentException("Невозможно опубликовать тест без заданий");
+        }
+
+        template.setStatus(TestTemplateStatus.PUBLISHED);
+        testTemplateRepository.save(template);
+
+        // Назначаем ученикам
+        if (studentIds != null && !studentIds.isEmpty()) {
+            for (Long studentId : studentIds) {
+                User student = userRepository.findById(studentId).orElse(null);
+                if (student == null || student.getRole() != UserRole.STUDENT) continue;
+
+                if (studentTestRepository.findByTemplateAndStudent(template, student).isEmpty()) {
+                    StudentTest assignment = new StudentTest();
+                    assignment.setTemplate(template);
+                    assignment.setStudent(student);
+                    assignment.setStatus(StudentTestStatus.NEW);
+                    studentTestRepository.save(assignment);
+                }
+            }
+        } else if (creator.getRole() == UserRole.ADMIN) {
+            // Для админа — назначаем всем ученикам по предмету
+            List<User> students = userRepository.findActiveByRoleAndSubject(
+                    UserRole.STUDENT, template.getSubject().getId());
+            for (User student : students) {
+                if (studentTestRepository.findByTemplateAndStudent(template, student).isEmpty()) {
+                    StudentTest assignment = new StudentTest();
+                    assignment.setTemplate(template);
+                    assignment.setStudent(student);
+                    assignment.setStatus(StudentTestStatus.NEW);
+                    studentTestRepository.save(assignment);
+                }
+            }
+        }
+
+        return template;
+    }
+
+    /**
+     * Получить шаблон для создателя (админ или учитель)
+     */
+    public TestTemplate getTemplateForCreator(User creator, Long templateId) {
+        return resolveTemplateForCreator(creator, templateId);
     }
 
     private TestTemplate resolveTemplateForCreator(User creator, Long templateId) {

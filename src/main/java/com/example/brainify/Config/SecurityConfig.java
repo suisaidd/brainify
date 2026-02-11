@@ -70,14 +70,21 @@ public class SecurityConfig {
                         "/admin/payroll/test",
                         "/ws/**", "/topic/**", "/app/**",
                         "/equipment-check/**",
-                        "/study-map", "/course/**", "/course/section/**", "/course/chapter/**", "/course/sql/execute",
                         "/api/tasks/check-answer", "/api/tasks/image/**", "/api/blocks/*/data"
                 ).permitAll()
                 .requestMatchers("/admin/**").hasAnyAuthority("ADMIN")
                 .requestMatchers("/api/admin/**").hasAnyAuthority("ADMIN")
                 .requestMatchers("/admin-role/**").hasAnyAuthority("ADMIN", "MANAGER")
                 .requestMatchers("/dashboard", "/dashboard-student").authenticated()
+                .requestMatchers("/study-map", "/course/**", "/api/student/my-courses").authenticated()
                 .anyRequest().authenticated()
+            )
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, authException) -> {
+                    // Если неавторизованный пользователь пытается получить доступ к защищённой странице
+                    // — перенаправляем на главную с параметром, чтобы показать модальное окно
+                    response.sendRedirect("/?authRequired=true");
+                })
             )
             .logout(logout -> logout
                 .logoutUrl("/api/logout")

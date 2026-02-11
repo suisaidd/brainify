@@ -3,6 +3,7 @@ package com.example.brainify.Controllers;
 import com.example.brainify.Config.SessionManager;
 import com.example.brainify.Model.*;
 import com.example.brainify.Repository.*;
+import com.example.brainify.Service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -11,11 +12,13 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpSession;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Controller
 public class CourseController {
 
     @Autowired private SessionManager sessionManager;
+    @Autowired private UserService userService;
     @Autowired private SubjectRepository subjectRepository;
     @Autowired private CourseModuleRepository moduleRepository;
     @Autowired private CourseChapterRepository chapterRepository;
@@ -24,6 +27,41 @@ public class CourseController {
     @Autowired private SectionBlockRepository sectionBlockRepository;
     @Autowired private com.example.brainify.Repository.ChapterBlockRepository chapterBlockRepository;
     @Autowired private com.example.brainify.Service.SqlTaskService sqlTaskService;
+
+    // API: получить купленные курсы текущего ученика
+    @GetMapping("/api/student/my-courses")
+    @ResponseBody
+    public ResponseEntity<?> getMyPurchasedCourses(HttpSession session) {
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Необходима авторизация"));
+        }
+        
+        try {
+            List<Subject> courses = userService.getUserPurchasedCourses(currentUser.getId());
+            List<Map<String, Object>> result = courses.stream().map(s -> {
+                Map<String, Object> m = new HashMap<>();
+                m.put("id", s.getId());
+                m.put("name", s.getName());
+                m.put("description", s.getDescription());
+                return m;
+            }).collect(Collectors.toList());
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // Вспомогательный метод: проверяет доступ пользователя к курсу
+    private boolean hasAccessToCourse(User user, Long subjectId) {
+        if (user == null) return false;
+        // Админы и менеджеры имеют доступ ко всем курсам
+        if (user.getRole() == UserRole.ADMIN || user.getRole() == UserRole.MANAGER) return true;
+        // Преподаватели имеют доступ ко всем курсам
+        if (user.getRole() == UserRole.TEACHER) return true;
+        // Ученики — только к купленным
+        return user.hasPurchasedCourse(subjectId);
+    }
 
     @GetMapping("/course/{subjectId}")
     public String courseOverview(@PathVariable Long subjectId,
@@ -35,6 +73,17 @@ public class CourseController {
         }
 
         User currentUser = sessionManager.getCurrentUser(session);
+        
+        // Проверка авторизации
+        if (currentUser == null) {
+            return "redirect:/study-map";
+        }
+        
+        // Проверка доступа к курсу
+        if (!hasAccessToCourse(currentUser, subjectId)) {
+            return "redirect:/study-map";
+        }
+        
         model.addAttribute("currentUser", currentUser);
         model.addAttribute("isAuthenticated", currentUser != null);
         model.addAttribute("pageTitle", subjectOpt.get().getName() + " – Курс");
@@ -339,6 +388,12 @@ public class CourseController {
         Subject subject = module.getSubject();
 
         User currentUser = sessionManager.getCurrentUser(session);
+        
+        // Проверка доступа к курсу
+        if (currentUser == null || !hasAccessToCourse(currentUser, subject.getId())) {
+            return "redirect:/study-map";
+        }
+        
         model.addAttribute("currentUser", currentUser);
         model.addAttribute("isAuthenticated", currentUser != null);
         model.addAttribute("pageTitle", chapter.getTitle());
@@ -461,6 +516,12 @@ public class CourseController {
         Subject subject = module.getSubject();
 
         User currentUser = sessionManager.getCurrentUser(session);
+        
+        // Проверка доступа к курсу
+        if (currentUser == null || !hasAccessToCourse(currentUser, subject.getId())) {
+            return "redirect:/study-map";
+        }
+        
         model.addAttribute("currentUser", currentUser);
         model.addAttribute("isAuthenticated", currentUser != null);
         model.addAttribute("pageTitle", section.getTitle());

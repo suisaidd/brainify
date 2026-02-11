@@ -501,9 +501,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function completeTest() {
-        const answers = Object.keys(userAnswers).map(taskId => ({
-            taskId: parseInt(taskId),
-            answer: userAnswers[taskId] || ''
+        // Отправляем ответы на ВСЕ задания, даже если пользователь не ответил
+        const answers = currentQuestions.map(q => ({
+            taskId: q.id,
+            answer: userAnswers[q.id] || ''
         }));
         
         fetch('/test/api/complete', {

@@ -82,14 +82,29 @@ public class MainController {
     public String studyMapPage(Model model, HttpSession session) {
         model.addAttribute("pageTitle", "Карта подготовки - Brainify");
 
-        // Страница доступна всем пользователям
+        // Страница доступна только авторизованным пользователям
         User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null) {
+            return "redirect:/";
+        }
+        
         model.addAttribute("currentUser", currentUser);
-        model.addAttribute("isAuthenticated", currentUser != null);
+        model.addAttribute("isAuthenticated", true);
 
         // Подтягиваем активные предметы для плиток
         try {
             List<Subject> subjects = subjectRepository.findByIsActiveTrueOrderByNameAsc();
+            
+            // Для учеников показываем только купленные курсы
+            // Для админов/менеджеров/преподавателей — все
+            if (currentUser.getRole() == com.example.brainify.Model.UserRole.STUDENT) {
+                java.util.Set<Long> purchasedIds = currentUser.getPurchasedCourses()
+                    .stream().map(Subject::getId).collect(java.util.stream.Collectors.toSet());
+                subjects = subjects.stream()
+                    .filter(s -> purchasedIds.contains(s.getId()))
+                    .collect(java.util.stream.Collectors.toList());
+            }
+            
             model.addAttribute("subjects", subjects);
         } catch (Exception e) {
             model.addAttribute("subjects", java.util.Collections.emptyList());

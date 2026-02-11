@@ -28,6 +28,9 @@ public class TestQuestion {
     @Column(name = "correct_answer", length = 1000, nullable = false)
     private String correctAnswer;
 
+    @Column(name = "is_extended_answer", nullable = false)
+    private Boolean isExtendedAnswer = false;
+
     @Column(name = "display_order", nullable = false)
     private Integer displayOrder = 0;
 
@@ -80,6 +83,14 @@ public class TestQuestion {
 
     public void setCorrectAnswer(String correctAnswer) {
         this.correctAnswer = correctAnswer;
+    }
+
+    public Boolean getIsExtendedAnswer() {
+        return isExtendedAnswer;
+    }
+
+    public void setIsExtendedAnswer(Boolean isExtendedAnswer) {
+        this.isExtendedAnswer = isExtendedAnswer;
     }
 
     public Integer getDisplayOrder() {

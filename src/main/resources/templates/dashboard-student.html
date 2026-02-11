@@ -59,6 +59,10 @@
                     <span class="section-title">Обучение</span>
                 </div>
                 <div class="section-items">
+                    <a href="#" class="sidebar-item" data-tab="courses-tab">
+                        <i class="fas fa-book-open"></i>
+                        <span>Мои курсы</span>
+                    </a>
                     <a href="#" class="sidebar-item" data-tab="tests-tab">
                         <i class="fas fa-clipboard-list"></i>
                         <span>Мои тесты</span>
@@ -359,6 +363,33 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Вкладка: Мои курсы -->
+            <div id="courses-tab" class="dashboard-tab">
+                <div class="courses-header">
+                    <h2>Мои курсы</h2>
+                    <p class="courses-subtitle">Здесь отображаются купленные вами курсы</p>
+                </div>
+                
+                <div class="courses-grid" id="coursesGrid">
+                    <!-- Курсы будут загружены динамически -->
+                </div>
+                
+                <div class="no-courses-message" id="noCoursesMessage" style="display: none;">
+                    <div class="empty-state">
+                        <i class="fas fa-graduation-cap"></i>
+                        <h3>У вас пока нет купленных курсов</h3>
+                        <p>Обратитесь к администратору для подключения курса</p>
+                    </div>
+                </div>
+                
+                <div class="courses-actions" style="margin-top: 2rem; text-align: center;">
+                    <a href="/study-map" class="lesson-btn primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-map"></i>
+                        Перейти к карте подготовки
+                    </a>
                 </div>
             </div>
 

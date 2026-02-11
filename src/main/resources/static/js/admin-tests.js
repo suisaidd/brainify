@@ -122,11 +122,19 @@ async function handleCreateBasicTest(event) {
             throw new Error(result.error || 'Не удалось создать тест');
         }
 
-        showAdminToast('Тест успешно создан и назначен ученикам', 'success');
+        showAdminToast('Тест создан! Переход в конструктор...', 'success');
+
+        const createdTemplateId = result.templateId;
+        if (createdTemplateId) {
+            setTimeout(() => {
+                window.location.href = `/test-builder/${createdTemplateId}`;
+            }, 500);
+            return;
+        }
+
         form.reset();
         form.subjectId.selectedIndex = 0;
         form.difficultyLevel.selectedIndex = 0;
-
         await loadBasicTests();
     } catch (error) {
         console.error('Ошибка создания теста:', error);
@@ -211,10 +219,10 @@ function renderBasicTests(container, tests) {
                 <span>ID: ${test.id}</span>
             </div>
             <div class="test-actions">
-                <button class="admin-btn admin-btn-primary-outline manage-test-btn" data-template-id="${test.id}">
+                <a href="/test-builder/${test.id}" class="admin-btn admin-btn-primary-outline">
                     <i class="fas fa-edit"></i>
                     Настроить задания
-                </button>
+                </a>
             </div>
         </div>
     `).join('');

@@ -157,6 +157,8 @@ public class TeacherTestController {
                 attemptData.put("totalQuestions", attempt.getTotalQuestions());
                 attemptData.put("correctAnswers", attempt.getCorrectAnswers());
                 attemptData.put("scorePercentage", attempt.getScorePercentage());
+                attemptData.put("isReviewed", attempt.getIsReviewed());
+                attemptData.put("reviewUrl", "/test-builder/review/" + attempt.getId());
                 results.add(attemptData);
             }
         }
@@ -271,6 +273,7 @@ public class TeacherTestController {
 
             for (StudentTestAttempt attempt : attempts) {
                 Map<String, Object> attemptData = new HashMap<>();
+                attemptData.put("attemptId", attempt.getId());
                 attemptData.put("assignmentId", assignment.getId());
                 attemptData.put("templateTitle", assignment.getTemplate().getTitle());
                 attemptData.put("subjectName", assignment.getTemplate().getSubject().getName());
@@ -278,6 +281,8 @@ public class TeacherTestController {
                 attemptData.put("totalQuestions", attempt.getTotalQuestions());
                 attemptData.put("correctAnswers", attempt.getCorrectAnswers());
                 attemptData.put("scorePercentage", attempt.getScorePercentage());
+                attemptData.put("isReviewed", attempt.getIsReviewed());
+                attemptData.put("reviewUrl", "/test-builder/review/" + attempt.getId());
                 results.add(attemptData);
             }
         }

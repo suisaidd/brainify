@@ -8,6 +8,11 @@ import java.time.LocalDateTime;
 @Table(name = "student_test_attempts")
 public class StudentTestAttempt {
 
+    // Константы для JSON ключей в answersJson:
+    // questionId, questionNumber, userAnswer, correctAnswer, isCorrect,
+    // drawingData (base64 PNG для развёрнутого ответа),
+    // teacherGrade ("correct"/"incorrect"/null)
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -27,6 +32,12 @@ public class StudentTestAttempt {
 
     @Column(name = "answers_json", columnDefinition = "TEXT")
     private String answersJson;
+
+    @Column(name = "is_reviewed", nullable = false)
+    private Boolean isReviewed = false;
+
+    @Column(name = "reviewed_at")
+    private LocalDateTime reviewedAt;
 
     @Column(name = "submitted_at", nullable = false, updatable = false)
     private LocalDateTime submittedAt = LocalDateTime.now();
@@ -77,6 +88,22 @@ public class StudentTestAttempt {
 
     public void setAnswersJson(String answersJson) {
         this.answersJson = answersJson;
+    }
+
+    public Boolean getIsReviewed() {
+        return isReviewed;
+    }
+
+    public void setIsReviewed(Boolean isReviewed) {
+        this.isReviewed = isReviewed;
+    }
+
+    public LocalDateTime getReviewedAt() {
+        return reviewedAt;
+    }
+
+    public void setReviewedAt(LocalDateTime reviewedAt) {
+        this.reviewedAt = reviewedAt;
     }
 
     public LocalDateTime getSubmittedAt() {

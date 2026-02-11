@@ -1076,6 +1076,10 @@ function showTab(tabId) {
             loadStudentTestProgress();
         }
         
+        if (tabId === 'courses-tab') {
+            loadStudentCourses();
+        }
+        
         // Инициализируем чат при переключении на вкладку сообщений
         if (tabId === 'messages-tab' && window.brainifyChat) {
             window.brainifyChat.init();
@@ -1137,6 +1141,7 @@ function getTabTitle(tabId) {
         'main-tab': 'Главная',
         'schedule-tab': 'Моё расписание',
         'messages-tab': 'Сообщения',
+        'courses-tab': 'Мои курсы',
         'tests-tab': 'Мои тесты',
         'progress-tab': 'Прогресс',
         'profile-tab': 'Настройки'
@@ -1289,14 +1294,136 @@ function renderStudentTestQuestions(questions) {
 
     studentTestModalElements.submitBtn?.removeAttribute('disabled');
 
-    studentTestModalElements.questionsContainer.innerHTML = questions.map((question, index) => `
-        <div class="student-test-question" data-question-id="${question.id}">
-            <h4>Задание ${index + 1} — ${question.questionNumber}</h4>
-            <div class="student-test-question-text">${question.questionText.replace(/\n/g, '<br>')}</div>
-            ${question.imageUrl ? `<img src="${question.imageUrl}" alt="Изображение задания">` : ''}
-            <textarea placeholder="Ваш ответ" data-question-id="${question.id}" required></textarea>
-        </div>
-    `).join('');
+    studentTestModalElements.questionsContainer.innerHTML = questions.map((question, index) => {
+        const isExtended = question.isExtendedAnswer;
+        const imageHtml = question.imageUrl ? `
+            <div class="question-image-wrapper">
+                <img src="${question.imageUrl}" alt="Изображение задания" class="question-image-thumb" onclick="openImageLightbox(this.src)">
+                <div class="question-image-actions">
+                    <button type="button" class="qi-btn" onclick="openImageLightbox('${question.imageUrl}')" title="Увеличить"><i class="fas fa-search-plus"></i></button>
+                    <a href="${question.imageUrl}" download class="qi-btn" title="Скачать"><i class="fas fa-download"></i></a>
+                </div>
+            </div>` : '';
+
+        if (isExtended) {
+            return `
+                <div class="student-test-question extended" data-question-id="${question.id}" data-extended="true">
+                    <h4>Задание ${index + 1} — ${question.questionNumber}
+                        <span class="extended-badge"><i class="fas fa-paint-brush"></i> Развёрнутый ответ</span>
+                    </h4>
+                    <div class="student-test-question-text">${question.questionText.replace(/\n/g, '<br>')}</div>
+                    ${imageHtml}
+                    <div class="extended-answer-area">
+                        <canvas class="mini-whiteboard" data-question-id="${question.id}" width="700" height="360"></canvas>
+                        <div class="mini-wb-tools">
+                            <button type="button" class="mini-wb-btn mini-wb-pen active" data-tool="pen" title="Карандаш"><i class="fas fa-pen"></i></button>
+                            <button type="button" class="mini-wb-btn mini-wb-eraser" data-tool="eraser" title="Ластик"><i class="fas fa-eraser"></i></button>
+                            <button type="button" class="mini-wb-btn mini-wb-clear" data-tool="clear" title="Очистить"><i class="fas fa-trash"></i></button>
+                            <input type="color" class="mini-wb-color" value="#000000" title="Цвет">
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="student-test-question" data-question-id="${question.id}">
+                <h4>Задание ${index + 1} — ${question.questionNumber}</h4>
+                <div class="student-test-question-text">${question.questionText.replace(/\n/g, '<br>')}</div>
+                ${imageHtml}
+                <textarea placeholder="Ваш ответ" data-question-id="${question.id}" required></textarea>
+            </div>
+        `;
+    }).join('');
+
+    // Инициализируем мини-доски для развёрнутых ответов
+    initMiniWhiteboards();
+}
+
+/**
+ * Инициализация мини-досок для развёрнутых ответов
+ */
+function initMiniWhiteboards() {
+    document.querySelectorAll('.mini-whiteboard').forEach(canvas => {
+        const ctx = canvas.getContext('2d');
+        let drawing = false;
+        let tool = 'pen';
+        let penColor = '#000000';
+        const lineWidth = 2;
+        const eraserWidth = 20;
+
+        // Белый фон
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const toolsDiv = canvas.closest('.extended-answer-area').querySelector('.mini-wb-tools');
+
+        toolsDiv.querySelectorAll('.mini-wb-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const t = btn.dataset.tool;
+                if (t === 'clear') {
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    return;
+                }
+                tool = t;
+                toolsDiv.querySelectorAll('.mini-wb-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+
+        const colorInput = toolsDiv.querySelector('.mini-wb-color');
+        colorInput.addEventListener('input', (e) => { penColor = e.target.value; });
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            if (e.touches) {
+                return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY };
+            }
+            return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+        }
+
+        function startDraw(e) {
+            e.preventDefault();
+            drawing = true;
+            const pos = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+        }
+        function moveDraw(e) {
+            if (!drawing) return;
+            e.preventDefault();
+            const pos = getPos(e);
+            if (tool === 'eraser') {
+                ctx.save();
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.lineWidth = eraserWidth;
+                ctx.lineCap = 'round';
+                ctx.lineTo(pos.x, pos.y);
+                ctx.stroke();
+                ctx.restore();
+                // Перерисуем белый фон под стёртой частью
+            } else {
+                ctx.strokeStyle = penColor;
+                ctx.lineWidth = lineWidth;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.lineTo(pos.x, pos.y);
+                ctx.stroke();
+            }
+        }
+        function stopDraw() { drawing = false; }
+
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mousemove', moveDraw);
+        canvas.addEventListener('mouseup', stopDraw);
+        canvas.addEventListener('mouseleave', stopDraw);
+        canvas.addEventListener('touchstart', startDraw, { passive: false });
+        canvas.addEventListener('touchmove', moveDraw, { passive: false });
+        canvas.addEventListener('touchend', stopDraw);
+    });
 }
 
 async function submitStudentTest() {
@@ -1311,18 +1438,25 @@ async function submitStudentTest() {
         return;
     }
 
-    const answerElements = studentTestModalElements.questionsContainer?.querySelectorAll('textarea[data-question-id]') || [];
-    if (answerElements.length === 0) {
+    const questionDivs = studentTestModalElements.questionsContainer?.querySelectorAll('.student-test-question') || [];
+    if (questionDivs.length === 0) {
         showToast('Нет доступных вопросов для отправки', 'warning');
         return;
     }
 
     const answers = [];
-    answerElements.forEach(textarea => {
-        answers.push({
-            questionId: textarea.getAttribute('data-question-id'),
-            answer: textarea.value.trim()
-        });
+    questionDivs.forEach(div => {
+        const qId = div.dataset.questionId;
+        const isExtended = div.dataset.extended === 'true';
+
+        if (isExtended) {
+            const canvas = div.querySelector('.mini-whiteboard');
+            const drawingData = canvas ? canvas.toDataURL('image/png') : '';
+            answers.push({ questionId: qId, answer: '', drawingData: drawingData });
+        } else {
+            const textarea = div.querySelector('textarea');
+            answers.push({ questionId: qId, answer: textarea ? textarea.value.trim() : '' });
+        }
     });
 
     const payload = { answers };
@@ -1352,7 +1486,18 @@ async function submitStudentTest() {
         showToast('Тест успешно проверен', 'success');
         await loadStudentTests();
         await loadStudentTestProgress();
-        setTimeout(closeStudentTestModal, 1200);
+
+        // Если есть reviewUrl — предложить посмотреть результаты
+        if (attempt.reviewUrl) {
+            setTimeout(() => {
+                closeStudentTestModal();
+                if (confirm('Хотите посмотреть подробные результаты?')) {
+                    window.open(attempt.reviewUrl, '_blank');
+                }
+            }, 800);
+        } else {
+            setTimeout(closeStudentTestModal, 1200);
+        }
     } catch (error) {
         console.error('Ошибка проверки теста:', error);
         showToast(error.message || 'Не удалось проверить тест', 'error');
@@ -1405,16 +1550,163 @@ function renderTestProgressList(listId, counterId, items) {
         return;
     }
 
-    container.innerHTML = items.map(item => `
-        <div class="tests-progress-item">
+    container.innerHTML = items.map(item => {
+        const pct = Number(item.scorePercentage ?? 0).toFixed(1);
+        const needsReview = item.isReviewed === false;
+        const scoreColor = needsReview ? '#ff9800' : (pct >= 70 ? '#4CAF50' : pct >= 40 ? '#ff9800' : '#e53935');
+        const reviewBadge = needsReview
+            ? '<span class="progress-pending-badge"><i class="fas fa-clock"></i> Ждёт проверки</span>'
+            : '';
+
+        return `
+        <div class="tests-progress-item ${needsReview ? 'pending-review' : ''}">
             <div class="progress-info">
                 <strong>${item.templateTitle}</strong>
+                ${reviewBadge}
                 <div class="progress-meta">
                     <span><i class="fas fa-book"></i> ${item.subjectName}</span>
                     <span><i class="fas fa-calendar-check"></i> ${formatDateTime(item.submittedAt)}</span>
                 </div>
             </div>
-            <div class="progress-score">${item.correctAnswers}/${item.totalQuestions} (${Number(item.scorePercentage ?? 0).toFixed(1)}%)</div>
-        </div>
-    `).join('');
+            <div class="progress-score">
+                <span style="color:${scoreColor};font-weight:700;">${item.correctAnswers}/${item.totalQuestions} (${pct}%)</span>
+                ${item.reviewUrl ? `<a href="${item.reviewUrl}" class="test-review-link" target="_blank"><i class="fas fa-eye"></i> Подробнее</a>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ==================== Лайтбокс для изображений ====================
+
+function openImageLightbox(src) {
+    // Проверяем, есть ли уже лайтбокс
+    let lb = document.getElementById('imageLightbox');
+    if (!lb) {
+        lb = document.createElement('div');
+        lb.id = 'imageLightbox';
+        lb.className = 'image-lightbox';
+        lb.innerHTML = `
+            <div class="image-lightbox-overlay"></div>
+            <div class="image-lightbox-content">
+                <img src="" alt="Увеличенное изображение" id="lightboxImg">
+                <div class="image-lightbox-toolbar">
+                    <a id="lightboxDownload" href="" download class="lb-btn" title="Скачать"><i class="fas fa-download"></i> Скачать</a>
+                    <button class="lb-btn lb-close" onclick="closeImageLightbox()" title="Закрыть"><i class="fas fa-times"></i> Закрыть</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(lb);
+        lb.querySelector('.image-lightbox-overlay').addEventListener('click', closeImageLightbox);
+    }
+    document.getElementById('lightboxImg').src = src;
+    document.getElementById('lightboxDownload').href = src;
+    lb.classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeImageLightbox() {
+    const lb = document.getElementById('imageLightbox');
+    if (lb) {
+        lb.classList.remove('open');
+        document.body.style.overflow = '';
+    }
+}
+
+// ==================== МОИ КУРСЫ ====================
+
+let studentCoursesLoaded = false;
+
+async function loadStudentCourses() {
+    if (studentCoursesLoaded) return;
+    
+    const grid = document.getElementById('coursesGrid');
+    const noMsg = document.getElementById('noCoursesMessage');
+    
+    if (!grid) return;
+    
+    grid.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;"><i class="fas fa-spinner fa-spin" style="font-size:2rem;"></i><p style="margin-top:1rem;">Загрузка курсов...</p></div>';
+    
+    try {
+        const response = await fetch('/api/student/my-courses');
+        if (!response.ok) throw new Error('Ошибка загрузки');
+        
+        const courses = await response.json();
+        
+        if (!courses || courses.length === 0) {
+            grid.innerHTML = '';
+            if (noMsg) noMsg.style.display = 'block';
+            studentCoursesLoaded = true;
+            return;
+        }
+        
+        if (noMsg) noMsg.style.display = 'none';
+        
+        // Цветовые градиенты для карточек
+        const gradients = [
+            'linear-gradient(135deg, #667eea, #764ba2)',
+            'linear-gradient(135deg, #f093fb, #f5576c)',
+            'linear-gradient(135deg, #4facfe, #00f2fe)',
+            'linear-gradient(135deg, #43e97b, #38f9d7)',
+            'linear-gradient(135deg, #fa709a, #fee140)',
+            'linear-gradient(135deg, #a18cd1, #fbc2eb)',
+            'linear-gradient(135deg, #fccb90, #d57eeb)',
+            'linear-gradient(135deg, #e0c3fc, #8ec5fc)'
+        ];
+        
+        // Иконки
+        const icons = ['fa-book', 'fa-atom', 'fa-flask', 'fa-calculator', 'fa-globe', 'fa-code', 'fa-palette', 'fa-microscope'];
+        
+        grid.innerHTML = courses.map((course, i) => `
+            <a href="/course/${course.id}" class="course-card-link" style="text-decoration:none;">
+                <div class="course-card" style="
+                    background: ${gradients[i % gradients.length]};
+                    border-radius: 20px;
+                    padding: 2rem;
+                    color: white;
+                    min-height: 180px;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-between;
+                    transition: transform 0.3s ease, box-shadow 0.3s ease;
+                    cursor: pointer;
+                    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+                ">
+                    <div>
+                        <div style="font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.9;">
+                            <i class="fas ${icons[i % icons.length]}"></i>
+                        </div>
+                        <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem;">${course.name}</h3>
+                        ${course.description ? `<p style="font-size: 0.9rem; opacity: 0.85; line-height: 1.4;">${course.description}</p>` : ''}
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem; font-weight: 600; font-size: 0.9rem;">
+                        <i class="fas fa-arrow-right"></i>
+                        Перейти к курсу
+                    </div>
+                </div>
+            </a>
+        `).join('');
+        
+        // Добавляем hover-эффекты
+        grid.querySelectorAll('.course-card').forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-8px) scale(1.02)';
+                this.style.boxShadow = '0 16px 40px rgba(0,0,0,0.2)';
+            });
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0) scale(1)';
+                this.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
+            });
+        });
+        
+        studentCoursesLoaded = true;
+        
+    } catch (error) {
+        console.error('Ошибка загрузки курсов:', error);
+        grid.innerHTML = `
+            <div style="text-align:center;padding:2rem;color:#e53935;">
+                <i class="fas fa-exclamation-circle" style="font-size:2rem;display:block;margin-bottom:0.75rem;"></i>
+                <p>Не удалось загрузить курсы</p>
+            </div>
+        `;
+    }
 }

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle}">Результаты теста — Brainify</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <link rel="stylesheet" th:href="@{/css/test-review.css}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+<div class="tr-page"
+     th:data-attempt-id="${attemptId}"
+     th:data-can-grade="${canGrade}"
+     th:data-user-id="${currentUser.id}">
+
+    <!-- Хедер -->
+    <header class="tr-header">
+        <div class="tr-header-left">
+            <a href="/dashboard" class="tr-logo"><span class="accent">Brain</span>ify</a>
+            <span class="tr-sep">|</span>
+            <span class="tr-title" id="headerTitle">Результаты теста</span>
+        </div>
+        <div class="tr-header-right">
+            <a href="/dashboard" class="tb-btn tb-btn-ghost"><i class="fas fa-arrow-left"></i> Назад</a>
+        </div>
+    </header>
+
+    <main class="tr-main" id="reviewContent">
+        <div class="tb-loading" id="reviewLoading">
+            <i class="fas fa-spinner fa-spin"></i> Загрузка...
+        </div>
+    </main>
+
+    <!-- Модальная доска для просмотра рисунков -->
+    <div class="tr-drawing-overlay" id="drawingOverlay">
+        <div class="tr-drawing-modal">
+            <div class="tr-drawing-header">
+                <h3>Ответ ученика</h3>
+                <button id="drawingClose"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="tr-drawing-body">
+                <img id="drawingImage" src="" alt="Рисунок ученика">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="tb-toast" id="toast"></div>
+<script th:src="@{/js/test-review.js}"></script>
+</body>
+</html>

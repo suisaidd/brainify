@@ -1017,4 +1017,53 @@ body {
 .btn-warning:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(246, 173, 85, 0.4);
-} 
+}
+
+/* ── Student Tests Table inside modal ── */
+.student-tests-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.85rem;
+}
+.student-tests-table thead th {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    font-weight: 700;
+    color: #555;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    border-bottom: 2px solid #eee;
+}
+.student-tests-table tbody tr {
+    transition: background .15s;
+}
+.student-tests-table tbody tr:hover {
+    background: #f8f9fb;
+}
+.student-tests-table td {
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+}
+
+.st-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+.st-badge.st-assigned {
+    background: #eef2ff;
+    color: #4338ca;
+}
+.st-badge.st-completed {
+    background: #ecfdf5;
+    color: #059669;
+}
+.st-badge.st-progress {
+    background: #fef3c7;
+    color: #d97706;
+}

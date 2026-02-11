@@ -228,6 +228,66 @@ public class AdminController {
         }
     }
     
+    // API для получения купленных курсов пользователя
+    @GetMapping("/api/users/{userId}/courses")
+    @ResponseBody
+    public ResponseEntity<List<Subject>> getUserCourses(
+            @PathVariable Long userId,
+            HttpSession session) {
+        
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null || 
+            (!currentUser.getRole().equals(UserRole.ADMIN) && !currentUser.getRole().equals(UserRole.MANAGER))) {
+            return ResponseEntity.status(403).build();
+        }
+        
+        try {
+            List<Subject> courses = userService.getUserPurchasedCourses(userId);
+            return ResponseEntity.ok(courses);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).build();
+        }
+    }
+    
+    // API для назначения курсов пользователю
+    @PostMapping("/api/users/{userId}/courses")
+    @ResponseBody
+    public ResponseEntity<Map<String, String>> assignCoursesToUser(
+            @PathVariable Long userId,
+            @RequestParam(required = false) List<Long> courseIds,
+            HttpSession session) {
+        
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null || 
+            (!currentUser.getRole().equals(UserRole.ADMIN) && !currentUser.getRole().equals(UserRole.MANAGER))) {
+            return ResponseEntity.status(403).build();
+        }
+        
+        Map<String, String> response = new HashMap<>();
+        
+        try {
+            // Если courseIds null или содержит пустые значения — очищаем
+            List<Long> cleanIds = new ArrayList<>();
+            if (courseIds != null) {
+                for (Long id : courseIds) {
+                    if (id != null && id > 0) cleanIds.add(id);
+                }
+            }
+            
+            userService.assignCoursesToUser(userId, cleanIds);
+            
+            response.put("message", "Курсы успешно назначены пользователю");
+            response.put("status", "success");
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("message", "Ошибка при назначении курсов: " + e.getMessage());
+            response.put("status", "error");
+            
+            return ResponseEntity.status(500).body(response);
+        }
+    }
+    
     // API для обновления количества занятий у ученика
     @PostMapping("/api/users/{userId}/lessons")
     @ResponseBody

@@ -400,6 +400,73 @@
         </div>
     </div>
 
+    <!-- Модальное окно для назначения курсов ученику -->
+    <div id="coursesModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>
+                    <i class="fas fa-graduation-cap"></i>
+                    Управление курсами ученика
+                </h3>
+                <button class="modal-close" onclick="closeCoursesModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="student-info-modal">
+                    <p><strong>Ученик:</strong> <span id="coursesModalStudentName"></span></p>
+                    <p><strong>Email:</strong> <span id="coursesModalStudentEmail"></span></p>
+                </div>
+                <div class="subjects-selection">
+                    <label>Выберите доступные курсы:</label>
+                    <div id="coursesList" class="subjects-list">
+                        <!-- Список курсов будет загружен через JavaScript -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeCoursesModal()">
+                    <i class="fas fa-times"></i>
+                    Отмена
+                </button>
+                <button class="btn btn-primary" onclick="saveStudentCourses()">
+                    <i class="fas fa-save"></i>
+                    Сохранить курсы
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для просмотра тестов ученика -->
+    <div id="studentTestsModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3>
+                    <i class="fas fa-clipboard-list"></i>
+                    Тесты ученика
+                </h3>
+                <button class="modal-close" onclick="closeStudentTestsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="student-info-modal" style="margin-bottom:1rem;">
+                    <p><strong>Ученик:</strong> <span id="testsModalStudentName"></span></p>
+                    <p><strong>Email:</strong> <span id="testsModalStudentEmail"></span></p>
+                </div>
+                <div id="studentTestsBody">
+                    <!-- Данные будут загружены через JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeStudentTestsModal()">
+                    <i class="fas fa-times"></i>
+                    Закрыть
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Загрузка скриптов -->
     <script src="/js/messages.js"></script>
     <script src="/js/admin.js"></script>

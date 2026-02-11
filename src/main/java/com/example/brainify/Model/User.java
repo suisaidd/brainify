@@ -64,6 +64,16 @@ public class User {
     @com.fasterxml.jackson.annotation.JsonIgnore
     private Set<Subject> subjects = new HashSet<>();
     
+    // Купленные курсы (для учеников)
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JoinTable(
+        name = "user_courses",
+        joinColumns = @JoinColumn(name = "user_id"),
+        inverseJoinColumns = @JoinColumn(name = "subject_id")
+    )
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private Set<Subject> purchasedCourses = new HashSet<>();
+    
     // Конструкторы
     public User() {}
     
@@ -199,5 +209,27 @@ public class User {
     public void removeSubject(Subject subject) {
         this.subjects.remove(subject);
         subject.getTeachers().remove(this);
+    }
+    
+    // Геттеры и сеттеры для purchasedCourses
+    public Set<Subject> getPurchasedCourses() {
+        return purchasedCourses;
+    }
+    
+    public void setPurchasedCourses(Set<Subject> purchasedCourses) {
+        this.purchasedCourses = purchasedCourses;
+    }
+    
+    // Utility методы для работы с купленными курсами
+    public void addPurchasedCourse(Subject course) {
+        this.purchasedCourses.add(course);
+    }
+    
+    public void removePurchasedCourse(Subject course) {
+        this.purchasedCourses.remove(course);
+    }
+    
+    public boolean hasPurchasedCourse(Long subjectId) {
+        return this.purchasedCourses.stream().anyMatch(s -> s.getId().equals(subjectId));
     }
 } 
