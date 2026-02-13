@@ -1021,7 +1021,14 @@ function setupEventListeners() {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', function() {
             if (confirm('Вы уверены, что хотите выйти?')) {
-                window.location.href = '/api/logout';
+                fetch('/api/logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                }).then(function() {
+                    window.location.href = '/';
+                }).catch(function() {
+                    window.location.href = '/';
+                });
             }
         });
     }
