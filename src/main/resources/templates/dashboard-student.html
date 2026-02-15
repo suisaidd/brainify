@@ -13,7 +13,7 @@
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="dashboard-body" th:data-student-id="${currentUser.id}" th:data-current-user-id="${currentUser.id}" th:data-remaining-lessons="${currentUser.remainingLessons}">
+<body class="dashboard-body" th:data-student-id="${currentUser.id}" th:data-current-user-id="${currentUser.id}" th:data-remaining-lessons="${currentUser.remainingLessons}" th:data-user-timezone="${currentUser.timezone}">
     <!-- Боковое меню -->
     <nav class="sidebar">
         <div class="sidebar-header">
@@ -549,11 +549,27 @@
                     <p class="profile-subtitle">Управляйте своими данными и настройками</p>
                 </div>
                 
-                <div class="profile-content">
-                    <div class="empty-state">
-                        <i class="fas fa-user-cog"></i>
-                        <h3>Раздел в разработке</h3>
-                        <p>Здесь будут настройки вашего профиля</p>
+                <div class="profile-content" style="max-width: 600px;">
+                    <!-- Часовой пояс -->
+                    <div style="background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.06);">
+                        <h3 style="margin: 0 0 0.5rem; font-size: 1.1rem; color: #1e293b;">
+                            <i class="fas fa-clock" style="color: #f59e0b; margin-right: 0.5rem;"></i>
+                            Часовой пояс
+                        </h3>
+                        <p style="margin: 0 0 1rem; color: #64748b; font-size: 0.9rem;">
+                            Выберите ваш город, чтобы время уроков отображалось корректно
+                        </p>
+                        <select id="profileTimezoneSelect" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 1rem; background: white; margin-bottom: 1rem;">
+                        </select>
+                        <button onclick="saveProfileTimezone()" style="
+                            padding: 0.75rem 1.5rem; border-radius: 10px; font-weight: 700;
+                            background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white;
+                            border: none; cursor: pointer; font-size: 0.95rem;
+                            transition: transform 0.2s ease, box-shadow 0.2s ease;
+                        " onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
+                            <i class="fas fa-save"></i> Сохранить
+                        </button>
+                        <span id="tzSaveStatus" style="margin-left: 0.75rem; color: #10b981; font-weight: 600; display: none;"></span>
                     </div>
                 </div>
             </div>

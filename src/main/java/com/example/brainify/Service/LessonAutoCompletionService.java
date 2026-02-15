@@ -3,6 +3,7 @@ package com.example.brainify.Service;
 import com.example.brainify.Model.Lesson;
 import com.example.brainify.Model.LessonCancellation;
 import com.example.brainify.Model.User;
+import com.example.brainify.Utils.TimezoneUtils;
 
 import com.example.brainify.Repository.LessonRepository;
 import com.example.brainify.Repository.LessonCancellationRepository;
@@ -28,30 +29,54 @@ public class LessonAutoCompletionService {
     @Autowired
     private UserRepository userRepository;
 
+    // Буфер в минутах: допуск сверх 15 минут для компенсации
+    // задержки сети и рассинхронизации часов клиента и сервера
+    private static final int JOIN_BUFFER_MINUTES = 2;
+
     /**
-     * Отметить вход преподавателя в урок
+     * Отметить вход преподавателя в урок.
+     * Вход разрешён: за (15 + буфер) минут до начала и до 1 часа после начала.
+     *
+     * @return null — успех; иначе строка с описанием причины отказа
      */
     @Transactional
-    public boolean joinLesson(Long lessonId, Long teacherId) {
+    public String joinLesson(Long lessonId, Long teacherId) {
         Lesson lesson = lessonRepository.findById(lessonId).orElse(null);
-        if (lesson == null || !lesson.getTeacher().getId().equals(teacherId)) {
-            return false;
+        if (lesson == null) {
+            return "Урок не найден.";
+        }
+        if (!lesson.getTeacher().getId().equals(teacherId)) {
+            return "Нет прав доступа к этому уроку.";
         }
 
-        // Проверяем, что урок еще не начался или только начался (в пределах 15 минут)
-        LocalDateTime now = LocalDateTime.now();
+        // Все времена в UTC
+        LocalDateTime now = TimezoneUtils.nowUtc();
         LocalDateTime lessonStart = lesson.getLessonDate();
         LocalDateTime lessonEnd = lessonStart.plusHours(1);
+        // Допуск: 15 минут + буфер для защиты от рассинхронизации часов
+        LocalDateTime earliestJoin = lessonStart.minusMinutes(15 + JOIN_BUFFER_MINUTES);
 
-        if (now.isBefore(lessonStart.minusMinutes(15)) || now.isAfter(lessonEnd)) {
-            return false; // Слишком рано или слишком поздно
+        System.out.println("[JOIN TEACHER] now(UTC)=" + now
+                + ", lessonStart(UTC)=" + lessonStart
+                + ", earliestJoin=" + earliestJoin
+                + ", lessonEnd=" + lessonEnd);
+
+        if (now.isBefore(earliestJoin)) {
+            long minutesLeft = java.time.Duration.between(now, earliestJoin).toMinutes();
+            System.out.println("[JOIN TEACHER] Отказ: слишком рано. До окна входа осталось " + minutesLeft + " мин.");
+            return "Вход в урок откроется за 15 минут до начала. Осталось ≈" + minutesLeft + " мин.";
+        }
+        if (now.isAfter(lessonEnd)) {
+            System.out.println("[JOIN TEACHER] Отказ: урок уже завершён.");
+            return "Урок уже завершён.";
         }
 
         // Отмечаем вход преподавателя
         lesson.setTeacherJoinedAt(now);
         lessonRepository.save(lesson);
 
-        return true;
+        System.out.println("[JOIN TEACHER] Успешно вошёл в урок " + lessonId + " в " + now + " UTC");
+        return null; // null = успех
     }
 
     /**
@@ -60,7 +85,7 @@ public class LessonAutoCompletionService {
     @Scheduled(fixedRate = 300000) // 5 минут = 300000 мс
     @Transactional
     public void autoCompleteLessons() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = TimezoneUtils.nowUtc();
         
         // Находим уроки, которые должны быть завершены
         List<Lesson> lessonsToProcess = lessonRepository.findScheduledLessonsForAutoCompletion(now);
@@ -110,8 +135,8 @@ public class LessonAutoCompletionService {
         LessonCancellation cancellation = new LessonCancellation();
         cancellation.setLesson(lesson);
         cancellation.setCancelledBy(lesson.getTeacher());
-        cancellation.setCancellationDate(LocalDateTime.now());
-        cancellation.setCreatedAt(LocalDateTime.now());
+        cancellation.setCancellationDate(TimezoneUtils.nowUtc());
+        cancellation.setCreatedAt(TimezoneUtils.nowUtc());
         cancellation.setCancellationReason("Автоматический штраф: преподаватель не вошел в урок");
         cancellation.setPenaltyAmount(600.0);
         cancellation.setPenaltyReason("Неявка преподавателя на урок");
@@ -154,7 +179,7 @@ public class LessonAutoCompletionService {
             return null;
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = TimezoneUtils.nowUtc();
         LocalDateTime lessonStart = lesson.getLessonDate();
         LocalDateTime lessonEnd = lessonStart.plusHours(1);
 

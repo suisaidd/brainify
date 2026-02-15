@@ -3,6 +3,7 @@ package com.example.brainify.Service;
 import com.example.brainify.Model.Lesson;
 import com.example.brainify.Model.LessonCancellation;
 import com.example.brainify.Model.User;
+import com.example.brainify.Utils.TimezoneUtils;
 import com.example.brainify.Repository.LessonCancellationRepository;
 import com.example.brainify.Repository.LessonRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
@@ -55,16 +57,16 @@ public class LessonCancellationService {
         // Уроки можно отменять в любое время
         // Никаких ограничений по времени
         
-        // Получаем количество отмен за текущий месяц
-        YearMonth currentMonth = YearMonth.now();
+        // Получаем количество отмен за текущий месяц (UTC)
+        YearMonth currentMonth = YearMonth.now(ZoneOffset.UTC);
         LocalDateTime startOfMonth = currentMonth.atDay(1).atStartOfDay();
         LocalDateTime endOfMonth = currentMonth.atEndOfMonth().atTime(23, 59, 59);
         
         Long cancellationsThisMonth = lessonCancellationRepository.countByTeacherInCurrentMonth(
             teacher, startOfMonth, endOfMonth);
         
-        // Вычисляем время до урока
-        long hoursUntilLesson = java.time.Duration.between(LocalDateTime.now(), lesson.getLessonDate()).toHours();
+        // Вычисляем время до урока (всё в UTC)
+        long hoursUntilLesson = java.time.Duration.between(TimezoneUtils.nowUtc(), lesson.getLessonDate()).toHours();
         
         // Определяем штрафы
         double penaltyAmount = 0.0;
@@ -79,7 +81,7 @@ public class LessonCancellationService {
         }
         
         info.put("lessonId", lessonId);
-        info.put("lessonDate", lesson.getLessonDate().toString());
+        info.put("lessonDate", TimezoneUtils.toIsoUtcString(lesson.getLessonDate()));
         info.put("subjectName", lesson.getSubject().getName());
         info.put("studentName", lesson.getStudent().getName());
         info.put("hoursUntilLesson", hoursUntilLesson);
@@ -160,7 +162,7 @@ public class LessonCancellationService {
     public Map<String, Object> getTeacherCancellationStats(User teacher) {
         Map<String, Object> stats = new HashMap<>();
         
-        YearMonth currentMonth = YearMonth.now();
+        YearMonth currentMonth = YearMonth.now(ZoneOffset.UTC);
         LocalDateTime startOfMonth = currentMonth.atDay(1).atStartOfDay();
         LocalDateTime endOfMonth = currentMonth.atEndOfMonth().atTime(23, 59, 59);
         

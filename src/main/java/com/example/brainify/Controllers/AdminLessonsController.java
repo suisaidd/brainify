@@ -10,6 +10,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import com.example.brainify.Utils.TimezoneUtils;
 import jakarta.servlet.http.HttpSession;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -369,7 +370,7 @@ public class AdminLessonsController {
 
             // Получаем уроки преподавателя для отображения занятых слотов
             List<Map<String, Object>> lessonsData = new ArrayList<>();
-            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime now = TimezoneUtils.nowUtc();
             List<Lesson> lessons = lessonRepository.findByTeacherAndLessonDateBetween(
                 teacher,
                 getDateFromDayAndHour("MONDAY", "12", weekOffset),
@@ -530,7 +531,7 @@ public class AdminLessonsController {
 
             // Проверяем, есть ли уроки на этот слот
             LocalDateTime scheduleDateTime = LocalDateTime.of(
-                LocalDateTime.now().toLocalDate().with(schedule.getDayOfWeek()),
+                TimezoneUtils.nowUtc().toLocalDate().with(schedule.getDayOfWeek()),
                 schedule.getStartTime()
             );
             
@@ -639,7 +640,11 @@ public class AdminLessonsController {
                 return ResponseEntity.badRequest().body(response);
             }
 
-            // Проверяем конфликты времени
+            // Конвертируем из таймзоны преподавателя в UTC для хранения
+            String teacherTimezone = teacher.getTimezone();
+            parsedLessonDate = TimezoneUtils.toUtc(parsedLessonDate, teacherTimezone);
+
+            // Проверяем конфликты времени (оба значения в UTC)
             List<Lesson> conflicts = lessonRepository.findConflictingLessonsForTeacher(teacher, parsedLessonDate);
             if (!conflicts.isEmpty()) {
                 response.put("status", "error");
@@ -647,7 +652,7 @@ public class AdminLessonsController {
                 return ResponseEntity.badRequest().body(response);
             }
 
-            // Создаем урок
+            // Создаем урок (время в UTC)
             Lesson lesson = new Lesson();
             lesson.setStudent(student);
             lesson.setTeacher(teacher);
@@ -759,6 +764,9 @@ public class AdminLessonsController {
             // Определяем количество недель для создания уроков
             int weeksToCreate = repeatWeekly ? recurrenceWeeks : 1;
             
+            // Слоты приходят в локальном времени преподавателя — конвертируем в UTC
+            String teacherTimezone = teacher.getTimezone();
+            
             for (int week = 0; week < weeksToCreate; week++) {
                 for (String slotId : selectedSlots) {
                     String[] parts = slotId.split("_");
@@ -766,6 +774,8 @@ public class AdminLessonsController {
                     String hour = parts[1];
                     
                     LocalDateTime lessonDate = getDateFromDayAndHour(day, hour, week);
+                    // Конвертируем из таймзоны преподавателя в UTC
+                    lessonDate = TimezoneUtils.toUtc(lessonDate, teacherTimezone);
                     
                     Lesson lesson = new Lesson(student, teacher, subject, lessonDate);
                     
@@ -856,6 +866,7 @@ public class AdminLessonsController {
 
             int createdLessons = 0;
             Long originalLessonId = null;
+            String teacherTimezone = teacher.getTimezone();
 
             for (int i = 0; i < lessonDates.size(); i++) {
                 String dateStr = lessonDates.get(i);
@@ -864,12 +875,17 @@ public class AdminLessonsController {
                 try {
                     // Пытаемся распарсить дату с timezone (например, "2025-08-12T15:00:00.000Z")
                     if (dateStr.endsWith("Z")) {
+                        // Дата уже в UTC — парсим как есть
                         lessonDate = LocalDateTime.parse(dateStr.substring(0, dateStr.length() - 1));
                     } else if (dateStr.contains("+") || dateStr.lastIndexOf("-") > 10) {
                         // Обрабатываем другие форматы с timezone
                         lessonDate = LocalDateTime.parse(dateStr.substring(0, 19));
+                        // Конвертируем из таймзоны преподавателя в UTC
+                        lessonDate = TimezoneUtils.toUtc(lessonDate, teacherTimezone);
                     } else {
                         lessonDate = LocalDateTime.parse(dateStr);
+                        // Конвертируем из таймзоны преподавателя в UTC
+                        lessonDate = TimezoneUtils.toUtc(lessonDate, teacherTimezone);
                     }
                 } catch (Exception e) {
                     return ResponseEntity.ok(Map.of("status", "error", "message", "Неверный формат даты: " + dateStr));
@@ -916,7 +932,7 @@ public class AdminLessonsController {
 
     // Вспомогательный метод для получения даты из дня недели и часа
     private LocalDateTime getDateFromDayAndHour(String day, String hour, int weekOffset) {
-        return getDateFromDayAndHour(day, hour, weekOffset, LocalDateTime.now());
+        return getDateFromDayAndHour(day, hour, weekOffset, TimezoneUtils.nowUtc());
     }
 
     // Перегруженный метод для получения даты из дня недели и часа с базовой датой
@@ -1069,7 +1085,7 @@ public class AdminLessonsController {
             }
             
             // Получаем забронированные уроки ученика
-            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime now = TimezoneUtils.nowUtc();
             List<Lesson> studentLessons = lessonRepository.findByStudentAndLessonDateBetween(
                 student,
                 getDateFromDayAndHour("MONDAY", "12", weekOffset),
@@ -1248,7 +1264,7 @@ public class AdminLessonsController {
                 lessonInfo.put("studentName", lesson.getStudent().getName());
                 lessonInfo.put("studentId", lesson.getStudent().getId());
                 lessonInfo.put("subjectName", lesson.getSubject().getName());
-                lessonInfo.put("lessonDate", lesson.getLessonDate());
+                lessonInfo.put("lessonDate", TimezoneUtils.toIsoUtcString(lesson.getLessonDate()));
                 lessonInfo.put("isRecurring", lesson.getIsRecurring());
                 
                 System.out.println("Урок: " + lesson.getId() + ", дата: " + lesson.getLessonDate() + 

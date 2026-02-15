@@ -187,4 +187,9 @@ public class UserService {
         user.setRemainingLessons(remainingLessons);
         userRepository.save(user);
     }
+
+    // Сохранить пользователя
+    public void saveUser(User user) {
+        userRepository.save(user);
+    }
 } 

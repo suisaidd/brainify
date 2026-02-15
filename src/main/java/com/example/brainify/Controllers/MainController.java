@@ -9,6 +9,7 @@ import com.example.brainify.Repository.LessonRepository;
 import com.example.brainify.Repository.TeacherScheduleRepository;
 import com.example.brainify.Repository.StudentTeacherRepository;
 import com.example.brainify.Repository.SubjectRepository;
+import com.example.brainify.Repository.UserRepository;
 import com.example.brainify.Config.SessionManager;
 import com.example.brainify.Service.LessonCancellationService;
 import com.example.brainify.Service.LessonRescheduleService;
@@ -62,6 +63,9 @@ public class MainController {
     
     @Autowired
     private ExcalidrawService excalidrawService;
+    
+    @Autowired
+    private UserRepository userRepository;
 
     @GetMapping({"/", "/main"})
     public String mainPage(Model model, HttpSession session) {
@@ -204,7 +208,7 @@ public class MainController {
                 lessonInfo.put("id", lesson.getId());
                 lessonInfo.put("subjectName", lesson.getSubject().getName());
                 lessonInfo.put("teacherName", lesson.getTeacher().getName());
-                lessonInfo.put("lessonDate", lesson.getLessonDate().toString()); // Форматируем как строку ISO
+                lessonInfo.put("lessonDate", TimezoneUtils.toIsoUtcString(lesson.getLessonDate()));
                 lessonInfo.put("status", lesson.getStatus().toString());
                 lessonInfo.put("description", lesson.getDescription());
                 lessonInfo.put("isRecurring", lesson.getIsRecurring());
@@ -267,15 +271,30 @@ public class MainController {
                 return ResponseEntity.badRequest().body(response);
             }
 
-            // Проверяем время урока (можно войти за 15 минут до начала)
-            LocalDateTime now = LocalDateTime.now();
+            // Проверяем время урока (можно войти за 15 + 2 минуты буфера до начала)
+            // Буфер компенсирует рассинхронизацию часов клиента и сервера
+            // Все времена в UTC
+            LocalDateTime now = TimezoneUtils.nowUtc();
             LocalDateTime lessonStart = lesson.getLessonDate();
             LocalDateTime lessonEnd = lessonStart.plusHours(1);
+            LocalDateTime earliestJoin = lessonStart.minusMinutes(17); // 15 мин + 2 мин буфер
 
-            if (now.isBefore(lessonStart.minusMinutes(15)) || now.isAfter(lessonEnd)) {
+            System.out.println("[STUDENT JOIN] now(UTC)=" + now
+                    + ", lessonStart(UTC)=" + lessonStart
+                    + ", earliestJoin=" + earliestJoin
+                    + ", lessonEnd=" + lessonEnd);
+
+            if (now.isBefore(earliestJoin)) {
+                long minutesLeft = java.time.Duration.between(now, earliestJoin).toMinutes();
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", false);
-                response.put("message", "Время урока еще не наступило или урок уже завершен");
+                response.put("message", "Вход в урок откроется за 15 минут до начала. Осталось ≈" + minutesLeft + " мин.");
+                return ResponseEntity.badRequest().body(response);
+            }
+            if (now.isAfter(lessonEnd)) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "Урок уже завершён.");
                 return ResponseEntity.badRequest().body(response);
             }
 
@@ -316,7 +335,7 @@ public class MainController {
             // Получаем статистику преподавателя
             List<Lesson> teacherLessons = lessonRepository.findByTeacherOrderByLessonDateAsc(currentUser);
             
-            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime now = TimezoneUtils.nowUtc();
             
             // Считаем уроки со статусом "Успешно" (COMPLETED или прошедшие уроки)
             long successfulLessons = teacherLessons.stream()
@@ -365,8 +384,8 @@ public class MainController {
         try {
             List<Lesson> lessons = lessonRepository.findByTeacherOrderByLessonDateAsc(currentUser);
             
-            // Фильтруем уроки для выбранной недели
-            LocalDateTime now = LocalDateTime.now();
+            // Фильтруем уроки для выбранной недели (UTC)
+            LocalDateTime now = TimezoneUtils.nowUtc();
             final LocalDateTime weekStart = now.toLocalDate().atStartOfDay().with(java.time.DayOfWeek.MONDAY).plusWeeks(weekOffset);
             final LocalDateTime weekEnd = weekStart.plusDays(7);
             
@@ -380,7 +399,7 @@ public class MainController {
                     lessonInfo.put("id", lesson.getId());
                     lessonInfo.put("subjectName", lesson.getSubject() != null ? lesson.getSubject().getName() : "Предмет не указан");
                     lessonInfo.put("studentName", lesson.getStudent() != null ? lesson.getStudent().getName() : "Ученик не указан");
-                    lessonInfo.put("lessonDate", lesson.getLessonDate().toString()); // Форматируем как строку ISO
+                    lessonInfo.put("lessonDate", TimezoneUtils.toIsoUtcString(lesson.getLessonDate()));
                     lessonInfo.put("status", lesson.getStatus().toString());
                     lessonInfo.put("description", lesson.getDescription());
                     lessonInfo.put("rating", 5.0); // Пока не реализовано
@@ -487,7 +506,7 @@ public class MainController {
                     lessonInfo.put("id", lesson.getId());
                     lessonInfo.put("subjectName", lesson.getSubject() != null ? lesson.getSubject().getName() : "Предмет не указан");
                     lessonInfo.put("studentName", lesson.getStudent() != null ? lesson.getStudent().getName() : "Ученик не указан");
-                    lessonInfo.put("lessonDate", lesson.getLessonDate().toString()); // Форматируем как строку ISO
+                    lessonInfo.put("lessonDate", TimezoneUtils.toIsoUtcString(lesson.getLessonDate()));
                     lessonInfo.put("status", lesson.getStatus().toString());
                     lessonInfo.put("description", lesson.getDescription());
                     lessonInfo.put("rating", 5.0); // Пока не реализовано
@@ -567,8 +586,10 @@ public class MainController {
             
             for (Lesson lesson : lessons) {
                 Map<String, Object> lessonMap = new HashMap<>();
-                lessonMap.put("dayOfWeek", lesson.getLessonDate().getDayOfWeek().name());
-                lessonMap.put("startTime", lesson.getLessonDate().toLocalTime().toString());
+                // Конвертируем UTC → локальное время преподавателя для отображения в сетке расписания
+                LocalDateTime localLessonDate = TimezoneUtils.fromUtc(lesson.getLessonDate(), teacherTimezone);
+                lessonMap.put("dayOfWeek", localLessonDate.getDayOfWeek().name());
+                lessonMap.put("startTime", localLessonDate.toLocalTime().toString());
                 lessonMap.put("subjectName", lesson.getSubject().getName());
                 lessonMap.put("studentName", lesson.getStudent().getName());
                 lessonMap.put("lessonId", lesson.getId());
@@ -604,6 +625,28 @@ public class MainController {
             e.printStackTrace();
             return ResponseEntity.status(500).build();
         }
+    }
+    
+    // API для обновления часового пояса текущего пользователя (из профиля)
+    @PostMapping("/api/profile/timezone")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> updateMyTimezone(
+            @RequestBody Map<String, String> body,
+            HttpSession session) {
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Необходима авторизация"));
+        }
+        
+        String timezone = body.get("timezone");
+        if (timezone == null || !TimezoneUtils.isValidTimezone(timezone)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Некорректный часовой пояс"));
+        }
+        
+        currentUser.setTimezone(timezone);
+        userRepository.save(currentUser);
+        
+        return ResponseEntity.ok(Map.of("success", true, "message", "Часовой пояс обновлён"));
     }
     
     // API для сохранения расписания преподавателя
@@ -822,6 +865,8 @@ public class MainController {
             }
             
             LocalDateTime newDate = LocalDateTime.parse(newDateStr);
+            // Новая дата приходит в локальном времени преподавателя — конвертируем в UTC
+            newDate = TimezoneUtils.toUtc(newDate, currentUser.getTimezone());
             
             Map<String, Object> result = lessonRescheduleService.rescheduleLesson(lessonId, currentUser, newDate, reason);
             
@@ -883,9 +928,9 @@ public class MainController {
         }
     }
     
-    // Вспомогательный метод для получения даты по дню недели и часу
+    // Вспомогательный метод для получения даты по дню недели и часу (UTC)
     private LocalDateTime getDateFromDayAndHour(String dayOfWeek, String hour, int weekOffset) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = TimezoneUtils.nowUtc();
         LocalDateTime weekStart = now.toLocalDate().atStartOfDay().with(java.time.DayOfWeek.MONDAY);
         weekStart = weekStart.plusWeeks(weekOffset);
         

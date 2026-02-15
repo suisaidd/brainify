@@ -1483,23 +1483,22 @@ function createCurrentLessonActions(lesson, status) {
     const now = new Date();
     const fifteenMinutesBefore = new Date(lessonDate.getTime() - (15 * 60 * 1000)); // 15 минут до урока
     const oneHourAfter = new Date(lessonDate.getTime() + (60 * 60 * 1000)); // 1 час после урока
-    const canJoin = now >= fifteenMinutesBefore && now <= oneHourAfter; // Активность: 15 минут до + 1 час после
+    // Кнопка доступна за 15 минут до начала и до 1 часа после
+    const canJoin = now >= fifteenMinutesBefore && now <= oneHourAfter;
+    const minutesUntilJoin = Math.ceil((fifteenMinutesBefore.getTime() - now.getTime()) / 60000);
     
     console.log('createCurrentLessonActions для урока', lesson.id, {
         status: status,
-        lessonDate: lessonDate,
-        now: now,
-        fifteenMinutesBefore: fifteenMinutesBefore,
-        oneHourAfter: oneHourAfter,
+        lessonDate: lessonDate.toISOString(),
+        now: now.toISOString(),
         canJoin: canJoin,
-        nowTime: now.getTime(),
-        lessonDateTime: lessonDate.getTime(),
-        fifteenMinutesBeforeTime: fifteenMinutesBefore.getTime(),
-        oneHourAfterTime: oneHourAfter.getTime()
+        minutesUntilJoin: minutesUntilJoin
     });
     
-    if (status === 'today') {
-        let buttons = `
+    // Кнопки перенести/отменить — для незавершённых уроков
+    let buttons = '';
+    if (status !== 'overdue' && status !== 'completed' && status !== 'cancelled') {
+        buttons += `
             <button class="lesson-btn secondary" onclick="rescheduleLesson(${lesson.id})">
                 <i class="fas fa-calendar-alt"></i>
                 Перенести
@@ -1509,55 +1508,53 @@ function createCurrentLessonActions(lesson, status) {
                 Отменить
             </button>
         `;
-        
-        if (canJoin) {
-            // Проверяем, вошел ли уже преподаватель в урок
-            if (lesson.teacherJoinedAt) {
-                buttons += `
-                    <button class="lesson-btn success" disabled>
-                        <i class="fas fa-check"></i>
-                        В уроке
-                    </button>
-                `;
-            } else {
-                buttons += `
-                    <button class="lesson-btn primary" onclick="joinLesson(${lesson.id})">
-                        <i class="fas fa-sign-in-alt"></i>
-                        Подключиться к уроку
-                    </button>
-                `;
-            }
-        } else if (now < fifteenMinutesBefore) {
+    }
+    
+    // Кнопка подключения — показываем независимо от status,
+    // ориентируясь ТОЛЬКО на реальное время (canJoin)
+    if (canJoin) {
+        if (lesson.teacherJoinedAt) {
+            buttons += `
+                <button class="lesson-btn success" disabled>
+                    <i class="fas fa-check"></i>
+                    В уроке
+                </button>
+            `;
+        } else {
+            buttons += `
+                <button class="lesson-btn primary" onclick="joinLesson(${lesson.id})">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Подключиться к уроку
+                </button>
+            `;
+        }
+    } else if (now < fifteenMinutesBefore) {
+        // Урок ещё не скоро — показываем таймер
+        if (minutesUntilJoin <= 60) {
+            buttons += `
+                <button class="lesson-btn disabled" disabled>
+                    <i class="fas fa-clock"></i>
+                    Доступно через ${minutesUntilJoin} мин
+                </button>
+            `;
+        } else {
             buttons += `
                 <button class="lesson-btn disabled" disabled>
                     <i class="fas fa-clock"></i>
                     Доступно за 15 минут
                 </button>
             `;
-        } else if (now > oneHourAfter) {
-            buttons += `
-                <button class="lesson-btn disabled" disabled>
-                    <i class="fas fa-clock"></i>
-                    Урок завершен
-                </button>
-            `;
         }
-        
-        return buttons;
-    } else if (status === 'scheduled' || status === 'tomorrow') {
-        return `
-            <button class="lesson-btn secondary" onclick="rescheduleLesson(${lesson.id})">
-                <i class="fas fa-calendar-alt"></i>
-                Перенести
-            </button>
-            <button class="lesson-btn danger" onclick="cancelLesson(${lesson.id})">
-                <i class="fas fa-times"></i>
-                Отменить
+    } else if (now > oneHourAfter) {
+        buttons += `
+            <button class="lesson-btn disabled" disabled>
+                <i class="fas fa-clock"></i>
+                Урок завершен
             </button>
         `;
-    } else {
-        return '';
     }
+    
+    return buttons;
 }
 
 function createPastLessonActions(lesson, status) {
@@ -1732,31 +1729,44 @@ function isTomorrow(date) {
            date.getFullYear() === tomorrow.getFullYear();
 }
 
-// Вспомогательная функция для создания даты из разных форматов
+// Вспомогательная функция для создания даты из разных форматов.
+// ВАЖНО: все даты с сервера приходят в UTC. Функция корректно создаёт Date,
+// а браузер автоматически конвертирует UTC в локальное время пользователя
+// при отображении через toLocaleString / toLocaleTimeString и т.д.
 function createDateFromInput(dateInput) {
     if (!dateInput) {
         return null;
     }
     
-    // Если это массив (LocalDateTime из Java)
+    // Если это массив (LocalDateTime из Java → Jackson сериализует как массив)
+    // Элементы: [year, month, day, hour, minute, second, nano]
+    // Все значения в UTC, поэтому используем Date.UTC()
     if (Array.isArray(dateInput)) {
         const [year, month, day, hour, minute, second, nano] = dateInput;
-        const date = new Date(year, month - 1, day, hour, minute, second);
+        // Date.UTC возвращает миллисекунды с epoch для указанного UTC времени
+        const date = new Date(Date.UTC(year, month - 1, day, hour || 0, minute || 0, second || 0));
         return date;
     }
     
     // Если это объект с полями (возможно, другой формат)
+    // Все значения от сервера — в UTC
     if (typeof dateInput === 'object' && dateInput !== null) {
         if (dateInput.year && dateInput.month && dateInput.day) {
-            const date = new Date(dateInput.year, dateInput.month - 1, dateInput.day, 
-                           dateInput.hour || 0, dateInput.minute || 0, dateInput.second || 0);
+            const date = new Date(Date.UTC(dateInput.year, dateInput.month - 1, dateInput.day, 
+                           dateInput.hour || 0, dateInput.minute || 0, dateInput.second || 0));
             return date;
         }
     }
     
     // Если это строка
     if (typeof dateInput === 'string') {
-        const date = new Date(dateInput);
+        // Если строка не содержит индикатор таймзоны, добавляем "Z" (UTC)
+        // т.к. сервер хранит все даты в UTC
+        let dateStr = dateInput;
+        if (!dateStr.endsWith('Z') && !dateStr.includes('+') && !dateStr.includes('-', 10)) {
+            dateStr += 'Z';
+        }
+        const date = new Date(dateStr);
         return date;
     }
     
@@ -1797,7 +1807,7 @@ function showNoPastLessonsMessage() {
 // Функции для действий с уроками
 function joinLesson(lessonId) {
     console.log('Вход в урок:', lessonId);
-    showToast('Открытие урока в новой вкладке...', 'info');
+    showToast('Подключение к уроку...', 'info');
     
     // Сначала отмечаем вход в урок
     fetch(`/api/lessons/${lessonId}/join`, {
@@ -1806,9 +1816,12 @@ function joinLesson(lessonId) {
             'Content-Type': 'application/json'
         }
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
+    .then(response => {
+        // Парсим JSON даже при HTTP 400, чтобы получить сообщение об ошибке
+        return response.json().then(data => ({ ok: response.ok, data }));
+    })
+    .then(({ ok, data }) => {
+        if (ok && data.success) {
             // Открываем урок в новой вкладке
             const lessonWindow = window.open(`/equipment-check?lessonId=${lessonId}`, '_blank', 'noopener,noreferrer');
             
@@ -1831,12 +1844,14 @@ function joinLesson(lessonId) {
                 showToast('Не удалось открыть урок. Проверьте блокировку всплывающих окон.', 'error');
             }
         } else {
-            showToast(data.message || 'Не удалось войти в урок', 'error');
+            const msg = data.message || data.error || 'Не удалось войти в урок';
+            console.warn('[joinLesson] Сервер отклонил вход:', msg);
+            showToast(msg, 'error');
         }
     })
     .catch(error => {
         console.error('Ошибка при входе в урок:', error);
-        showToast('Ошибка при входе в урок', 'error');
+        showToast('Ошибка сети при входе в урок. Попробуйте ещё раз.', 'error');
     });
 }
 
@@ -1897,7 +1912,7 @@ function showRescheduleModal(rescheduleInfo) {
                         <strong>Ученик:</strong> ${rescheduleInfo.studentName}
                     </div>
                     <div class="info-item">
-                        <strong>Текущая дата и время:</strong> ${new Date(rescheduleInfo.lessonDate).toLocaleString('ru-RU')}
+                        <strong>Текущая дата и время:</strong> ${createDateFromInput(rescheduleInfo.lessonDate).toLocaleString('ru-RU')}
                     </div>
                     <div class="info-item">
                         <strong>До урока осталось:</strong> ${rescheduleInfo.hoursUntilLesson} часов
@@ -2497,7 +2512,7 @@ function findLessonAtTime(lessonsData, dayName, timeSlot) {
     const targetTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`;
     
     return lessonsData.find(lesson => {
-        const lessonDate = new Date(lesson.lessonDate);
+        const lessonDate = createDateFromInput(lesson.lessonDate);
         const lessonDay = getDayOfWeek(lessonDate);
         const lessonTime = lessonDate.toTimeString().substring(0, 8);
         
@@ -2608,7 +2623,7 @@ function showCancellationModal(cancellationInfo) {
                         <strong>Ученик:</strong> ${cancellationInfo.studentName}
                     </div>
                     <div class="info-item">
-                        <strong>Дата и время:</strong> ${new Date(cancellationInfo.lessonDate).toLocaleString('ru-RU')}
+                        <strong>Дата и время:</strong> ${createDateFromInput(cancellationInfo.lessonDate).toLocaleString('ru-RU')}
                     </div>
                     <div class="info-item">
                         <strong>До урока осталось:</strong> ${cancellationInfo.hoursUntilLesson >= 0 ? cancellationInfo.hoursUntilLesson + ' часов' : 'Урок уже прошел'}
@@ -3776,7 +3791,7 @@ function openLessonDetails(lesson) {
                     <strong>Ученик:</strong> ${lesson.studentName || 'Не указан'}
                 </div>
                 <div class="lesson-detail-item">
-                    <strong>Дата и время:</strong> ${new Date(lesson.lessonDate).toLocaleString('ru-RU')}
+                    <strong>Дата и время:</strong> ${createDateFromInput(lesson.lessonDate).toLocaleString('ru-RU')}
                 </div>
                 <div class="lesson-detail-item">
                     <strong>Статус:</strong> ${getStatusText(lesson.status)}
@@ -4590,4 +4605,108 @@ async function deleteTeacherQuestion(questionId) {
         console.error('Ошибка удаления задания преподавателя:', error);
         showToast(error.message || 'Не удалось удалить задание', 'error');
     }
+}
+
+// ==================== Часовой пояс (профиль учителя) ====================
+
+var TEACHER_RUSSIAN_CITIES = {
+    "Калининград": "Europe/Kaliningrad",
+    "Москва": "Europe/Moscow",
+    "Санкт-Петербург": "Europe/Moscow",
+    "Казань": "Europe/Moscow",
+    "Нижний Новгород": "Europe/Moscow",
+    "Ростов-на-Дону": "Europe/Moscow",
+    "Краснодар": "Europe/Moscow",
+    "Воронеж": "Europe/Moscow",
+    "Волгоград": "Europe/Volgograd",
+    "Саратов": "Europe/Saratov",
+    "Астрахань": "Europe/Astrakhan",
+    "Самара": "Europe/Samara",
+    "Уфа": "Asia/Yekaterinburg",
+    "Екатеринбург": "Asia/Yekaterinburg",
+    "Пермь": "Asia/Yekaterinburg",
+    "Челябинск": "Asia/Yekaterinburg",
+    "Тюмень": "Asia/Yekaterinburg",
+    "Омск": "Asia/Omsk",
+    "Новосибирск": "Asia/Novosibirsk",
+    "Томск": "Asia/Tomsk",
+    "Красноярск": "Asia/Krasnoyarsk",
+    "Иркутск": "Asia/Irkutsk",
+    "Якутск": "Asia/Yakutsk",
+    "Владивосток": "Asia/Vladivostok",
+    "Хабаровск": "Asia/Vladivostok",
+    "Магадан": "Asia/Magadan",
+    "Петропавловск-Камчатский": "Asia/Kamchatka"
+};
+
+function initTeacherProfileTimezone() {
+    var select = document.getElementById('teacherProfileTimezoneSelect');
+    if (!select) return;
+    
+    var currentTz = document.body.getAttribute('data-user-timezone') || 'Europe/Moscow';
+    
+    select.innerHTML = '';
+    for (var city in TEACHER_RUSSIAN_CITIES) {
+        if (!TEACHER_RUSSIAN_CITIES.hasOwnProperty(city)) continue;
+        var tz = TEACHER_RUSSIAN_CITIES[city];
+        var opt = document.createElement('option');
+        opt.value = tz;
+        try {
+            var now = new Date();
+            var parts = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(now);
+            var offsetPart = null;
+            for (var i = 0; i < parts.length; i++) {
+                if (parts[i].type === 'timeZoneName') { offsetPart = parts[i]; break; }
+            }
+            opt.textContent = city + (offsetPart ? ' (' + offsetPart.value + ')' : '');
+        } catch (e) {
+            opt.textContent = city;
+        }
+        if (tz === currentTz) opt.selected = true;
+        select.appendChild(opt);
+    }
+}
+
+function saveTeacherProfileTimezone() {
+    var select = document.getElementById('teacherProfileTimezoneSelect');
+    if (!select) return;
+    
+    var tz = select.value;
+    var statusEl = document.getElementById('teacherTzSaveStatus');
+    
+    fetch('/api/profile/timezone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timezone: tz })
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+        if (data.success || data.message) {
+            if (statusEl) {
+                statusEl.textContent = 'Сохранено!';
+                statusEl.style.display = 'inline';
+                statusEl.style.color = '#10b981';
+                setTimeout(function() { statusEl.style.display = 'none'; }, 3000);
+            }
+            document.body.setAttribute('data-user-timezone', tz);
+            showToast('Часовой пояс обновлён', 'success');
+        } else {
+            throw new Error(data.error || 'Ошибка');
+        }
+    })
+    .catch(function(err) {
+        if (statusEl) {
+            statusEl.textContent = 'Ошибка: ' + err.message;
+            statusEl.style.display = 'inline';
+            statusEl.style.color = '#ef4444';
+        }
+        showToast('Ошибка обновления часового пояса', 'error');
+    });
+}
+
+// Инициализируем при загрузке
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTeacherProfileTimezone);
+} else {
+    initTeacherProfileTimezone();
 }

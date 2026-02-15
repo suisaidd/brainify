@@ -5,6 +5,7 @@ import com.example.brainify.Model.UserRole;
 import com.example.brainify.Model.Subject;
 import com.example.brainify.Service.UserService;
 import com.example.brainify.Config.SessionManager;
+import com.example.brainify.Utils.TimezoneUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -152,6 +153,43 @@ public class AdminController {
         }
     }
     
+    // API для обновления часового пояса пользователя
+    @PostMapping("/api/users/{userId}/timezone")
+    @ResponseBody
+    public ResponseEntity<Map<String, String>> updateUserTimezone(
+            @PathVariable Long userId,
+            @RequestParam String timezone,
+            HttpSession session) {
+        
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null || 
+            (!currentUser.getRole().equals(UserRole.ADMIN) && !currentUser.getRole().equals(UserRole.MANAGER))) {
+            return ResponseEntity.status(403).build();
+        }
+
+        Map<String, String> response = new HashMap<>();
+
+        if (!TimezoneUtils.isValidTimezone(timezone)) {
+            response.put("status", "error");
+            response.put("message", "Некорректный часовой пояс: " + timezone);
+            return ResponseEntity.badRequest().body(response);
+        }
+
+        try {
+            User user = userService.getUserById(userId);
+            user.setTimezone(timezone);
+            userService.saveUser(user);
+            
+            response.put("status", "success");
+            response.put("message", "Часовой пояс обновлён");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", "Ошибка: " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
+    }
+
     // API для получения списка всех предметов
     @GetMapping("/api/subjects")
     @ResponseBody

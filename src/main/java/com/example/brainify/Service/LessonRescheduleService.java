@@ -3,6 +3,7 @@ package com.example.brainify.Service;
 import com.example.brainify.Model.Lesson;
 import com.example.brainify.Model.LessonReschedule;
 import com.example.brainify.Model.User;
+import com.example.brainify.Utils.TimezoneUtils;
 import com.example.brainify.Repository.LessonRescheduleRepository;
 import com.example.brainify.Repository.LessonRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
@@ -50,14 +52,14 @@ public class LessonRescheduleService {
             return info;
         }
         
-        // Проверяем, что урок еще не прошел
-        if (lesson.getLessonDate().isBefore(LocalDateTime.now())) {
+        // Проверяем, что урок еще не прошел (всё в UTC)
+        if (lesson.getLessonDate().isBefore(TimezoneUtils.nowUtc())) {
             info.put("error", "Нельзя перенести прошедший урок");
             return info;
         }
         
-        // Вычисляем время до урока
-        long hoursUntilLesson = java.time.Duration.between(LocalDateTime.now(), lesson.getLessonDate()).toHours();
+        // Вычисляем время до урока (всё в UTC)
+        long hoursUntilLesson = java.time.Duration.between(TimezoneUtils.nowUtc(), lesson.getLessonDate()).toHours();
         
         // Определяем штрафы
         double penaltyAmount = 0.0;
@@ -69,7 +71,7 @@ public class LessonRescheduleService {
         }
         
         info.put("lessonId", lessonId);
-        info.put("lessonDate", lesson.getLessonDate().toString());
+        info.put("lessonDate", TimezoneUtils.toIsoUtcString(lesson.getLessonDate()));
         info.put("subjectName", lesson.getSubject().getName());
         info.put("studentName", lesson.getStudent().getName());
         info.put("hoursUntilLesson", hoursUntilLesson);
@@ -107,15 +109,15 @@ public class LessonRescheduleService {
             return result;
         }
         
-        // Проверяем, что урок еще не прошел
-        if (lesson.getLessonDate().isBefore(LocalDateTime.now())) {
+        // Проверяем, что урок еще не прошел (всё в UTC)
+        if (lesson.getLessonDate().isBefore(TimezoneUtils.nowUtc())) {
             result.put("success", false);
             result.put("error", "Нельзя перенести прошедший урок");
             return result;
         }
         
-        // Проверяем, что новое время в будущем
-        if (newDate.isBefore(LocalDateTime.now())) {
+        // Проверяем, что новое время в будущем (всё в UTC)
+        if (newDate.isBefore(TimezoneUtils.nowUtc())) {
             result.put("success", false);
             result.put("error", "Новое время урока должно быть в будущем");
             return result;
@@ -154,8 +156,8 @@ public class LessonRescheduleService {
             result.put("message", "Урок успешно перенесен");
             result.put("penaltyAmount", reschedule.getPenaltyAmount());
             result.put("penaltyReason", reschedule.getPenaltyReason());
-            result.put("originalDate", originalDate.toString());
-            result.put("newDate", newDate.toString());
+            result.put("originalDate", TimezoneUtils.toIsoUtcString(originalDate));
+            result.put("newDate", TimezoneUtils.toIsoUtcString(newDate));
             
         } catch (Exception e) {
             result.put("success", false);
@@ -171,7 +173,7 @@ public class LessonRescheduleService {
     public Map<String, Object> getTeacherRescheduleStats(User teacher) {
         Map<String, Object> stats = new HashMap<>();
         
-        YearMonth currentMonth = YearMonth.now();
+        YearMonth currentMonth = YearMonth.now(ZoneOffset.UTC);
         LocalDateTime startOfMonth = currentMonth.atDay(1).atStartOfDay();
         LocalDateTime endOfMonth = currentMonth.atEndOfMonth().atTime(23, 59, 59);
         

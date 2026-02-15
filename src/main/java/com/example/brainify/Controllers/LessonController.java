@@ -44,10 +44,10 @@ public class LessonController {
                 return ResponseEntity.status(401).body(error);
             }
 
-            boolean success = lessonAutoCompletionService.joinLesson(lessonId, currentUser.getId());
+            String error = lessonAutoCompletionService.joinLesson(lessonId, currentUser.getId());
             
-            if (success) {
-                // Генерируем ключи Excalidraw для урока
+            if (error == null) {
+                // Успех — генерируем ключи Excalidraw для урока
                 Optional<Lesson> lessonOpt = lessonRepository.findById(lessonId);
                 if (lessonOpt.isPresent()) {
                     Lesson lesson = lessonOpt.get();
@@ -61,7 +61,7 @@ public class LessonController {
             } else {
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", false);
-                response.put("message", "Не удалось войти в урок. Проверьте время урока и права доступа.");
+                response.put("message", error);
                 return ResponseEntity.badRequest().body(response);
             }
             

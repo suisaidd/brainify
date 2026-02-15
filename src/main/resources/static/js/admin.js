@@ -208,6 +208,10 @@ function createUserRow(user) {
                         Предметы
                     </button>
                 ` : ''}
+                <button class="btn" onclick="openTimezoneModal(${user.id}, '${escapeSingleQuotes(user.name)}', '${escapeSingleQuotes(user.timezone || 'Europe/Moscow')}')" style="padding: 0.5rem 1rem; font-size: 0.75rem; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none;">
+                    <i class="fas fa-clock"></i>
+                    Часовой пояс
+                </button>
             </div>
         </td>
     `;
@@ -1143,5 +1147,124 @@ async function saveStudentCourses() {
     } catch (error) {
         console.error('Ошибка сохранения курсов:', error);
         showToast('Ошибка сохранения курсов: ' + error.message, 'error');
+    }
+}
+
+// ==================== Часовой пояс ====================
+
+const RUSSIAN_CITIES = {
+    "Калининград": "Europe/Kaliningrad",
+    "Москва": "Europe/Moscow",
+    "Санкт-Петербург": "Europe/Moscow",
+    "Казань": "Europe/Moscow",
+    "Нижний Новгород": "Europe/Moscow",
+    "Ростов-на-Дону": "Europe/Moscow",
+    "Краснодар": "Europe/Moscow",
+    "Воронеж": "Europe/Moscow",
+    "Волгоград": "Europe/Volgograd",
+    "Саратов": "Europe/Saratov",
+    "Астрахань": "Europe/Astrakhan",
+    "Самара": "Europe/Samara",
+    "Уфа": "Asia/Yekaterinburg",
+    "Екатеринбург": "Asia/Yekaterinburg",
+    "Пермь": "Asia/Yekaterinburg",
+    "Челябинск": "Asia/Yekaterinburg",
+    "Тюмень": "Asia/Yekaterinburg",
+    "Омск": "Asia/Omsk",
+    "Новосибирск": "Asia/Novosibirsk",
+    "Томск": "Asia/Tomsk",
+    "Красноярск": "Asia/Krasnoyarsk",
+    "Иркутск": "Asia/Irkutsk",
+    "Якутск": "Asia/Yakutsk",
+    "Владивосток": "Asia/Vladivostok",
+    "Хабаровск": "Asia/Vladivostok",
+    "Магадан": "Asia/Magadan",
+    "Петропавловск-Камчатский": "Asia/Kamchatka"
+};
+
+let currentTimezoneUser = null;
+
+function openTimezoneModal(userId, userName, currentTimezone) {
+    currentTimezoneUser = { id: userId, name: userName };
+
+    // Создаём модальное окно если нет
+    let modal = document.getElementById('timezoneModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'timezoneModal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 480px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-clock"></i> Часовой пояс</h3>
+                    <button class="modal-close" onclick="closeTimezoneModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p id="tzUserInfo" style="margin-bottom: 1rem; color: #64748b;"></p>
+                    <select id="tzSelect" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 1rem; background: white;">
+                    </select>
+                </div>
+                <div class="modal-footer" style="display: flex; gap: 0.5rem; justify-content: flex-end; padding-top: 1rem;">
+                    <button class="btn btn-secondary" onclick="closeTimezoneModal()">Отмена</button>
+                    <button class="btn btn-primary" onclick="saveTimezone()">Сохранить</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) closeTimezoneModal();
+        });
+    }
+
+    document.getElementById('tzUserInfo').textContent = userName;
+
+    // Заполняем select
+    const select = document.getElementById('tzSelect');
+    select.innerHTML = '';
+    for (const [city, tz] of Object.entries(RUSSIAN_CITIES)) {
+        const opt = document.createElement('option');
+        opt.value = tz;
+        // Вычисляем UTC offset для отображения
+        const now = new Date();
+        const offset = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' })
+            .formatToParts(now).find(p => p.type === 'timeZoneName');
+        opt.textContent = city + (offset ? ' (' + offset.value + ')' : '');
+        if (tz === currentTimezone) opt.selected = true;
+        select.appendChild(opt);
+    }
+
+    modal.style.display = 'flex';
+}
+
+function closeTimezoneModal() {
+    const modal = document.getElementById('timezoneModal');
+    if (modal) modal.style.display = 'none';
+    currentTimezoneUser = null;
+}
+
+async function saveTimezone() {
+    if (!currentTimezoneUser) return;
+
+    const tz = document.getElementById('tzSelect').value;
+    try {
+        const formData = new FormData();
+        formData.append('timezone', tz);
+
+        const response = await fetch(`/admin-role/api/users/${currentTimezoneUser.id}/timezone`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.message || 'Ошибка');
+        }
+
+        showToast('Часовой пояс обновлён', 'success');
+        closeTimezoneModal();
+        loadUsers(); // Обновляем таблицу
+    } catch (error) {
+        showToast('Ошибка: ' + error.message, 'error');
     }
 }

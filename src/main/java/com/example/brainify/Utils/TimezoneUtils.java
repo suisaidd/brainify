@@ -6,6 +6,25 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class TimezoneUtils {
+
+    /**
+     * Возвращает текущее время в UTC.
+     * Используется ВЕЗДЕ вместо LocalDateTime.now() для консистентности,
+     * т.к. все даты в БД хранятся в UTC.
+     */
+    public static LocalDateTime nowUtc() {
+        return LocalDateTime.now(ZoneOffset.UTC);
+    }
+
+    /**
+     * Форматирует LocalDateTime (UTC) в строку с суффиксом "Z"
+     * для передачи на фронтенд. Фронтенд распознает "Z" как UTC
+     * и автоматически конвертирует в локальное время браузера.
+     */
+    public static String toIsoUtcString(LocalDateTime utcDateTime) {
+        if (utcDateTime == null) return null;
+        return utcDateTime.toString() + "Z";
+    }
     
     // Популярные часовые пояса России
     private static final Map<String, String> RUSSIAN_TIMEZONES = new HashMap<>();
@@ -26,6 +45,18 @@ public class TimezoneUtils {
         RUSSIAN_TIMEZONES.put("Казань", "Europe/Moscow");
         RUSSIAN_TIMEZONES.put("Нижний Новгород", "Europe/Moscow");
         RUSSIAN_TIMEZONES.put("Ростов-на-Дону", "Europe/Moscow");
+        RUSSIAN_TIMEZONES.put("Саратов", "Europe/Saratov");
+        RUSSIAN_TIMEZONES.put("Волгоград", "Europe/Volgograd");
+        RUSSIAN_TIMEZONES.put("Астрахань", "Europe/Astrakhan");
+        RUSSIAN_TIMEZONES.put("Пермь", "Asia/Yekaterinburg");
+        RUSSIAN_TIMEZONES.put("Челябинск", "Asia/Yekaterinburg");
+        RUSSIAN_TIMEZONES.put("Омск", "Asia/Omsk");
+        RUSSIAN_TIMEZONES.put("Томск", "Asia/Tomsk");
+        RUSSIAN_TIMEZONES.put("Хабаровск", "Asia/Vladivostok");
+        RUSSIAN_TIMEZONES.put("Петропавловск-Камчатский", "Asia/Kamchatka");
+        RUSSIAN_TIMEZONES.put("Краснодар", "Europe/Moscow");
+        RUSSIAN_TIMEZONES.put("Воронеж", "Europe/Moscow");
+        RUSSIAN_TIMEZONES.put("Тюмень", "Asia/Yekaterinburg");
     }
     
     /**
@@ -96,6 +127,45 @@ public class TimezoneUtils {
             return true;
         } catch (Exception e) {
             return false;
+        }
+    }
+    
+    /**
+     * Конвертирует LocalDateTime из локальной таймзоны пользователя в UTC.
+     * Используется при СОЗДАНИИ уроков: учитель вводит время в своей таймзоне,
+     * а в БД сохраняем UTC.
+     *
+     * @param localDateTime время в локальной таймзоне пользователя
+     * @param fromTimezone  таймзона пользователя (например, "Europe/Saratov")
+     * @return время в UTC
+     */
+    public static LocalDateTime toUtc(LocalDateTime localDateTime, String fromTimezone) {
+        try {
+            ZoneId userZone = ZoneId.of(fromTimezone);
+            ZonedDateTime userZoned = localDateTime.atZone(userZone);
+            ZonedDateTime utcZoned = userZoned.withZoneSameInstant(ZoneId.of("UTC"));
+            return utcZoned.toLocalDateTime();
+        } catch (Exception e) {
+            // Если таймзона невалидная — возвращаем как есть
+            return localDateTime;
+        }
+    }
+    
+    /**
+     * Конвертирует LocalDateTime из UTC в локальную таймзону пользователя.
+     * Используется при ОТОБРАЖЕНИИ уроков.
+     *
+     * @param utcDateTime время в UTC
+     * @param toTimezone  целевая таймзона (например, "Europe/Moscow")
+     * @return время в локальной таймзоне
+     */
+    public static LocalDateTime fromUtc(LocalDateTime utcDateTime, String toTimezone) {
+        try {
+            ZonedDateTime utcZoned = utcDateTime.atZone(ZoneId.of("UTC"));
+            ZonedDateTime localZoned = utcZoned.withZoneSameInstant(ZoneId.of(toTimezone));
+            return localZoned.toLocalDateTime();
+        } catch (Exception e) {
+            return utcDateTime;
         }
     }
 }

@@ -1,5 +1,24 @@
 // Dashboard Student JavaScript
 
+// Вспомогательная функция: парсит дату с сервера (всегда UTC).
+// Если строка не содержит индикатора таймзоны, добавляет "Z".
+function parseServerDate(dateInput) {
+    if (!dateInput) return null;
+    if (dateInput instanceof Date) return dateInput;
+    if (typeof dateInput === 'string') {
+        let s = dateInput;
+        if (!s.endsWith('Z') && !s.includes('+') && !s.includes('-', 10)) {
+            s += 'Z';
+        }
+        return new Date(s);
+    }
+    if (Array.isArray(dateInput)) {
+        const [year, month, day, hour, minute, second] = dateInput;
+        return new Date(Date.UTC(year, month - 1, day, hour || 0, minute || 0, second || 0));
+    }
+    return new Date(dateInput);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Инициализация
     initializeDashboard();
@@ -73,8 +92,8 @@ async function loadStudentStats() {
         // Находим ближайший урок
         const now = new Date();
         const upcomingLessons = lessons
-            .filter(lesson => new Date(lesson.lessonDate) > now && lesson.status === 'SCHEDULED')
-            .sort((a, b) => new Date(a.lessonDate) - new Date(b.lessonDate));
+            .filter(lesson => parseServerDate(lesson.lessonDate) > now && lesson.status === 'SCHEDULED')
+            .sort((a, b) => parseServerDate(a.lessonDate) - parseServerDate(b.lessonDate));
         
         const nextLesson = upcomingLessons[0];
         
@@ -107,7 +126,7 @@ function updateStatsDisplay(stats) {
     const nextLessonTimeElement = document.getElementById('nextLessonTime');
     if (nextLessonTimeElement) {
         if (stats.nextLesson) {
-            const lessonDate = new Date(stats.nextLesson.lessonDate);
+            const lessonDate = parseServerDate(stats.nextLesson.lessonDate);
             const timeString = lessonDate.toLocaleTimeString('ru-RU', {
                 hour: '2-digit',
                 minute: '2-digit'
@@ -148,7 +167,7 @@ async function loadStudentLessons() {
         const cancelledLessons = [];
         
         lessons.forEach(lesson => {
-            const lessonDate = new Date(lesson.lessonDate);
+            const lessonDate = parseServerDate(lesson.lessonDate);
             const oneHourAfter = new Date(lessonDate.getTime() + (60 * 60 * 1000)); // 1 час после урока
             
             // Отмененные уроки идут в архив независимо от даты
@@ -164,13 +183,13 @@ async function loadStudentLessons() {
         });
         
         // Сортируем активные уроки по дате (ближайшие сначала)
-        upcomingLessons.sort((a, b) => new Date(a.lessonDate) - new Date(b.lessonDate));
+        upcomingLessons.sort((a, b) => parseServerDate(a.lessonDate) - parseServerDate(b.lessonDate));
         
         // Сортируем прошедшие уроки по дате (новые сначала)
-        pastLessons.sort((a, b) => new Date(b.lessonDate) - new Date(a.lessonDate));
+        pastLessons.sort((a, b) => parseServerDate(b.lessonDate) - parseServerDate(a.lessonDate));
         
         // Сортируем отмененные уроки по дате (новые сначала)
-        cancelledLessons.sort((a, b) => new Date(b.lessonDate) - new Date(a.lessonDate));
+        cancelledLessons.sort((a, b) => parseServerDate(b.lessonDate) - parseServerDate(a.lessonDate));
         
         // Объединяем прошедшие и отмененные уроки
         const allPastLessons = [...pastLessons, ...cancelledLessons];
@@ -308,7 +327,7 @@ function createLessonElement(lesson) {
     const lessonDiv = document.createElement('div');
     lessonDiv.className = 'lesson-card';
     
-    const lessonDate = new Date(lesson.lessonDate);
+    const lessonDate = parseServerDate(lesson.lessonDate);
     const timeString = lessonDate.toLocaleTimeString('ru-RU', {
         hour: '2-digit',
         minute: '2-digit'
@@ -574,7 +593,7 @@ function getTestStatusMeta(status) {
 // Функция для входа в урок
 function joinLesson(lessonId) {
     console.log('Вход в урок:', lessonId);
-    showToast('Открытие урока в новой вкладке...', 'info');
+    showToast('Подключение к занятию...', 'info');
     
     // Сначала отмечаем вход в урок
     fetch(`/api/student/lessons/${lessonId}/join`, {
@@ -583,9 +602,12 @@ function joinLesson(lessonId) {
             'Content-Type': 'application/json'
         }
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
+    .then(response => {
+        // Парсим JSON даже при HTTP 400, чтобы получить сообщение об ошибке
+        return response.json().then(data => ({ ok: response.ok, data }));
+    })
+    .then(({ ok, data }) => {
+        if (ok && data.success) {
             // Открываем урок в новой вкладке
             const lessonWindow = window.open(`/equipment-check?lessonId=${lessonId}`, '_blank', 'noopener,noreferrer');
             
@@ -608,12 +630,14 @@ function joinLesson(lessonId) {
                 showToast('Не удалось открыть урок. Проверьте блокировку всплывающих окон.', 'error');
             }
         } else {
-            showToast(data.message || 'Не удалось войти в урок', 'error');
+            const msg = data.message || data.error || 'Не удалось войти в урок';
+            console.warn('[joinLesson student] Сервер отклонил вход:', msg);
+            showToast(msg, 'error');
         }
     })
     .catch(error => {
         console.error('Ошибка при входе в урок:', error);
-        showToast('Ошибка при входе в урок', 'error');
+        showToast('Ошибка сети при входе в урок. Попробуйте ещё раз.', 'error');
     });
 }
 
@@ -900,7 +924,7 @@ function createScheduleTable(lessons = studentScheduleLessons) {
 // Поиск урока по дате и времени
 function findLessonForDateTime(lessons, targetDate) {
     return lessons.find(lesson => {
-        const lessonDate = new Date(lesson.lessonDate);
+        const lessonDate = parseServerDate(lesson.lessonDate);
         return lessonDate.getFullYear() === targetDate.getFullYear() &&
                lessonDate.getMonth() === targetDate.getMonth() &&
                lessonDate.getDate() === targetDate.getDate() &&
@@ -1716,4 +1740,106 @@ async function loadStudentCourses() {
             </div>
         `;
     }
+}
+
+// ==================== Часовой пояс в профиле ====================
+
+var PROFILE_RUSSIAN_CITIES = {
+    "Калининград": "Europe/Kaliningrad",
+    "Москва": "Europe/Moscow",
+    "Санкт-Петербург": "Europe/Moscow",
+    "Казань": "Europe/Moscow",
+    "Нижний Новгород": "Europe/Moscow",
+    "Ростов-на-Дону": "Europe/Moscow",
+    "Краснодар": "Europe/Moscow",
+    "Воронеж": "Europe/Moscow",
+    "Волгоград": "Europe/Volgograd",
+    "Саратов": "Europe/Saratov",
+    "Астрахань": "Europe/Astrakhan",
+    "Самара": "Europe/Samara",
+    "Уфа": "Asia/Yekaterinburg",
+    "Екатеринбург": "Asia/Yekaterinburg",
+    "Пермь": "Asia/Yekaterinburg",
+    "Челябинск": "Asia/Yekaterinburg",
+    "Тюмень": "Asia/Yekaterinburg",
+    "Омск": "Asia/Omsk",
+    "Новосибирск": "Asia/Novosibirsk",
+    "Томск": "Asia/Tomsk",
+    "Красноярск": "Asia/Krasnoyarsk",
+    "Иркутск": "Asia/Irkutsk",
+    "Якутск": "Asia/Yakutsk",
+    "Владивосток": "Asia/Vladivostok",
+    "Хабаровск": "Asia/Vladivostok",
+    "Магадан": "Asia/Magadan",
+    "Петропавловск-Камчатский": "Asia/Kamchatka"
+};
+
+function initProfileTimezone() {
+    var select = document.getElementById('profileTimezoneSelect');
+    if (!select) return;
+    
+    var currentTz = document.body.getAttribute('data-user-timezone') || 'Europe/Moscow';
+    
+    select.innerHTML = '';
+    for (var city in PROFILE_RUSSIAN_CITIES) {
+        if (!PROFILE_RUSSIAN_CITIES.hasOwnProperty(city)) continue;
+        var tz = PROFILE_RUSSIAN_CITIES[city];
+        var opt = document.createElement('option');
+        opt.value = tz;
+        try {
+            var now = new Date();
+            var parts = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(now);
+            var offsetPart = null;
+            for (var i = 0; i < parts.length; i++) {
+                if (parts[i].type === 'timeZoneName') { offsetPart = parts[i]; break; }
+            }
+            opt.textContent = city + (offsetPart ? ' (' + offsetPart.value + ')' : '');
+        } catch (e) {
+            opt.textContent = city;
+        }
+        if (tz === currentTz) opt.selected = true;
+        select.appendChild(opt);
+    }
+}
+
+function saveProfileTimezone() {
+    var select = document.getElementById('profileTimezoneSelect');
+    if (!select) return;
+    
+    var tz = select.value;
+    var statusEl = document.getElementById('tzSaveStatus');
+    
+    fetch('/api/profile/timezone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timezone: tz })
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+        if (data.success || data.message) {
+            if (statusEl) {
+                statusEl.textContent = 'Сохранено!';
+                statusEl.style.display = 'inline';
+                statusEl.style.color = '#10b981';
+                setTimeout(function() { statusEl.style.display = 'none'; }, 3000);
+            }
+            document.body.setAttribute('data-user-timezone', tz);
+        } else {
+            throw new Error(data.error || 'Ошибка');
+        }
+    })
+    .catch(function(err) {
+        if (statusEl) {
+            statusEl.textContent = 'Ошибка: ' + err.message;
+            statusEl.style.display = 'inline';
+            statusEl.style.color = '#ef4444';
+        }
+    });
+}
+
+// Инициализируем селект при загрузке
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initProfileTimezone);
+} else {
+    initProfileTimezone();
 }

@@ -3,6 +3,7 @@ package com.example.brainify.Controllers;
 import com.example.brainify.Config.SessionManager;
 import com.example.brainify.Model.*;
 import com.example.brainify.Repository.*;
+import com.example.brainify.Utils.TimezoneUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -11,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpSession;
 import java.time.*;
-
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -217,6 +217,8 @@ public class ScheduleController {
 
             LocalDate weekStart = LocalDate.parse(startDate);
             List<Lesson> createdLessons = new ArrayList<>();
+            // Слоты в таймзоне преподавателя — конвертируем в UTC при сохранении
+            String teacherTimezone = teacher.getTimezone();
 
             for (int week = 0; week < weeks; week++) {
                 LocalDate currentWeek = weekStart.plusWeeks(week);
@@ -229,9 +231,11 @@ public class ScheduleController {
                     DayOfWeek dayOfWeek = DayOfWeek.valueOf(dayStr.toUpperCase());
                     LocalTime time = LocalTime.parse(timeStr);
                     
-                    // Вычисляем дату урока
+                    // Вычисляем дату урока в таймзоне преподавателя
                     LocalDate lessonDate = currentWeek.with(TemporalAdjusters.nextOrSame(dayOfWeek));
                     LocalDateTime lessonDateTime = lessonDate.atTime(time);
+                    // Конвертируем в UTC для хранения
+                    lessonDateTime = TimezoneUtils.toUtc(lessonDateTime, teacherTimezone);
                     
                     // Проверяем, нет ли конфликтов
                     List<Lesson> conflicts = lessonRepository.findConflictingLessonsForTeacher(teacher, lessonDateTime);
@@ -300,7 +304,7 @@ public class ScheduleController {
                 // Игнорируем ошибку и используем текущую неделю
             }
         }
-        return LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        return TimezoneUtils.nowUtc().toLocalDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
     }
 
     private List<LocalDate> getWeekDays(LocalDate startOfWeek) {
