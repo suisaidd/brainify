@@ -72,7 +72,12 @@ class Whiteboard {
         this.remoteDrawing = null;        // элемент/путь, который рисует собеседник прямо сейчас
         this.remoteDrawPath = [];         // точки пути собеседника
         this.lastBroadcastTime = 0;
-        this.broadcastThrottle = 60;      // мс между отправками
+        this.broadcastThrottle = 30;      // мс между отправками (снижено для плавности)
+        
+        // Защита недавно полученных по STOMP элементов от удаления при merge
+        this.recentRemoteIds = new Map();   // id -> timestamp добавления
+        this.remoteProtectionTTL = 10000;   // 10 секунд защиты
+        this.remoteDirty = false;           // флаг: были ли STOMP-события с последнего sync
         
         this.init();
     }
@@ -765,11 +770,12 @@ class Whiteboard {
         
         if (this.currentTool === 'draw') {
             this.currentPath = [{ x, y }];
-            this._lastBroadcastPathIndex = 0;
+            this._lastBroadcastPathIndex = 1; // первая точка уже включена в path-start
             this.broadcastDrawImmediate({
                 type: 'path-start',
                 strokeColor: this.strokeColor,
-                strokeWidth: this.strokeWidth
+                strokeWidth: this.strokeWidth,
+                startPoint: { x, y }  // отправляем начальную точку сразу
             });
             return;
         }
@@ -907,6 +913,7 @@ class Whiteboard {
         }
         
         // Сообщаем собеседнику, что рисование завершено (включаем ID элемента)
+        // Также отправляем финальные оставшиеся точки для path, чтобы не терять хвост
         if (createdElementId !== null) {
             this.broadcastDrawImmediate({ type: 'draw-done', elementId: createdElementId });
         }
@@ -1395,9 +1402,19 @@ class Whiteboard {
             }
         }, 3000);
         
+        // Синхронизация реже: каждые 5 секунд и только если были удалённые изменения
+        // или прошло достаточно времени с последнего sync
         this.syncInterval = setInterval(() => {
-            this.syncBoardState();
-        }, 1000);
+            const now = Date.now();
+            const timeSinceLastSync = now - this.lastSyncTime;
+            // Синхронизируем если:
+            // 1) были STOMP-события (remoteDirty), чтобы подтянуть серверное состояние
+            // 2) или прошло больше 10 секунд — на случай если STOMP-событие потерялось
+            if (this.remoteDirty || timeSinceLastSync > 10000) {
+                this.remoteDirty = false;
+                this.syncBoardState();
+            }
+        }, 5000);
     }
     
     // ===== Realtime drawing via STOMP =====
@@ -1477,6 +1494,16 @@ class Whiteboard {
         this.stompClient.send(`/app/whiteboard/draw/${this.lessonId}`, {}, JSON.stringify(data));
     }
     
+    /** Очищает устаревшие записи из recentRemoteIds */
+    cleanupRemoteProtection() {
+        const now = Date.now();
+        for (const [id, ts] of this.recentRemoteIds) {
+            if (now - ts > this.remoteProtectionTTL) {
+                this.recentRemoteIds.delete(id);
+            }
+        }
+    }
+    
     /** Обработать входящее событие рисования от собеседника */
     handleRemoteDraw(data) {
         switch (data.type) {
@@ -1487,6 +1514,11 @@ class Whiteboard {
                     strokeColor: data.strokeColor || '#000000',
                     strokeWidth: data.strokeWidth || 2
                 };
+                // Если пришла начальная точка — сразу добавляем и отрисовываем
+                if (data.startPoint) {
+                    this.remoteDrawPath.push(data.startPoint);
+                    this.redraw();
+                }
                 break;
                 
             case 'path-progress':
@@ -1501,40 +1533,56 @@ class Whiteboard {
                 this.redraw();
                 break;
                 
-            case 'draw-done':
+            case 'draw-done': {
                 // Превращаем превью в настоящий элемент — без паузы
+                const now = Date.now();
+                let addedId = null;
+                
                 if (this.remoteDrawing) {
-                    const now = Date.now();
                     if (this.remoteDrawing.type === 'path' && this.remoteDrawPath.length > 1) {
+                        addedId = data.elementId || (now + Math.random());
                         this.elements.push({
                             type: 'path',
                             points: [...this.remoteDrawPath],
                             strokeColor: this.remoteDrawing.strokeColor,
                             strokeWidth: this.remoteDrawing.strokeWidth,
-                            id: data.elementId || (now + Math.random()),
+                            id: addedId,
                             timestamp: now
                         });
                     } else if (this.remoteDrawing.type && this.remoteDrawing.type !== 'path') {
+                        addedId = data.elementId || (now + Math.random());
                         this.elements.push({
                             ...this.remoteDrawing,
-                            id: data.elementId || (now + Math.random()),
+                            id: addedId,
                             timestamp: now
                         });
                     }
                 }
+                
+                // Защищаем элемент от удаления при merge — сервер ещё не имеет его
+                if (addedId != null) {
+                    this.recentRemoteIds.set(addedId, now);
+                    this.cleanupRemoteProtection();
+                }
+                
                 this.remoteDrawing = null;
                 this.remoteDrawPath = [];
                 this.redraw();
-                // Синхронизация подтянет «канонический» элемент с сервера
-                // и merge заменит наш локально созданный
-                this.syncBoardState();
+                
+                // НЕ вызываем syncBoardState() сразу — элемент ещё не сохранён на сервере,
+                // merge удалит его. Вместо этого помечаем что нужна синхронизация позже.
+                this.remoteDirty = true;
                 break;
+            }
                 
             case 'erase':
                 if (data.ids && data.ids.length) {
                     const idsSet = new Set(data.ids);
                     this.elements = this.elements.filter(el => !idsSet.has(el.id));
+                    // Удаляем из защиты — элемент стёрт намеренно
+                    data.ids.forEach(id => this.recentRemoteIds.delete(id));
                     this.redraw();
+                    this.remoteDirty = true;
                 }
                 break;
                 
@@ -1561,7 +1609,7 @@ class Whiteboard {
         ctx.translate(this.panX, this.panY);
         ctx.scale(this.zoom, this.zoom);
         
-        if (this.remoteDrawing.type === 'path' && this.remoteDrawPath.length > 1) {
+        if (this.remoteDrawing.type === 'path' && this.remoteDrawPath.length > 0) {
             ctx.beginPath();
             ctx.strokeStyle = this.remoteDrawing.strokeColor;
             ctx.lineWidth = this.remoteDrawing.strokeWidth;
@@ -1569,10 +1617,19 @@ class Whiteboard {
             ctx.lineJoin = 'round';
             ctx.globalAlpha = 0.7;
             ctx.moveTo(this.remoteDrawPath[0].x, this.remoteDrawPath[0].y);
-            for (let i = 1; i < this.remoteDrawPath.length; i++) {
-                ctx.lineTo(this.remoteDrawPath[i].x, this.remoteDrawPath[i].y);
+            
+            if (this.remoteDrawPath.length === 1) {
+                // Одна точка — рисуем точку (маленький круг)
+                ctx.arc(this.remoteDrawPath[0].x, this.remoteDrawPath[0].y,
+                        this.remoteDrawing.strokeWidth / 2, 0, Math.PI * 2);
+                ctx.fillStyle = this.remoteDrawing.strokeColor;
+                ctx.fill();
+            } else {
+                for (let i = 1; i < this.remoteDrawPath.length; i++) {
+                    ctx.lineTo(this.remoteDrawPath[i].x, this.remoteDrawPath[i].y);
+                }
+                ctx.stroke();
             }
-            ctx.stroke();
         } else if (this.remoteDrawing.type && this.remoteDrawing.type !== 'path') {
             ctx.globalAlpha = 0.6;
             this.drawElement(ctx, this.remoteDrawing);
@@ -1582,7 +1639,9 @@ class Whiteboard {
     }
     
     async syncBoardState() {
+        // Не синхронизируем если идёт сохранение, рисование или собеседник рисует прямо сейчас
         if (this.isSaving || this.isDrawing || this.currentPath.length > 0) return;
+        if (this.remoteDrawing) return; // собеседник ещё рисует — подождём
         
         try {
             const response = await fetch(`/whiteboard/api/state/${this.lessonId}`);
@@ -1596,6 +1655,11 @@ class Whiteboard {
                     const serverVersion = data.version || 0;
                     
                     if (serverVersion > this.lastSyncedVersion) {
+                        // Запоминаем текущее количество элементов для проверки,
+                        // нужен ли перерисовка
+                        const prevCount = this.elements.length;
+                        const prevJson = JSON.stringify(this.elements);
+                        
                         this.mergeElements(serverElements);
                         this.lastSyncedVersion = serverVersion;
                         this.lastSyncTime = Date.now();
@@ -1608,7 +1672,15 @@ class Whiteboard {
                         this.history = [JSON.stringify(this.elements)];
                         this.historyIndex = 0;
                         this.preloadImages();
-                        this.redraw();
+                        
+                        // Перерисовываем только если элементы реально изменились
+                        const newJson = JSON.stringify(this.elements);
+                        if (newJson !== prevJson) {
+                            this.redraw();
+                        }
+                    } else {
+                        // Версия не изменилась — обновляем только время
+                        this.lastSyncTime = Date.now();
                     }
                 } catch (parseError) {
                     console.debug('Ошибка парсинга при синхронизации:', parseError);
@@ -1638,10 +1710,19 @@ class Whiteboard {
             }
         });
         
+        // Собираем все защищённые элементы: и локальные, и недавно полученные по STOMP
         const preservedLocalElements = [];
         this.localElements.forEach(localId => {
             const localElement = currentElementsMap.get(localId);
             if (localElement) preservedLocalElements.push(localElement);
+        });
+        
+        // Также сохраняем элементы, недавно полученные от собеседника через STOMP
+        this.cleanupRemoteProtection();
+        const preservedRemoteElements = [];
+        this.recentRemoteIds.forEach((ts, remoteId) => {
+            const el = currentElementsMap.get(remoteId);
+            if (el) preservedRemoteElements.push(el);
         });
         
         const mergedElements = [];
@@ -1672,6 +1753,7 @@ class Whiteboard {
             }
         });
         
+        // Сохраняем локальные элементы, которых нет на сервере
         preservedLocalElements.forEach(localEl => {
             const localTimestamp = localEl.timestamp || now;
             const existingIndex = mergedElements.findIndex(el => el.id === localEl.id);
@@ -1683,6 +1765,15 @@ class Whiteboard {
             } else {
                 mergedElements.push(localEl);
                 usedIds.add(localEl.id);
+            }
+        });
+        
+        // Сохраняем недавно полученные от собеседника STOMP-элементы,
+        // которых сервер ещё не знает — предотвращаем «мерцание»
+        preservedRemoteElements.forEach(remoteEl => {
+            if (!usedIds.has(remoteEl.id)) {
+                mergedElements.push(remoteEl);
+                usedIds.add(remoteEl.id);
             }
         });
         
