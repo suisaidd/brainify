@@ -8,6 +8,9 @@ let currentUser = null;
 let currentWeekOffset = 0;
 let currentScheduleData = {};
 
+// Таймзона браузера (IANA, например "Europe/Samara")
+const CLIENT_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 
 
 // Инициализация при загрузке DOM
@@ -912,7 +915,7 @@ async function loadScheduleData() {
     try {
         if (currentUser.type === 'teacher') {
             // Загружаем расписание преподавателя
-            const response = await fetch(`/admin/lessons/api/teacher/${currentUser.id}/schedule?weekOffset=${currentWeekOffset}`);
+            const response = await fetch(`/admin/lessons/api/teacher/${currentUser.id}/schedule?weekOffset=${currentWeekOffset}&timezone=${encodeURIComponent(CLIENT_TIMEZONE)}`);
             const data = await response.json();
             
             if (data.schedules) {
@@ -969,8 +972,8 @@ async function loadScheduleData() {
         } else if (currentUser.type === 'student') {
             // Загружаем расписание ученика
             const url = currentUser.subjectId 
-                ? `/admin/lessons/api/student/${currentUser.id}/schedule?weekOffset=${currentWeekOffset}&subjectId=${currentUser.subjectId}`
-                : `/admin/lessons/api/student/${currentUser.id}/schedule?weekOffset=${currentWeekOffset}`;
+                ? `/admin/lessons/api/student/${currentUser.id}/schedule?weekOffset=${currentWeekOffset}&subjectId=${currentUser.subjectId}&timezone=${encodeURIComponent(CLIENT_TIMEZONE)}`
+                : `/admin/lessons/api/student/${currentUser.id}/schedule?weekOffset=${currentWeekOffset}&timezone=${encodeURIComponent(CLIENT_TIMEZONE)}`;
             const response = await fetch(url);
             const data = await response.json();
             
@@ -1213,7 +1216,8 @@ async function saveSchedule() {
                     selectedSlots: selectedSlots,
                     repeatWeekly: repeatWeekly,
                     recurrenceWeeks: weeksCount,
-                    weekOffset: currentWeekOffset
+                    weekOffset: currentWeekOffset,
+                    timezone: CLIENT_TIMEZONE
                 };
                 
                 const response = await fetch('/admin/lessons/api/create-lessons', {
@@ -1241,7 +1245,8 @@ async function saveSchedule() {
                     },
                     body: JSON.stringify({
                         slotsToDelete: slotsToDelete,
-                        weekOffset: currentWeekOffset
+                        weekOffset: currentWeekOffset,
+                        timezone: CLIENT_TIMEZONE
                     })
                 });
                 

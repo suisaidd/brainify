@@ -576,12 +576,16 @@ public class MainController {
                 scheduleList.add(scheduleInfo);
             }
 
-            // Получаем уроки преподавателя для отображения занятых слотов
+            // Получаем уроки преподавателя для отображения занятых слотов.
+            // Диапазон запроса: неделя в таймзоне учителя, конвертированная в UTC.
+            LocalDateTime weekStartLocal = getDateFromDayAndHour("MONDAY", "0", weekOffset, teacherTimezone);
+            LocalDateTime weekEndLocal = getDateFromDayAndHour("SUNDAY", "23", weekOffset, teacherTimezone).plusHours(1);
+            LocalDateTime weekStartUtc = TimezoneUtils.toUtc(weekStartLocal, teacherTimezone);
+            LocalDateTime weekEndUtc = TimezoneUtils.toUtc(weekEndLocal, teacherTimezone);
+
             List<Map<String, Object>> lessonsData = new ArrayList<>();
             List<Lesson> lessons = lessonRepository.findByTeacherAndLessonDateBetween(
-                currentUser,
-                getDateFromDayAndHour("MONDAY", "12", weekOffset),
-                getDateFromDayAndHour("SUNDAY", "22", weekOffset)
+                currentUser, weekStartUtc, weekEndUtc
             );
             
             for (Lesson lesson : lessons) {
@@ -928,15 +932,24 @@ public class MainController {
         }
     }
     
-    // Вспомогательный метод для получения даты по дню недели и часу (UTC)
-    private LocalDateTime getDateFromDayAndHour(String dayOfWeek, String hour, int weekOffset) {
-        LocalDateTime now = TimezoneUtils.nowUtc();
-        LocalDateTime weekStart = now.toLocalDate().atStartOfDay().with(java.time.DayOfWeek.MONDAY);
+    /**
+     * Вспомогательный метод для получения даты по дню недели и часу.
+     * Вычисляет "сегодня" в указанной таймзоне, чтобы понедельник
+     * фронтенда совпадал с понедельником бэкенда.
+     *
+     * @return LocalDateTime в таймзоне timezone (НЕ в UTC!). Вызывающий код
+     *         должен конвертировать в UTC через TimezoneUtils.toUtc().
+     */
+    private LocalDateTime getDateFromDayAndHour(String dayOfWeek, String hour, int weekOffset, String timezone) {
+        java.time.ZoneId zone = java.time.ZoneId.of(timezone);
+        java.time.LocalDate todayLocal = java.time.ZonedDateTime.now(zone).toLocalDate();
+        java.time.LocalDate weekStart = todayLocal.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
         weekStart = weekStart.plusWeeks(weekOffset);
-        
+
         java.time.DayOfWeek targetDay = java.time.DayOfWeek.valueOf(dayOfWeek);
-        LocalDateTime targetDate = weekStart.with(targetDay);
-        return targetDate.withHour(Integer.parseInt(hour));
+        int dayOffset = targetDay.getValue() - java.time.DayOfWeek.MONDAY.getValue();
+        java.time.LocalDate targetDate = weekStart.plusDays(dayOffset);
+        return targetDate.atTime(Integer.parseInt(hour), 0);
     }
     
     // API для получения всех активных предметов
