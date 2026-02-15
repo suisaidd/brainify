@@ -51,7 +51,7 @@ public class AuthController {
     // API: Регистрация
     @PostMapping("/api/register")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> register(@Valid @RequestBody RegistrationRequest request, BindingResult bindingResult) {
+    public ResponseEntity<Map<String, Object>> register(@Valid @RequestBody RegistrationRequest request, BindingResult bindingResult, HttpSession session) {
         Map<String, Object> response = new HashMap<>();
         try {
             if (bindingResult.hasErrors()) {
@@ -61,9 +61,27 @@ public class AuthController {
             }
             // Нормализуем email к нижнему регистру
             String normalizedEmail = request.getEmail().toLowerCase().trim();
-            authService.registerUser(request.getName(), normalizedEmail, request.getPhone());
+            String result = authService.registerUser(request.getName(), normalizedEmail, request.getPhone());
+            
+            // ВРЕМЕННО: если email верификация отключена — сразу создаём сессию
+            if ("SKIP_VERIFICATION".equals(result)) {
+                User user = authService.findUserByEmail(normalizedEmail);
+                if (user != null) {
+                    user.setLastLoginAt(java.time.LocalDateTime.now());
+                    sessionManager.createSession(session, user);
+                    String redirectUrl = authService.getRedirectUrlByRole(user.getRole());
+                    response.put("success", true);
+                    response.put("skipVerification", true);
+                    response.put("message", "Регистрация завершена успешно!");
+                    response.put("redirectUrl", redirectUrl);
+                    response.put("user", Map.of("id", user.getId(), "name", user.getName(), "role", user.getRole().name()));
+                    logger.info("Регистрация без верификации: {} (роль: {})", normalizedEmail, user.getRole());
+                    return ResponseEntity.ok(response);
+                }
+            }
+            
             response.put("success", true);
-            response.put("message", "Код подтверждения отправлен на указанный email");
+            response.put("message", result);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             response.put("success", false);
@@ -75,7 +93,7 @@ public class AuthController {
     // API: Вход
     @PostMapping("/api/login")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> login(@Valid @RequestBody LoginRequest request, BindingResult bindingResult) {
+    public ResponseEntity<Map<String, Object>> login(@Valid @RequestBody LoginRequest request, BindingResult bindingResult, HttpSession session) {
         Map<String, Object> response = new HashMap<>();
         try {
             if (bindingResult.hasErrors()) {
@@ -85,9 +103,27 @@ public class AuthController {
             }
             // Нормализуем email к нижнему регистру
             String normalizedEmail = request.getEmail().toLowerCase().trim();
-            authService.loginUser(normalizedEmail);
+            String result = authService.loginUser(normalizedEmail);
+            
+            // ВРЕМЕННО: если email верификация отключена — сразу создаём сессию
+            if ("SKIP_VERIFICATION".equals(result)) {
+                User user = authService.findUserByEmail(normalizedEmail);
+                if (user != null) {
+                    user.setLastLoginAt(java.time.LocalDateTime.now());
+                    sessionManager.createSession(session, user);
+                    String redirectUrl = authService.getRedirectUrlByRole(user.getRole());
+                    response.put("success", true);
+                    response.put("skipVerification", true);
+                    response.put("message", "Вход выполнен успешно!");
+                    response.put("redirectUrl", redirectUrl);
+                    response.put("user", Map.of("id", user.getId(), "name", user.getName(), "role", user.getRole().name()));
+                    logger.info("Вход без верификации: {} (роль: {})", normalizedEmail, user.getRole());
+                    return ResponseEntity.ok(response);
+                }
+            }
+            
             response.put("success", true);
-            response.put("message", "Код подтверждения отправлен на указанный email");
+            response.put("message", result);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             response.put("success", false);

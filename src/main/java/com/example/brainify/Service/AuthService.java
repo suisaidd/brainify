@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import org.springframework.beans.factory.annotation.Value;
+
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,6 +22,10 @@ public class AuthService {
     
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
 
+    // ВРЕМЕННЫЙ ФЛАГ: true = пропускаем email верификацию (для отладки)
+    // Чтобы вернуть обратно: поменять app.skip-email-verification=false в application.properties
+    @Value("${app.skip-email-verification:false}")
+    private boolean skipEmailVerification;
     
     @Autowired
     private UserRepository userRepository;
@@ -31,6 +37,11 @@ public class AuthService {
     private EmailService emailService;
     
     private final SecureRandom random = new SecureRandom();
+    
+    // Геттер для флага пропуска email верификации
+    public boolean isSkipEmailVerification() {
+        return skipEmailVerification;
+    }
     
     // Регистрация нового пользователя
     public String registerUser(String name, String email, String phone) throws Exception {
@@ -56,8 +67,18 @@ public class AuthService {
             throw new Exception("Превышен лимит попыток. Попробуйте позже");
         }
         
-        // Создаем пользователя (неверифицированного)
+        // Создаем пользователя
         User newUser = new User(name, email, cleanPhone);
+        
+        // ВРЕМЕННО: если пропускаем email верификацию — сразу верифицируем пользователя
+        if (skipEmailVerification) {
+            newUser.setIsVerified(true);
+            userRepository.save(newUser);
+            logger.info("Registration completed (skip email verification) for user: {}", email);
+            return "SKIP_VERIFICATION"; // Специальный маркер для контроллера
+        }
+        
+        // === ОРИГИНАЛЬНЫЙ КОД (вернётся при app.skip-email-verification=false) ===
         userRepository.save(newUser);
         
         // Генерируем и отправляем код верификации
@@ -66,9 +87,13 @@ public class AuthService {
         verificationCodeRepository.save(verificationCode);
         
         // Отправляем email
-        emailService.sendVerificationCode(email, code, VerificationCode.CodeType.REGISTRATION);
-        
-        logger.info("Registration initiated for user: {}", email);
+        try {
+            emailService.sendVerificationCode(email, code, VerificationCode.CodeType.REGISTRATION);
+            logger.info("Registration initiated for user: {}", email);
+        } catch (Exception e) {
+            logger.error("Failed to send registration email to {}, but code {} is saved. Error: {}", email, code, e.getMessage());
+            return "Код подтверждения создан, но не удалось отправить email. Проверьте настройки почты. Код: " + code;
+        }
         return "Код подтверждения отправлен на ваш email";
     }
     
@@ -95,6 +120,18 @@ public class AuthService {
             throw new Exception("Аккаунт заблокирован. Обратитесь в поддержку");
         }
         
+        // ВРЕМЕННО: если пропускаем email верификацию — пропускаем проверку и отправку кода
+        if (skipEmailVerification) {
+            // Автоматически верифицируем, если не был верифицирован
+            if (!user.getIsVerified()) {
+                user.setIsVerified(true);
+                userRepository.save(user);
+            }
+            logger.info("Login completed (skip email verification) for user: {}", email);
+            return "SKIP_VERIFICATION"; // Специальный маркер для контроллера
+        }
+        
+        // === ОРИГИНАЛЬНЫЙ КОД (вернётся при app.skip-email-verification=false) ===
         // Проверяем, верифицирован ли пользователь
         if (!user.getIsVerified()) {
             logger.error("User account is not verified: {}", email);
@@ -118,9 +155,13 @@ public class AuthService {
         verificationCodeRepository.save(verificationCode);
         
         // Отправляем email
-        emailService.sendVerificationCode(email, code, VerificationCode.CodeType.LOGIN);
-        
-        logger.info("Login code sent for user: {}", email);
+        try {
+            emailService.sendVerificationCode(email, code, VerificationCode.CodeType.LOGIN);
+            logger.info("Login code sent for user: {}", email);
+        } catch (Exception e) {
+            logger.error("Failed to send login email to {}, but code {} is saved. Error: {}", email, code, e.getMessage());
+            return "Код для входа создан, но не удалось отправить email. Проверьте настройки почты. Код: " + code;
+        }
         return "Код для входа отправлен на ваш email";
     }
     
@@ -199,9 +240,13 @@ public class AuthService {
         verificationCodeRepository.save(verificationCode);
         
         // Отправляем email
-        emailService.sendVerificationCode(email, code, type);
-        
-        logger.info("Code resent for user: {}", email);
+        try {
+            emailService.sendVerificationCode(email, code, type);
+            logger.info("Code resent for user: {}", email);
+        } catch (Exception e) {
+            logger.error("Failed to resend email to {}, but code {} is saved. Error: {}", email, code, e.getMessage());
+            return "Новый код создан, но не удалось отправить email. Проверьте настройки почты. Код: " + code;
+        }
         return "Новый код отправлен на ваш email";
     }
     

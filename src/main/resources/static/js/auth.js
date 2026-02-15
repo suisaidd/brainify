@@ -191,7 +191,18 @@ async function handleRegistration(e) {
         const data = await response.json();
         
         if (data.success) {
-            // Сохраняем данные для верификации
+            // ВРЕМЕННО: если сервер вернул skipVerification — перенаправляем сразу без кода
+            if (data.skipVerification) {
+                showToast(data.message, 'success');
+                setTimeout(() => {
+                    const redirectUrl = data.redirectUrl || '/';
+                    const separator = redirectUrl.includes('?') ? '&' : '?';
+                    window.location.href = redirectUrl + separator + 'auth=success&t=' + Date.now();
+                }, 1000);
+                return;
+            }
+            
+            // Сохраняем данные для верификации (оригинальный код)
             if (saveAuthData(formData.email, 'REGISTRATION')) {
                 // Показываем модальное окно
                 showVerificationModal(formData.email, 'Подтверждение регистрации');
@@ -261,7 +272,18 @@ async function handleLogin(e) {
         const data = await response.json();
         
         if (data.success) {
-            // Сохраняем данные для верификации
+            // ВРЕМЕННО: если сервер вернул skipVerification — перенаправляем сразу без кода
+            if (data.skipVerification) {
+                showToast(data.message, 'success');
+                setTimeout(() => {
+                    const redirectUrl = data.redirectUrl || '/';
+                    const separator = redirectUrl.includes('?') ? '&' : '?';
+                    window.location.href = redirectUrl + separator + 'auth=success&t=' + Date.now();
+                }, 1000);
+                return;
+            }
+            
+            // Сохраняем данные для верификации (оригинальный код)
             if (saveAuthData(formData.email, 'LOGIN')) {
                 // Сохраняем выбранную роль, если есть
                 if (formData.selectedRole) {
