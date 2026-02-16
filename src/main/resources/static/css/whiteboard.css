@@ -404,6 +404,11 @@ body {
     touch-action: none;
 }
 
+#whiteboardCanvas.drag-over {
+    outline: 3px dashed #667eea;
+    outline-offset: -3px;
+}
+
 #whiteboardCanvas.select    { cursor: default; }
 #whiteboardCanvas.selecting { cursor: default; }
 #whiteboardCanvas.draw      { cursor: crosshair; }
@@ -414,6 +419,8 @@ body {
 #whiteboardCanvas.ellipse   { cursor: crosshair; }
 #whiteboardCanvas.line      { cursor: crosshair; }
 #whiteboardCanvas.arrow     { cursor: crosshair; }
+#whiteboardCanvas.polyline  { cursor: crosshair; }
+#whiteboardCanvas.grid      { cursor: crosshair; }
 #whiteboardCanvas.panning   { cursor: grab; }
 #whiteboardCanvas.pan       { cursor: grab; }
 

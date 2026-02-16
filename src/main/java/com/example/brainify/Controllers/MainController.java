@@ -558,18 +558,10 @@ public class MainController {
                 scheduleInfo.put("id", schedule.getId());
                 scheduleInfo.put("dayOfWeek", schedule.getDayOfWeek().toString());
                 
-                // Конвертируем время в часовой пояс пользователя
-                String startTime = schedule.getStartTime().toString();
-                String endTime = schedule.getEndTime().toString();
-                
-                // Если пользователь не в том же часовом поясе, конвертируем время
-                if (!teacherTimezone.equals("Europe/Moscow")) { // Показываем время учителя как есть
-                    startTime = TimezoneUtils.convertTimeForUser(startTime, teacherTimezone, "Europe/Moscow");
-                    endTime = TimezoneUtils.convertTimeForUser(endTime, teacherTimezone, "Europe/Moscow");
-                }
-                
-                scheduleInfo.put("startTime", startTime);
-                scheduleInfo.put("endTime", endTime);
+                // Время слотов хранится в локальном часовом поясе преподавателя —
+                // показываем как есть, без конвертации
+                scheduleInfo.put("startTime", schedule.getStartTime().toString());
+                scheduleInfo.put("endTime", schedule.getEndTime().toString());
                 scheduleInfo.put("isAvailable", schedule.getIsAvailable());
                 scheduleInfo.put("teacherTimezone", teacherTimezone);
                 scheduleInfo.put("teacherCity", TimezoneUtils.getCityName(teacherTimezone));

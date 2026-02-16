@@ -73,6 +73,12 @@
                 <button class="dropdown-item" data-tool="line" title="Линия (L)">
                     <i class="fas fa-minus"></i>
                 </button>
+                <button class="dropdown-item" data-tool="polyline" title="Ломаная линия">
+                    <i class="fas fa-project-diagram"></i>
+                </button>
+                <button class="dropdown-item" data-tool="grid" title="Сетка для графиков (G)">
+                    <i class="fas fa-th"></i>
+                </button>
             </div>
         </div>
 
@@ -82,6 +88,13 @@
         <button class="tool-btn" id="eraserBtn" title="Ластик">
             <i class="fas fa-eraser"></i>
         </button>
+
+        <div class="toolbar-divider"></div>
+
+        <button class="tool-btn" id="importImageBtn" title="Импорт изображения">
+            <i class="fas fa-image"></i>
+        </button>
+        <input type="file" id="imageFileInput" accept="image/*" style="display: none;" multiple>
 
         <div class="toolbar-divider"></div>
 

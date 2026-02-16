@@ -38,6 +38,10 @@ class Whiteboard {
         // Для рисования свободной линии
         this.currentPath = [];
         
+        // Для ломаной линии (polyline)
+        this._polylinePoints = null;
+        this._draggingPolylinePoint = -1;
+        
         // ===== Бесконечная доска: камера =====
         this.panX = 0;
         this.panY = 0;
@@ -100,6 +104,9 @@ class Whiteboard {
             if (w > 0 && h > 0 && (this.canvas.width !== w || this.canvas.height !== h)) {
                 this.canvas.width = w;
                 this.canvas.height = h;
+                // Максимальное сглаживание
+                this.ctx.imageSmoothingEnabled = true;
+                this.ctx.imageSmoothingQuality = 'high';
                 this.redraw();
             }
         };
@@ -209,6 +216,7 @@ class Whiteboard {
         this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
         this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
         this.canvas.addEventListener('mouseleave', this.handleMouseUp.bind(this));
+        this.canvas.addEventListener('dblclick', this.handleDblClick.bind(this));
         
         // Колесо мыши — zoom
         this.canvas.addEventListener('wheel', this.handleWheel.bind(this), { passive: false });
@@ -224,6 +232,30 @@ class Whiteboard {
         
         // Вставка изображений (Ctrl+V)
         document.addEventListener('paste', this.handlePaste.bind(this));
+        
+        // Drag-and-drop изображений на доску
+        this.canvas.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.canvas.classList.add('drag-over');
+        });
+        this.canvas.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.canvas.classList.remove('drag-over');
+        });
+        this.canvas.addEventListener('drop', this.handleDrop.bind(this));
+        
+        // Также обрабатываем drop на всем boardContainer
+        const boardContainer = document.getElementById('boardContainer');
+        boardContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        boardContainer.addEventListener('drop', this.handleDrop.bind(this));
+        
+        // Кнопка импорта изображения
+        this.setupImageImport();
     }
     
     handleWheel(e) {
@@ -334,7 +366,58 @@ class Whiteboard {
             return;
         }
         
+        // Завершение перетаскивания контрольной точки ломаной
+        if (this._draggingPolylinePoint >= 0) {
+            this._draggingPolylinePoint = -1;
+            this.isDragging = false;
+            this.isDrawing = false;
+            this.saveToHistory();
+            this.scheduleSave();
+            return;
+        }
+        
         this.stopDrawing();
+    }
+    
+    handleDblClick(e) {
+        if (this.currentTool === 'polyline') {
+            const pos = this.getMousePos(e);
+            this.handlePolylineDblClick(pos.x, pos.y);
+            return;
+        }
+        
+        // Двойной клик в режиме select на polyline — добавить контрольную точку
+        if (this.currentTool === 'select' && this.selectedElement && this.selectedElement.type === 'polyline') {
+            const pos = this.getMousePos(e);
+            // Находим ближайший сегмент и вставляем точку
+            const pts = this.selectedElement.controlPoints;
+            let bestIdx = 1;
+            let bestDist = Infinity;
+            for (let i = 0; i < pts.length - 1; i++) {
+                const d = this._distToSegment(pos.x, pos.y, pts[i], pts[i + 1]);
+                if (d < bestDist) {
+                    bestDist = d;
+                    bestIdx = i + 1;
+                }
+            }
+            if (bestDist < 20 / this.zoom) {
+                pts.splice(bestIdx, 0, { x: pos.x, y: pos.y });
+                this._updatePolylineBounds(this.selectedElement);
+                this.selectedElement.timestamp = Date.now();
+                this.saveToHistory();
+                this.redraw();
+                this.scheduleSave();
+            }
+        }
+    }
+    
+    _distToSegment(px, py, a, b) {
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const lenSq = dx * dx + dy * dy;
+        if (lenSq === 0) return Math.hypot(px - a.x, py - a.y);
+        let t = ((px - a.x) * dx + (py - a.y) * dy) / lenSq;
+        t = Math.max(0, Math.min(1, t));
+        return Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy));
     }
     
     // ===== Touch Handlers (pan + pinch-to-zoom) =====
@@ -459,10 +542,11 @@ class Whiteboard {
             'l': 'line',
             'p': 'draw',
             't': 'text',
-            'h': 'pan'
+            'h': 'pan',
+            'g': 'grid'
         };
         
-        const shapeTools = ['rectangle', 'ellipse', 'arrow', 'line'];
+        const shapeTools = ['rectangle', 'ellipse', 'arrow', 'line', 'polyline', 'grid'];
         
         if (toolMap[e.key.toLowerCase()] && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
@@ -513,7 +597,9 @@ class Whiteboard {
             rectangle: 'far fa-square',
             ellipse:   'far fa-circle',
             arrow:     'fas fa-long-arrow-alt-right',
-            line:      'fas fa-minus'
+            line:      'fas fa-minus',
+            polyline:  'fas fa-project-diagram',
+            grid:      'fas fa-th'
         };
         this.currentShape = null;
         
@@ -614,9 +700,15 @@ class Whiteboard {
     }
     
     activateTool(tool, activeBtn) {
+        // Если была ломаная в процессе — завершаем или отменяем
+        if (this._polylinePoints && this._polylinePoints.length >= 2 && tool !== 'polyline') {
+            this.handlePolylineDblClick(0, 0); // Завершаем с текущими точками
+        } else {
+            this._polylinePoints = null;
+        }
+        
         this.currentTool = tool;
         this.canvas.className = tool;
-        // Сбрасываем инлайн-курсор, чтобы CSS-класс работал корректно
         this.canvas.style.cursor = '';
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         if (activeBtn) activeBtn.classList.add('active');
@@ -646,6 +738,13 @@ class Whiteboard {
         if (el.type === 'path') {
             const xs = el.points.map(p => p.x);
             const ys = el.points.map(p => p.y);
+            const minX = Math.min(...xs), maxX = Math.max(...xs);
+            const minY = Math.min(...ys), maxY = Math.max(...ys);
+            return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+        }
+        if (el.type === 'polyline' && el.controlPoints) {
+            const xs = el.controlPoints.map(p => p.x);
+            const ys = el.controlPoints.map(p => p.y);
             const minX = Math.min(...xs), maxX = Math.max(...xs);
             const minY = Math.min(...ys), maxY = Math.max(...ys);
             return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
@@ -749,14 +848,32 @@ class Whiteboard {
     // ===== Drawing Logic =====
     
     startDrawing(x, y) {
+        // Polyline — добавляем точку по клику, не меняем isDrawing
+        if (this.currentTool === 'polyline') {
+            this.handlePolylineClick(x, y);
+            return;
+        }
+        
         this.isDrawing = true;
         this.startX = x;
         this.startY = y;
         
         if (this.currentTool === 'select') {
+            // Проверяем, не кликнули ли по контрольной точке ломаной
+            if (this.selectedElement && this.selectedElement.type === 'polyline') {
+                const cpIdx = this.getPolylineControlPoint(x, y, this.selectedElement);
+                if (cpIdx >= 0) {
+                    this.isDragging = true;
+                    this._draggingPolylinePoint = cpIdx;
+                    this.redraw();
+                    return;
+                }
+            }
+            
             this.selectedElement = this.getElementAt(x, y);
             if (this.selectedElement) {
                 this.isDragging = true;
+                this._draggingPolylinePoint = -1;
                 this.dragOffset = {
                     x: x - this.selectedElement.x,
                     y: y - this.selectedElement.y
@@ -770,12 +887,12 @@ class Whiteboard {
         
         if (this.currentTool === 'draw') {
             this.currentPath = [{ x, y }];
-            this._lastBroadcastPathIndex = 1; // первая точка уже включена в path-start
+            this._lastBroadcastPathIndex = 1;
             this.broadcastDrawImmediate({
                 type: 'path-start',
                 strokeColor: this.strokeColor,
                 strokeWidth: this.strokeWidth,
-                startPoint: { x, y }  // отправляем начальную точку сразу
+                startPoint: { x, y }
             });
             return;
         }
@@ -809,11 +926,28 @@ class Whiteboard {
         if (!this.isDrawing) return;
         
         if (this.isDragging && this.selectedElement) {
-            this.selectedElement.x = x - this.dragOffset.x;
-            this.selectedElement.y = y - this.dragOffset.y;
+            // Перетаскивание контрольной точки ломаной
+            if (this._draggingPolylinePoint >= 0 && this.selectedElement.type === 'polyline') {
+                this.selectedElement.controlPoints[this._draggingPolylinePoint] = { x, y };
+                this.selectedElement.timestamp = Date.now();
+                this._updatePolylineBounds(this.selectedElement);
+                this.redraw();
+                return;
+            }
+            
+            // Перемещение обычного элемента
+            if (this.selectedElement.type === 'polyline') {
+                const dx = x - this.dragOffset.x - this.selectedElement.x;
+                const dy = y - this.dragOffset.y - this.selectedElement.y;
+                this.selectedElement.x += dx;
+                this.selectedElement.y += dy;
+                this.selectedElement.controlPoints.forEach(p => { p.x += dx; p.y += dy; });
+            } else {
+                this.selectedElement.x = x - this.dragOffset.x;
+                this.selectedElement.y = y - this.dragOffset.y;
+            }
             if (this.selectedElement.id) {
                 this.selectedElement.timestamp = Date.now();
-                // Транслируем перемещение собеседнику
                 this.broadcastDraw({
                     type: 'move-progress',
                     elementId: this.selectedElement.id,
@@ -872,6 +1006,7 @@ class Whiteboard {
         
         this.isDrawing = false;
         this.isDragging = false;
+        this._draggingPolylinePoint = -1;
         
         let createdElementId = null;
         
@@ -922,7 +1057,7 @@ class Whiteboard {
         this.scheduleSave();
     }
     
-    /** Рисует текущий путь (карандаш) во время рисования — с учётом камеры */
+    /** Рисует текущий путь (карандаш) во время рисования — с учётом камеры и сглаживанием */
     drawCurrentPath() {
         if (this.currentPath.length < 2) return;
         
@@ -936,10 +1071,24 @@ class Whiteboard {
         this.ctx.lineCap = 'round';
         this.ctx.lineJoin = 'round';
         
-        this.ctx.moveTo(this.currentPath[0].x, this.currentPath[0].y);
-        for (let i = 1; i < this.currentPath.length; i++) {
-            this.ctx.lineTo(this.currentPath[i].x, this.currentPath[i].y);
+        const pts = this.currentPath;
+        if (pts.length <= 2) {
+            this.ctx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) {
+                this.ctx.lineTo(pts[i].x, pts[i].y);
+            }
+        } else {
+            // Сглаживание: quadratic bezier через средние точки
+            this.ctx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length - 1; i++) {
+                const midX = (pts[i].x + pts[i + 1].x) / 2;
+                const midY = (pts[i].y + pts[i + 1].y) / 2;
+                this.ctx.quadraticCurveTo(pts[i].x, pts[i].y, midX, midY);
+            }
+            const last = pts[pts.length - 1];
+            this.ctx.lineTo(last.x, last.y);
         }
+        
         this.ctx.stroke();
         this.ctx.restore();
     }
@@ -979,7 +1128,17 @@ class Whiteboard {
             return false;
         }
         
-        if (element.type === 'text' || element.type === 'image') {
+        if (element.type === 'polyline' && element.controlPoints) {
+            for (let i = 0; i < element.controlPoints.length - 1; i++) {
+                const d = this._distToSegment(x, y, element.controlPoints[i], element.controlPoints[i + 1]);
+                if (d <= (element.strokeWidth / 2 + tolerance + 5)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        if (element.type === 'text' || element.type === 'image' || element.type === 'grid') {
             return x >= element.x - tolerance && x <= element.x + element.width + tolerance &&
                    y >= element.y - tolerance && y <= element.y + element.height + tolerance;
         }
@@ -1030,6 +1189,152 @@ class Whiteboard {
         this.scheduleSave();
     }
     
+    // ===== Ломаная линия (polyline) с контрольными точками =====
+    
+    handlePolylineClick(x, y) {
+        if (!this._polylinePoints) {
+            this._polylinePoints = [];
+        }
+        this._polylinePoints.push({ x, y });
+        this.redraw();
+        this._drawPolylinePreview();
+    }
+    
+    handlePolylineDblClick(x, y) {
+        if (!this._polylinePoints || this._polylinePoints.length < 2) {
+            this._polylinePoints = null;
+            return;
+        }
+        
+        const points = this._polylinePoints;
+        const now = Date.now();
+        
+        const xs = points.map(p => p.x);
+        const ys = points.map(p => p.y);
+        const minX = Math.min(...xs), minY = Math.min(...ys);
+        const maxX = Math.max(...xs), maxY = Math.max(...ys);
+        
+        const newElement = {
+            type: 'polyline',
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY,
+            controlPoints: points.map(p => ({ x: p.x, y: p.y })),
+            strokeColor: this.strokeColor,
+            fillColor: 'transparent',
+            strokeWidth: this.strokeWidth,
+            id: now + Math.random(),
+            timestamp: now
+        };
+        
+        this.elements.push(newElement);
+        this.localElements.add(newElement.id);
+        this._polylinePoints = null;
+        this.saveToHistory();
+        this.redraw();
+        this.scheduleSave();
+    }
+    
+    _drawPolylinePreview() {
+        if (!this._polylinePoints || this._polylinePoints.length === 0) return;
+        const ctx = this.ctx;
+        const pts = this._polylinePoints;
+        
+        ctx.save();
+        ctx.translate(this.panX, this.panY);
+        ctx.scale(this.zoom, this.zoom);
+        
+        ctx.beginPath();
+        ctx.strokeStyle = this.strokeColor;
+        ctx.lineWidth = this.strokeWidth;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        if (pts.length >= 2) {
+            this._drawSmoothPolyline(ctx, pts);
+        } else {
+            ctx.moveTo(pts[0].x, pts[0].y);
+        }
+        ctx.stroke();
+        
+        // Рисуем контрольные точки
+        const hs = 6 / this.zoom;
+        ctx.fillStyle = '#667eea';
+        pts.forEach(p => {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, hs, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        
+        ctx.restore();
+    }
+    
+    /** Рисует сглаженную кривую через точки (Catmull-Rom) */
+    _drawSmoothPolyline(ctx, pts) {
+        if (pts.length < 2) return;
+        if (pts.length === 2) {
+            ctx.moveTo(pts[0].x, pts[0].y);
+            ctx.lineTo(pts[1].x, pts[1].y);
+            return;
+        }
+        
+        ctx.moveTo(pts[0].x, pts[0].y);
+        
+        for (let i = 0; i < pts.length - 1; i++) {
+            const p0 = pts[Math.max(i - 1, 0)];
+            const p1 = pts[i];
+            const p2 = pts[i + 1];
+            const p3 = pts[Math.min(i + 2, pts.length - 1)];
+            
+            const tension = 0.3;
+            const segments = 20;
+            
+            for (let t = 1; t <= segments; t++) {
+                const s = t / segments;
+                const s2 = s * s;
+                const s3 = s2 * s;
+                
+                const x = 0.5 * (
+                    (2 * p1.x) +
+                    (-p0.x + p2.x) * s +
+                    (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * s2 +
+                    (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * s3
+                );
+                const y = 0.5 * (
+                    (2 * p1.y) +
+                    (-p0.y + p2.y) * s +
+                    (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * s2 +
+                    (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * s3
+                );
+                
+                ctx.lineTo(x, y);
+            }
+        }
+    }
+    
+    getPolylineControlPoint(mx, my, el) {
+        if (!el || el.type !== 'polyline' || !el.controlPoints) return -1;
+        const hs = 8 / this.zoom;
+        for (let i = 0; i < el.controlPoints.length; i++) {
+            const p = el.controlPoints[i];
+            if (Math.abs(mx - p.x) <= hs && Math.abs(my - p.y) <= hs) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    
+    _updatePolylineBounds(el) {
+        if (!el.controlPoints || el.controlPoints.length === 0) return;
+        const xs = el.controlPoints.map(p => p.x);
+        const ys = el.controlPoints.map(p => p.y);
+        el.x = Math.min(...xs);
+        el.y = Math.min(...ys);
+        el.width = Math.max(...xs) - el.x;
+        el.height = Math.max(...ys) - el.y;
+    }
+    
     // ===== Вставка изображений =====
     
     handlePaste(e) {
@@ -1056,12 +1361,66 @@ class Whiteboard {
         }
     }
     
-    addImageElement(dataUrl) {
+    handleDrop(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.canvas.classList.remove('drag-over');
+        
+        const files = e.dataTransfer && e.dataTransfer.files;
+        if (!files || files.length === 0) return;
+        
+        // Вычисляем позицию дропа в мировых координатах
+        const rect = this.canvas.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        const worldPos = this.screenToWorld(sx, sy);
+        
+        for (const file of files) {
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    this.addImageElement(ev.target.result, worldPos.x, worldPos.y);
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+    }
+    
+    setupImageImport() {
+        const importBtn = document.getElementById('importImageBtn');
+        const fileInput = document.getElementById('imageFileInput');
+        
+        if (importBtn && fileInput) {
+            importBtn.addEventListener('click', () => {
+                fileInput.click();
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                const files = e.target.files;
+                if (!files || files.length === 0) return;
+                
+                for (const file of files) {
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                            this.addImageElement(ev.target.result);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                }
+                
+                // Сбрасываем input чтобы можно было повторно выбрать тот же файл
+                fileInput.value = '';
+            });
+        }
+    }
+    
+    addImageElement(dataUrl, dropX, dropY) {
         const img = new Image();
         img.onload = () => {
-            // Вставляем в позицию последнего положения курсора
-            const cx = this.lastMouseWorldX;
-            const cy = this.lastMouseWorldY;
+            // Вставляем в позицию дропа или последнего положения курсора
+            const cx = dropX !== undefined ? dropX : this.lastMouseWorldX;
+            const cy = dropY !== undefined ? dropY : this.lastMouseWorldY;
             
             // Ограничиваем размер изображения (макс 600px по большей стороне)
             let w = img.naturalWidth;
@@ -1179,14 +1538,106 @@ class Whiteboard {
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
                 
-                if (element.points.length > 0) {
-                    ctx.moveTo(element.points[0].x, element.points[0].y);
-                    for (let i = 1; i < element.points.length; i++) {
-                        ctx.lineTo(element.points[i].x, element.points[i].y);
+                if (element.points && element.points.length > 0) {
+                    if (element.points.length <= 2) {
+                        ctx.moveTo(element.points[0].x, element.points[0].y);
+                        for (let i = 1; i < element.points.length; i++) {
+                            ctx.lineTo(element.points[i].x, element.points[i].y);
+                        }
+                    } else {
+                        // Сглаживание: quadratic bezier через средние точки
+                        ctx.moveTo(element.points[0].x, element.points[0].y);
+                        for (let i = 1; i < element.points.length - 1; i++) {
+                            const midX = (element.points[i].x + element.points[i + 1].x) / 2;
+                            const midY = (element.points[i].y + element.points[i + 1].y) / 2;
+                            ctx.quadraticCurveTo(element.points[i].x, element.points[i].y, midX, midY);
+                        }
+                        const last = element.points[element.points.length - 1];
+                        ctx.lineTo(last.x, last.y);
                     }
                 }
                 ctx.stroke();
                 break;
+            
+            case 'polyline':
+                ctx.beginPath();
+                ctx.strokeStyle = element.strokeColor;
+                ctx.lineWidth = element.strokeWidth;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                if (element.controlPoints && element.controlPoints.length >= 2) {
+                    this._drawSmoothPolyline(ctx, element.controlPoints);
+                }
+                ctx.stroke();
+                
+                // Рисуем контрольные точки если элемент выбран
+                if (this.selectedElement === element) {
+                    const cpSize = 5 / this.zoom;
+                    element.controlPoints.forEach(p => {
+                        ctx.beginPath();
+                        ctx.fillStyle = '#667eea';
+                        ctx.arc(p.x, p.y, cpSize, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = '#fff';
+                        ctx.lineWidth = 1.5 / this.zoom;
+                        ctx.stroke();
+                    });
+                }
+                break;
+                
+            case 'grid': {
+                // Кипельно-белая сетка для графиков
+                const gx = element.x;
+                const gy = element.y;
+                const gw = element.width;
+                const gh = element.height;
+                
+                // Фон — чисто белый
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(gx, gy, gw, gh);
+                
+                // Вычисляем размер ячейки, масштабируемый при растягивании
+                const baseCellCount = 10;
+                const cellW = gw / baseCellCount;
+                const cellH = gh / baseCellCount;
+                
+                // Тонкая сетка
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(180, 200, 220, 0.5)';
+                ctx.lineWidth = 0.5 / this.zoom;
+                for (let i = 0; i <= baseCellCount; i++) {
+                    const lx = gx + i * cellW;
+                    ctx.moveTo(lx, gy);
+                    ctx.lineTo(lx, gy + gh);
+                }
+                for (let i = 0; i <= baseCellCount; i++) {
+                    const ly = gy + i * cellH;
+                    ctx.moveTo(gx, ly);
+                    ctx.lineTo(gx + gw, ly);
+                }
+                ctx.stroke();
+                
+                // Основные оси (жирные линии в центре)
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(60, 80, 110, 0.8)';
+                ctx.lineWidth = 1.5 / this.zoom;
+                // Горизонтальная ось (центр по Y)
+                const midY = gy + gh / 2;
+                ctx.moveTo(gx, midY);
+                ctx.lineTo(gx + gw, midY);
+                // Вертикальная ось (центр по X)
+                const midX = gx + gw / 2;
+                ctx.moveTo(midX, gy);
+                ctx.lineTo(midX, gy + gh);
+                ctx.stroke();
+                
+                // Тонкая рамка
+                ctx.strokeStyle = 'rgba(100, 120, 150, 0.4)';
+                ctx.lineWidth = 1 / this.zoom;
+                ctx.strokeRect(gx, gy, gw, gh);
+                break;
+            }
                 
             case 'text':
                 ctx.font = `${element.strokeWidth * 10}px Arial`;
@@ -1295,12 +1746,21 @@ class Whiteboard {
         
         ctx.restore();
         
+        // Рисуем превью ломаной линии (polyline в процессе создания)
+        if (this._polylinePoints && this._polylinePoints.length > 0) {
+            this._drawPolylinePreview();
+        }
+        
         // Рисуем то, что рисует собеседник прямо сейчас
         this.drawRemoteDrawing();
     }
     
     drawSelection(element) {
         const ctx = this.ctx;
+        
+        // Для ломаных линий — контрольные точки рисуются в drawElement
+        if (element.type === 'polyline') return;
+        
         const b = this.getElementBounds(element);
         
         const left = Math.min(b.x, b.x + b.width);
@@ -1309,13 +1769,15 @@ class Whiteboard {
         const bottom = Math.max(b.y, b.y + b.height);
         const pad = 4 / this.zoom;
         
-        // Пунктирная рамка
-        ctx.save();
-        ctx.strokeStyle = '#667eea';
-        ctx.lineWidth = 1.5 / this.zoom;
-        ctx.setLineDash([5 / this.zoom, 4 / this.zoom]);
-        ctx.strokeRect(left - pad, top - pad, right - left + pad * 2, bottom - top + pad * 2);
-        ctx.restore();
+        // Пунктирная рамка — не рисуем для изображений
+        if (element.type !== 'image') {
+            ctx.save();
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 1.5 / this.zoom;
+            ctx.setLineDash([5 / this.zoom, 4 / this.zoom]);
+            ctx.strokeRect(left - pad, top - pad, right - left + pad * 2, bottom - top + pad * 2);
+            ctx.restore();
+        }
         
         // Угловые ручки
         const hs = this.getHandleSize();
@@ -1616,18 +2078,29 @@ class Whiteboard {
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             ctx.globalAlpha = 0.7;
-            ctx.moveTo(this.remoteDrawPath[0].x, this.remoteDrawPath[0].y);
             
-            if (this.remoteDrawPath.length === 1) {
-                // Одна точка — рисуем точку (маленький круг)
-                ctx.arc(this.remoteDrawPath[0].x, this.remoteDrawPath[0].y,
+            const rpts = this.remoteDrawPath;
+            if (rpts.length === 1) {
+                ctx.moveTo(rpts[0].x, rpts[0].y);
+                ctx.arc(rpts[0].x, rpts[0].y,
                         this.remoteDrawing.strokeWidth / 2, 0, Math.PI * 2);
                 ctx.fillStyle = this.remoteDrawing.strokeColor;
                 ctx.fill();
-            } else {
-                for (let i = 1; i < this.remoteDrawPath.length; i++) {
-                    ctx.lineTo(this.remoteDrawPath[i].x, this.remoteDrawPath[i].y);
+            } else if (rpts.length <= 2) {
+                ctx.moveTo(rpts[0].x, rpts[0].y);
+                for (let i = 1; i < rpts.length; i++) {
+                    ctx.lineTo(rpts[i].x, rpts[i].y);
                 }
+                ctx.stroke();
+            } else {
+                // Сглаживание для удалённого рисования
+                ctx.moveTo(rpts[0].x, rpts[0].y);
+                for (let i = 1; i < rpts.length - 1; i++) {
+                    const midX = (rpts[i].x + rpts[i + 1].x) / 2;
+                    const midY = (rpts[i].y + rpts[i + 1].y) / 2;
+                    ctx.quadraticCurveTo(rpts[i].x, rpts[i].y, midX, midY);
+                }
+                ctx.lineTo(rpts[rpts.length - 1].x, rpts[rpts.length - 1].y);
                 ctx.stroke();
             }
         } else if (this.remoteDrawing.type && this.remoteDrawing.type !== 'path') {
