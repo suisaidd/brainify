@@ -2491,6 +2491,69 @@
         height: 50px;
         font-size: 1.25rem;
     }
+    
+    /* Карточки уроков — крупнее для тача */
+    .lesson-card {
+        border-radius: 14px;
+        padding: 1rem;
+    }
+    
+    .lesson-card .lesson-meta {
+        gap: 0.5rem;
+    }
+    
+    .lesson-card .lesson-date,
+    .lesson-card .lesson-student {
+        font-size: 0.875rem;
+    }
+    
+    /* Все кнопки — минимум 44px для тача */
+    .btn, button:not(.sidebar-toggle):not(.mobile-sidebar-toggle) {
+        min-height: 44px;
+        font-size: 0.875rem;
+    }
+    
+    /* Боковое меню — крупнее элементы */
+    .sidebar-item {
+        padding: 14px 1.25rem;
+        font-size: 0.95rem;
+        min-height: 48px;
+    }
+    
+    .sidebar-item i {
+        font-size: 1.1rem;
+        width: 24px;
+    }
+    
+    /* second-row карточки */
+    .second-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .card-header h3 {
+        font-size: 1.1rem;
+    }
+    
+    /* Таблицы — горизонтальный скролл */
+    .schedule-table-wrapper,
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Вкладки/табы — скроллируемые */
+    .tab-navigation, .tabs, .nav-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+        scrollbar-width: none;
+    }
+    
+    .tab-navigation::-webkit-scrollbar,
+    .tabs::-webkit-scrollbar,
+    .nav-tabs::-webkit-scrollbar {
+        display: none;
+    }
 }
 
 /* Новые стили для преподавательского дашборда */

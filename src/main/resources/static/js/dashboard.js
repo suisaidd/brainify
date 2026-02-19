@@ -1822,27 +1822,8 @@ function joinLesson(lessonId) {
     })
     .then(({ ok, data }) => {
         if (ok && data.success) {
-            // Открываем урок в новой вкладке
-            const lessonWindow = window.open(`/equipment-check?lessonId=${lessonId}`, '_blank', 'noopener,noreferrer');
-            
-            if (lessonWindow) {
-                showToast('Урок открыт в новой вкладке', 'success');
-                
-                // Фокусируемся на новой вкладке
-                lessonWindow.focus();
-                
-                // Добавляем обработчик закрытия окна урока
-                const checkClosed = setInterval(() => {
-                    if (lessonWindow.closed) {
-                        clearInterval(checkClosed);
-                        showToast('Урок завершен', 'info');
-                        // Обновляем данные на дашборде
-                        loadTeacherLessons();
-                    }
-                }, 1000);
-            } else {
-                showToast('Не удалось открыть урок. Проверьте блокировку всплывающих окон.', 'error');
-            }
+            showToast('Подключение к уроку...', 'success');
+            window.location.href = `/equipment-check?lessonId=${lessonId}`;
         } else {
             const msg = data.message || data.error || 'Не удалось войти в урок';
             console.warn('[joinLesson] Сервер отклонил вход:', msg);

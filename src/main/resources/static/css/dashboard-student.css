@@ -836,29 +836,64 @@
 
 @media (max-width: 480px) {
     .content-area {
-        padding: 15px;
+        padding: 12px;
     }
     
     .welcome-card {
-        padding: 20px;
+        padding: 16px;
+        border-radius: 14px;
     }
     
     .welcome-text h2 {
-        font-size: 24px;
+        font-size: 22px;
+    }
+    
+    .welcome-text p {
+        font-size: 13px;
     }
     
     .stat-card {
-        padding: 16px;
+        padding: 14px;
+        border-radius: 10px;
     }
     
     .stat-icon {
-        width: 50px;
-        height: 50px;
-        font-size: 20px;
-        margin-right: 16px;
+        width: 44px;
+        height: 44px;
+        font-size: 18px;
+        margin-right: 12px;
     }
     
     .stat-number {
-        font-size: 24px;
+        font-size: 22px;
+    }
+    
+    .stat-label {
+        font-size: 12px;
+    }
+    
+    /* Карточки занятий — крупнее для тача */
+    .lesson-card, .card {
+        border-radius: 14px;
+        padding: 14px;
+    }
+    
+    .lesson-card .btn,
+    .card .btn,
+    button {
+        min-height: 44px;
+        font-size: 14px;
+    }
+    
+    /* Таблицы — горизонтальный скролл */
+    .schedule-table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .sidebar-item {
+        padding: 14px 20px;
+        font-size: 15px;
+        min-height: 48px;
     }
 }

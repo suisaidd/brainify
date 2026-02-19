@@ -7,9 +7,14 @@ body {
     font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
     background-color: #f8f9fa;
     height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
 }
 
 /* ---------- header ---------- */
@@ -424,54 +429,225 @@ body {
 #whiteboardCanvas.panning   { cursor: grab; }
 #whiteboardCanvas.pan       { cursor: grab; }
 
-/* ---------- responsive ---------- */
-@media (max-width: 768px) {
-    .whiteboard-header {
-        padding: 8px 12px;
-        flex-wrap: wrap;
-    }
-
-    .lesson-info { font-size: 11px; }
-
-    .btn {
-        padding: 5px 10px;
-        font-size: 12px;
-    }
-
+/* ---------- responsive: tablet ---------- */
+@media (max-width: 1024px) {
     .toolbar {
         padding: 5px 8px;
         gap: 3px;
-        border-radius: 10px;
-        top: 8px;
     }
 
     .tool-btn, .dropdown-item, .color-trigger {
-        width: 30px;
-        height: 30px;
-        font-size: 12px;
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
+    }
+
+    #strokeWidth { width: 50px; }
+}
+
+/* ---------- responsive: mobile ---------- */
+@media (max-width: 768px) {
+    .whiteboard-header {
+        padding: 6px 10px;
+        min-height: 38px;
+    }
+
+    .header-left { gap: 8px; }
+
+    .logo { font-size: 15px; }
+
+    .lesson-info {
+        font-size: 10px;
+        gap: 4px;
+    }
+
+    .btn {
+        padding: 5px 10px;
+        font-size: 11px;
+    }
+
+    .status-indicator { font-size: 10px; }
+    .status-indicator span { display: none; }
+
+    /* Тулбар снизу для мобилок */
+    .toolbar {
+        position: fixed;
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        transform: none;
+        border-radius: 16px 16px 0 0;
+        padding: 8px 12px;
+        padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        gap: 2px;
+        justify-content: center;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        z-index: 1001;
+        box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06);
+        scrollbar-width: none;
+    }
+
+    .toolbar::-webkit-scrollbar { display: none; }
+
+    .tool-btn, .dropdown-item, .color-trigger {
+        width: 42px;
+        height: 42px;
+        font-size: 16px;
+        flex-shrink: 0;
+        border-radius: 10px;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .tool-btn:active, .dropdown-item:active {
+        background: rgba(102, 126, 234, 0.15);
+        transform: scale(0.92);
+    }
+
+    .toolbar-divider {
+        height: 28px;
+        margin: 0 3px;
     }
 
     .color-dot {
-        width: 16px;
-        height: 16px;
-    }
-
-    .color-opt {
         width: 22px;
         height: 22px;
     }
 
-    #strokeWidth { width: 45px; }
+    .color-opt {
+        width: 30px;
+        height: 30px;
+    }
 
+    .color-grid {
+        gap: 8px;
+        padding: 12px;
+    }
+
+    /* Дропдауны открываются ВВЕРХ на мобилке */
+    .dropdown-panel {
+        top: auto;
+        bottom: calc(100% + 10px);
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    .dropdown-panel.color-grid {
+        bottom: calc(100% + 10px);
+        top: auto;
+    }
+
+    #strokeWidth {
+        width: 50px;
+        height: 6px;
+    }
+
+    .width-label {
+        font-size: 12px;
+        min-width: 18px;
+    }
+
+    .width-control { gap: 4px; }
+
+    /* Кнопки undo/redo — поднять выше тулбара */
     .floating-history-controls {
-        bottom: 12px;
+        bottom: 72px;
         left: 12px;
     }
 
     .history-btn {
-        width: 30px;
-        height: 30px;
-        font-size: 11px;
+        width: 38px;
+        height: 38px;
+        font-size: 14px;
+    }
+
+    /* Зум-контроль — поднять */
+    .zoom-controls {
+        bottom: 72px;
+        right: 12px;
+    }
+
+    /* Видео-панель на мобилке */
+    .video-panel {
+        width: 160px;
+        min-width: 140px;
+        bottom: 80px;
+        right: 8px;
+        border-radius: 12px;
+    }
+
+    .video-panel-header {
+        padding: 6px 10px;
+    }
+
+    .video-panel-header span {
+        font-size: 0.7rem;
+    }
+
+    .video-controls {
+        gap: 8px;
+        padding: 6px;
+    }
+
+    .video-ctrl-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 0.8rem;
+    }
+
+    .local-feed {
+        width: 60px;
+        height: 45px;
+    }
+
+    /* Board контейнер учитывает нижний тулбар */
+    .board-container {
+        padding-bottom: 0;
+    }
+
+    /* Видео-панель минимизирована по умолчанию на мобилке */
+    .video-panel {
+        bottom: 80px;
+    }
+
+    .video-panel.minimized {
+        min-width: 120px;
+        max-width: 160px;
+    }
+
+    .video-panel.minimized .video-panel-header span {
+        font-size: 0.65rem;
+    }
+
+    /* Скрываем resize-ручки на мобилке */
+    .vp-resize {
+        display: none;
+    }
+}
+
+/* ---------- responsive: very small phone ---------- */
+@media (max-width: 400px) {
+    .toolbar {
+        padding: 6px 8px;
+        gap: 1px;
+    }
+
+    .tool-btn, .dropdown-item, .color-trigger {
+        width: 38px;
+        height: 38px;
+        font-size: 14px;
+    }
+
+    .toolbar-divider { margin: 0 2px; }
+
+    .whiteboard-header .logo { display: none; }
+
+    .color-dot {
+        width: 18px;
+        height: 18px;
     }
 }
 
