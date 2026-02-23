@@ -26,12 +26,12 @@ class Whiteboard {
         
         // Ресайз элементов
         this.isResizing = false;
-        this.resizeHandle = null; // 'nw','ne','sw','se'
+        this.resizeHandle = null;
         this.resizeStartX = 0;
         this.resizeStartY = 0;
-        this.resizeOrigRect = null; // {x,y,width,height}
+        this.resizeOrigRect = null;
         
-        // Последняя позиция курсора (мировые координаты) — для вставки картинок
+        // Последняя позиция курсора (мировые координаты)
         this.lastMouseWorldX = 0;
         this.lastMouseWorldY = 0;
         
@@ -57,8 +57,23 @@ class Whiteboard {
         this.lastPinchDist = 0;
         this.lastPinchCenter = null;
         
-        // Кэш загруженных картинок (id -> HTMLImageElement)
+        // ===== RAF render loop =====
+        this._needsRedraw = false;
+        this._rafId = null;
+        
+        // ===== High-DPI (Retina) =====
+        this._dpr = window.devicePixelRatio || 1;
+        this._cssWidth = 0;
+        this._cssHeight = 0;
+        
+        // ===== Pointer / Stylus / Palm rejection =====
+        this._penDetected = sessionStorage.getItem('wb_penDetected') === '1';
+        this._activePointerId = null;
+        this._isMultiTouch = false;
+        
+        // Кэш загруженных картинок
         this.imageCache = new Map();
+        this._imageSrcStore = new Map(); // Хранение src отдельно от history (экономия памяти)
         
         // Синхронизация
         this.saveTimeout = null;
@@ -73,15 +88,15 @@ class Whiteboard {
         
         // Реальное время — STOMP
         this.stompClient = null;
-        this.remoteDrawing = null;        // элемент/путь, который рисует собеседник прямо сейчас
-        this.remoteDrawPath = [];         // точки пути собеседника
+        this.remoteDrawing = null;
+        this.remoteDrawPath = [];
         this.lastBroadcastTime = 0;
-        this.broadcastThrottle = 30;      // мс между отправками (снижено для плавности)
+        this.broadcastThrottle = 30;
         
         // Защита недавно полученных по STOMP элементов от удаления при merge
-        this.recentRemoteIds = new Map();   // id -> timestamp добавления
-        this.remoteProtectionTTL = 10000;   // 10 секунд защиты
-        this.remoteDirty = false;           // флаг: были ли STOMP-события с последнего sync
+        this.recentRemoteIds = new Map();
+        this.remoteProtectionTTL = 15000;
+        this.remoteDirty = false;
         
         this.init();
     }
@@ -92,35 +107,57 @@ class Whiteboard {
         this.setupToolbar();
         this.loadBoardState();
         this.startAutoSave();
-        // Realtime STOMP подключение — в try-catch, чтобы ошибка не ломала всю доску
+        this._startRenderLoop();
         try { this.connectRealtimeStomp(); } catch (e) { console.warn('Whiteboard: STOMP init error:', e); }
     }
+    
+    // ===== RAF Render Loop =====
+    
+    requestRedraw() {
+        this._needsRedraw = true;
+    }
+    
+    _startRenderLoop() {
+        const loop = () => {
+            if (this._needsRedraw) {
+                this._needsRedraw = false;
+                this.redraw();
+            }
+            this._rafId = requestAnimationFrame(loop);
+        };
+        this._rafId = requestAnimationFrame(loop);
+    }
+    
+    // ===== Canvas setup with DPI scaling =====
     
     setupCanvas() {
         const container = document.getElementById('boardContainer');
         const resizeCanvas = () => {
             const w = container.clientWidth;
             const h = container.clientHeight;
-            if (w > 0 && h > 0 && (this.canvas.width !== w || this.canvas.height !== h)) {
-                this.canvas.width = w;
-                this.canvas.height = h;
-                // Максимальное сглаживание
+            const dpr = window.devicePixelRatio || 1;
+            
+            if (w > 0 && h > 0 && (this._cssWidth !== w || this._cssHeight !== h || this._dpr !== dpr)) {
+                this._dpr = dpr;
+                this._cssWidth = w;
+                this._cssHeight = h;
+                
+                this.canvas.width = Math.round(w * dpr);
+                this.canvas.height = Math.round(h * dpr);
+                this.canvas.style.width = w + 'px';
+                this.canvas.style.height = h + 'px';
+                
+                this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                 this.ctx.imageSmoothingEnabled = true;
                 this.ctx.imageSmoothingQuality = 'high';
                 this.redraw();
             }
         };
         
-        // Начальный размер
         resizeCanvas();
-        
-        // Fallback: при flex-раскладке размеры могут быть 0 на DOMContentLoaded
-        // — повторяем после того как браузер закончит layout
         requestAnimationFrame(() => resizeCanvas());
-        // И ещё раз на window.load (все ресурсы загружены)
         window.addEventListener('load', () => resizeCanvas());
         
-        // ResizeObserver — надёжнее всего: реагирует когда контейнер получает размеры
         if (typeof ResizeObserver !== 'undefined') {
             new ResizeObserver(() => resizeCanvas()).observe(container);
         }
@@ -130,7 +167,6 @@ class Whiteboard {
     
     // ===== Конвертация координат =====
     
-    /** Экранные координаты -> мировые */
     screenToWorld(sx, sy) {
         return {
             x: (sx - this.panX) / this.zoom,
@@ -138,7 +174,6 @@ class Whiteboard {
         };
     }
     
-    /** Мировые координаты -> экранные */
     worldToScreen(wx, wy) {
         return {
             x: wx * this.zoom + this.panX,
@@ -146,21 +181,18 @@ class Whiteboard {
         };
     }
     
-    /** Позиция мыши в мировых координатах */
-    getMousePos(e) {
+    getPointerPos(e) {
         const rect = this.canvas.getBoundingClientRect();
         const sx = e.clientX - rect.left;
         const sy = e.clientY - rect.top;
         return this.screenToWorld(sx, sy);
     }
     
-    /** Экранная позиция мыши (без трансформации) */
-    getScreenMousePos(e) {
+    getScreenPointerPos(e) {
         const rect = this.canvas.getBoundingClientRect();
         return { x: e.clientX - rect.left, y: e.clientY - rect.top };
     }
     
-    /** Позиция касания в мировых координатах */
     getTouchPos(e) {
         const rect = this.canvas.getBoundingClientRect();
         const touch = e.touches[0] || e.changedTouches[0];
@@ -169,7 +201,6 @@ class Whiteboard {
         return this.screenToWorld(sx, sy);
     }
     
-    /** Экранная позиция касания */
     getScreenTouchPos(e) {
         const rect = this.canvas.getBoundingClientRect();
         const touch = e.touches[0] || e.changedTouches[0];
@@ -182,13 +213,12 @@ class Whiteboard {
         const oldZoom = this.zoom;
         this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, newZoom));
         
-        // Зумим к точке под курсором
         const ratio = this.zoom / oldZoom;
         this.panX = pivotSX - (pivotSX - this.panX) * ratio;
         this.panY = pivotSY - (pivotSY - this.panY) * ratio;
         
         this.updateZoomIndicator();
-        this.redraw();
+        this.requestRedraw();
     }
     
     updateZoomIndicator() {
@@ -201,27 +231,27 @@ class Whiteboard {
         this.panY = 0;
         this.zoom = 1;
         this.updateZoomIndicator();
-        this.redraw();
+        this.requestRedraw();
     }
     
-    // ===== Event Listeners =====
+    // ===== Event Listeners (Pointer Events + Touch for pinch) =====
     
     setupEventListeners() {
-        // Закрытие дропдаунов при клике/касании на доску
-        this.canvas.addEventListener('mousedown', () => this.closeAllDropdowns());
-        this.canvas.addEventListener('touchstart', () => this.closeAllDropdowns());
+        this.canvas.addEventListener('pointerdown', () => this.closeAllDropdowns());
         
-        // Мышь
-        this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
-        this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
-        this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
-        this.canvas.addEventListener('mouseleave', this.handleMouseUp.bind(this));
+        // Pointer events (replaces mouse events, supports stylus/pen)
+        this.canvas.addEventListener('pointerdown', this.handlePointerDown.bind(this));
+        this.canvas.addEventListener('pointermove', this.handlePointerMove.bind(this));
+        this.canvas.addEventListener('pointerup', this.handlePointerUp.bind(this));
+        this.canvas.addEventListener('pointerleave', this.handlePointerUp.bind(this));
+        this.canvas.addEventListener('pointercancel', this.handlePointerUp.bind(this));
+        
         this.canvas.addEventListener('dblclick', this.handleDblClick.bind(this));
         
-        // Колесо мыши — zoom
+        // Wheel — zoom
         this.canvas.addEventListener('wheel', this.handleWheel.bind(this), { passive: false });
         
-        // Касание
+        // Touch events ONLY for multi-touch pinch/zoom
         this.canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
         this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
         this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this));
@@ -233,7 +263,7 @@ class Whiteboard {
         // Вставка изображений (Ctrl+V)
         document.addEventListener('paste', this.handlePaste.bind(this));
         
-        // Drag-and-drop изображений на доску
+        // Drag-and-drop изображений
         this.canvas.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -246,7 +276,6 @@ class Whiteboard {
         });
         this.canvas.addEventListener('drop', this.handleDrop.bind(this));
         
-        // Также обрабатываем drop на всем boardContainer
         const boardContainer = document.getElementById('boardContainer');
         boardContainer.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -254,7 +283,6 @@ class Whiteboard {
         });
         boardContainer.addEventListener('drop', this.handleDrop.bind(this));
         
-        // Кнопка импорта изображения
         this.setupImageImport();
     }
     
@@ -269,12 +297,44 @@ class Whiteboard {
         this.setZoom(this.zoom * factor, sx, sy);
     }
     
-    // ===== Mouse Handlers =====
+    // ===== Pointer Handlers (replaces Mouse, adds palm rejection) =====
     
-    handleMouseDown(e) {
-        const screenPos = this.getScreenMousePos(e);
+    _shouldRejectAsTouch(e) {
+        if (e.pointerType !== 'touch') return false;
+        if (!this._penDetected) return false;
+        return true;
+    }
+    
+    handlePointerDown(e) {
+        if (this._isMultiTouch) return;
         
-        // Средняя кнопка мыши, Space или инструмент pan — панорамирование
+        // Detect stylus/pen input
+        if (e.pointerType === 'pen') {
+            this._penDetected = true;
+            try { sessionStorage.setItem('wb_penDetected', '1'); } catch (_) {}
+        }
+        
+        // Palm rejection: if pen was detected, finger touches only pan
+        if (this._shouldRejectAsTouch(e)) {
+            e.preventDefault();
+            this.canvas.setPointerCapture(e.pointerId);
+            this._activePointerId = e.pointerId;
+            this.isPanning = true;
+            const sp = this.getScreenPointerPos(e);
+            this.panStartX = sp.x;
+            this.panStartY = sp.y;
+            this.panStartPanX = this.panX;
+            this.panStartPanY = this.panY;
+            this.canvas.style.cursor = 'grabbing';
+            return;
+        }
+        
+        this.canvas.setPointerCapture(e.pointerId);
+        this._activePointerId = e.pointerId;
+        
+        const screenPos = this.getScreenPointerPos(e);
+        
+        // Middle button, space, or pan tool → panning
         if (e.button === 1 || this.spacePressed || this.currentTool === 'pan') {
             e.preventDefault();
             this.isPanning = true;
@@ -286,9 +346,9 @@ class Whiteboard {
             return;
         }
         
-        const pos = this.getMousePos(e);
+        const pos = this.getPointerPos(e);
         
-        // Проверяем ресайз-ручки перед обычным рисованием
+        // Resize handles
         if (this.currentTool === 'select' && this.selectedElement) {
             const handle = this.getResizeHandle(pos.x, pos.y, this.selectedElement);
             if (handle) {
@@ -309,33 +369,32 @@ class Whiteboard {
         this.startDrawing(pos.x, pos.y);
     }
     
-    handleMouseMove(e) {
-        // Всегда отслеживаем позицию курсора в мировых координатах
-        const worldPos = this.getMousePos(e);
+    handlePointerMove(e) {
+        if (this._isMultiTouch) return;
+        if (e.pointerId !== this._activePointerId && this._activePointerId !== null && (this.isDrawing || this.isPanning || this.isResizing)) return;
+        
+        const worldPos = this.getPointerPos(e);
         this.lastMouseWorldX = worldPos.x;
         this.lastMouseWorldY = worldPos.y;
         
         if (this.isPanning) {
-            const screenPos = this.getScreenMousePos(e);
+            const screenPos = this.getScreenPointerPos(e);
             this.panX = this.panStartPanX + (screenPos.x - this.panStartX);
             this.panY = this.panStartPanY + (screenPos.y - this.panStartY);
-            this.redraw();
+            this.requestRedraw();
             return;
         }
         
-        // Курсор grab при зажатом пробеле или инструменте pan
         if ((this.spacePressed || this.currentTool === 'pan') && !this.isDrawing) {
             this.canvas.style.cursor = 'grab';
             return;
         }
         
-        // Ресайз
         if (this.isResizing && this.selectedElement) {
             this.handleResize(worldPos.x, worldPos.y);
             return;
         }
         
-        // Курсор ресайза при наведении на ручку
         if (this.currentTool === 'select' && this.selectedElement && !this.isDrawing) {
             const handle = this.getResizeHandle(worldPos.x, worldPos.y, this.selectedElement);
             if (handle) {
@@ -350,7 +409,12 @@ class Whiteboard {
         this.updateDrawing(worldPos.x, worldPos.y);
     }
     
-    handleMouseUp(e) {
+    handlePointerUp(e) {
+        if (this._isMultiTouch) return;
+        if (e.pointerId !== this._activePointerId && this._activePointerId !== null) return;
+        
+        this._activePointerId = null;
+        
         if (this.isPanning) {
             this.isPanning = false;
             this.canvas.style.cursor = (this.spacePressed || this.currentTool === 'pan') ? 'grab' : '';
@@ -366,7 +430,6 @@ class Whiteboard {
             return;
         }
         
-        // Завершение перетаскивания контрольной точки ломаной
         if (this._draggingPolylinePoint >= 0) {
             this._draggingPolylinePoint = -1;
             this.isDragging = false;
@@ -381,15 +444,13 @@ class Whiteboard {
     
     handleDblClick(e) {
         if (this.currentTool === 'polyline') {
-            const pos = this.getMousePos(e);
+            const pos = this.getPointerPos(e);
             this.handlePolylineDblClick(pos.x, pos.y);
             return;
         }
         
-        // Двойной клик в режиме select на polyline — добавить контрольную точку
         if (this.currentTool === 'select' && this.selectedElement && this.selectedElement.type === 'polyline') {
-            const pos = this.getMousePos(e);
-            // Находим ближайший сегмент и вставляем точку
+            const pos = this.getPointerPos(e);
             const pts = this.selectedElement.controlPoints;
             let bestIdx = 1;
             let bestDist = Infinity;
@@ -405,7 +466,7 @@ class Whiteboard {
                 this._updatePolylineBounds(this.selectedElement);
                 this.selectedElement.timestamp = Date.now();
                 this.saveToHistory();
-                this.redraw();
+                this.requestRedraw();
                 this.scheduleSave();
             }
         }
@@ -420,15 +481,24 @@ class Whiteboard {
         return Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy));
     }
     
-    // ===== Touch Handlers (pan + pinch-to-zoom) =====
+    // ===== Touch Handlers (ONLY multi-touch pinch/pan) =====
     
     handleTouchStart(e) {
-        e.preventDefault();
-        
-        if (e.touches.length === 2) {
-            // Два пальца — начинаем pinch/pan
+        if (e.touches.length >= 2) {
+            e.preventDefault();
+            
+            // Cancel any ongoing single-pointer drawing
+            if (this.isDrawing) {
+                this.isDrawing = false;
+                this.isDragging = false;
+                this.currentElement = null;
+                this.currentPath = [];
+                this._draggingPolylinePoint = -1;
+            }
+            
+            this._isMultiTouch = true;
             this.isPanning = true;
-            this.isDrawing = false;
+            
             const t0 = e.touches[0];
             const t1 = e.touches[1];
             this.lastPinchDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
@@ -441,17 +511,17 @@ class Whiteboard {
             this.panStartY = this.lastPinchCenter.y;
             this.panStartPanX = this.panX;
             this.panStartPanY = this.panY;
-            return;
+        } else if (e.touches.length === 1) {
+            // Single touch is handled by pointer events; prevent default only for drawing tools
+            // to prevent scroll/zoom browser behavior
+            e.preventDefault();
         }
-        
-        const pos = this.getTouchPos(e);
-        this.startDrawing(pos.x, pos.y);
     }
     
     handleTouchMove(e) {
-        e.preventDefault();
-        
-        if (e.touches.length === 2) {
+        if (e.touches.length >= 2) {
+            e.preventDefault();
+            
             const t0 = e.touches[0];
             const t1 = e.touches[1];
             const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
@@ -459,13 +529,11 @@ class Whiteboard {
             const cx = (t0.clientX + t1.clientX) / 2 - rect.left;
             const cy = (t0.clientY + t1.clientY) / 2 - rect.top;
             
-            // Zoom
             if (this.lastPinchDist > 0) {
                 const factor = dist / this.lastPinchDist;
                 this.setZoom(this.zoom * factor, cx, cy);
             }
             
-            // Pan
             if (this.lastPinchCenter) {
                 this.panX += cx - this.lastPinchCenter.x;
                 this.panY += cy - this.lastPinchCenter.y;
@@ -473,34 +541,26 @@ class Whiteboard {
             
             this.lastPinchDist = dist;
             this.lastPinchCenter = { x: cx, y: cy };
-            this.redraw();
-            return;
+            this.requestRedraw();
         }
-        
-        const pos = this.getTouchPos(e);
-        this.updateDrawing(pos.x, pos.y);
     }
     
     handleTouchEnd(e) {
-        e.preventDefault();
-        
         if (e.touches.length < 2) {
             this.isPanning = false;
             this.lastPinchDist = 0;
             this.lastPinchCenter = null;
-        }
-        
-        if (e.touches.length === 0) {
-            this.stopDrawing();
+            
+            if (e.touches.length === 0) {
+                this._isMultiTouch = false;
+            }
         }
     }
     
     // ===== Keyboard =====
     
     handleKeyDown(e) {
-        // Space для панорамирования
         if (e.code === 'Space' && !e.repeat) {
-            // Не перехватываем, если фокус в input/textarea
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             e.preventDefault();
             this.spacePressed = true;
@@ -508,7 +568,6 @@ class Whiteboard {
             return;
         }
         
-        // Горячие клавиши
         if (e.ctrlKey || e.metaKey) {
             if (e.key === 'z' && !e.shiftKey) {
                 e.preventDefault();
@@ -525,7 +584,6 @@ class Whiteboard {
                 this.saveBoardState();
                 return;
             }
-            // Ctrl+0 — сбросить вид
             if (e.key === '0') {
                 e.preventDefault();
                 this.resetView();
@@ -533,7 +591,6 @@ class Whiteboard {
             }
         }
         
-        // Быстрый выбор инструментов
         const toolMap = {
             'v': 'select',
             'r': 'rectangle',
@@ -588,7 +645,6 @@ class Whiteboard {
             });
         });
         
-        // Фигуры dropdown
         const shapesToggle = document.getElementById('shapesToggle');
         const shapesDropdown = document.getElementById('shapesDropdown');
         const shapesPanel = shapesDropdown.querySelector('.dropdown-panel');
@@ -624,7 +680,6 @@ class Whiteboard {
             });
         });
         
-        // Ластик
         document.getElementById('eraserBtn').addEventListener('click', () => {
             this.activateTool('eraser', document.getElementById('eraserBtn'));
         });
@@ -688,21 +743,18 @@ class Whiteboard {
             strokeWidthLabel.textContent = this.strokeWidth;
         });
         
-        // Закрытие dropdown при клике снаружи
         document.addEventListener('click', () => this.closeAllDropdowns());
         document.querySelectorAll('.dropdown-panel').forEach(panel => {
             panel.addEventListener('click', (e) => e.stopPropagation());
         });
         
-        // Кнопка сброса зума
         const zoomReset = document.getElementById('zoomReset');
         if (zoomReset) zoomReset.addEventListener('click', () => this.resetView());
     }
     
     activateTool(tool, activeBtn) {
-        // Если была ломаная в процессе — завершаем или отменяем
         if (this._polylinePoints && this._polylinePoints.length >= 2 && tool !== 'polyline') {
-            this.handlePolylineDblClick(0, 0); // Завершаем с текущими точками
+            this.handlePolylineDblClick(0, 0);
         } else {
             this._polylinePoints = null;
         }
@@ -728,31 +780,38 @@ class Whiteboard {
     
     // ===== Resize =====
     
-    /** Размер ручки в мировых координатах (постоянный на экране) */
     getHandleSize() {
         return 8 / this.zoom;
     }
     
-    /** Возвращает bounding box элемента */
     getElementBounds(el) {
-        if (el.type === 'path') {
-            const xs = el.points.map(p => p.x);
-            const ys = el.points.map(p => p.y);
-            const minX = Math.min(...xs), maxX = Math.max(...xs);
-            const minY = Math.min(...ys), maxY = Math.max(...ys);
+        if (el.type === 'path' && el.points && el.points.length > 0) {
+            let minX = el.points[0].x, maxX = el.points[0].x;
+            let minY = el.points[0].y, maxY = el.points[0].y;
+            for (let i = 1; i < el.points.length; i++) {
+                const p = el.points[i];
+                if (p.x < minX) minX = p.x;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.y > maxY) maxY = p.y;
+            }
             return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
         }
-        if (el.type === 'polyline' && el.controlPoints) {
-            const xs = el.controlPoints.map(p => p.x);
-            const ys = el.controlPoints.map(p => p.y);
-            const minX = Math.min(...xs), maxX = Math.max(...xs);
-            const minY = Math.min(...ys), maxY = Math.max(...ys);
+        if (el.type === 'polyline' && el.controlPoints && el.controlPoints.length > 0) {
+            let minX = el.controlPoints[0].x, maxX = el.controlPoints[0].x;
+            let minY = el.controlPoints[0].y, maxY = el.controlPoints[0].y;
+            for (let i = 1; i < el.controlPoints.length; i++) {
+                const p = el.controlPoints[i];
+                if (p.x < minX) minX = p.x;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.y > maxY) maxY = p.y;
+            }
             return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
         }
         return { x: el.x, y: el.y, width: el.width, height: el.height };
     }
     
-    /** Проверяет, попали ли в угловую ручку. Возвращает 'nw','ne','sw','se' или null */
     getResizeHandle(mx, my, el) {
         const b = this.getElementBounds(el);
         const hs = this.getHandleSize();
@@ -777,7 +836,6 @@ class Whiteboard {
         return null;
     }
     
-    /** Обрабатывает перетаскивание ручки ресайза */
     handleResize(mx, my) {
         const el = this.selectedElement;
         if (!el || !this.resizeOrigRect) return;
@@ -814,16 +872,13 @@ class Whiteboard {
                 break;
         }
         
-        // Для изображений — сохраняем пропорции
         if (el.type === 'image') {
             const aspect = orig.width / orig.height;
-            // Используем бóльшее изменение
             if (Math.abs(newW / orig.width - 1) > Math.abs(newH / orig.height - 1)) {
                 newH = newW / aspect;
             } else {
                 newW = newH * aspect;
             }
-            // Пересчитываем позицию для ручек nw/ne/sw
             if (this.resizeHandle === 'nw') {
                 newX = orig.x + orig.width - newW;
                 newY = orig.y + orig.height - newH;
@@ -834,21 +889,19 @@ class Whiteboard {
             }
         }
         
-        // Минимальный размер
         if (Math.abs(newW) > 10 && Math.abs(newH) > 10) {
             el.x = newX;
             el.y = newY;
             el.width = newW;
             el.height = newH;
             if (el.id) el.timestamp = Date.now();
-            this.redraw();
+            this.requestRedraw();
         }
     }
     
     // ===== Drawing Logic =====
     
     startDrawing(x, y) {
-        // Polyline — добавляем точку по клику, не меняем isDrawing
         if (this.currentTool === 'polyline') {
             this.handlePolylineClick(x, y);
             return;
@@ -859,13 +912,12 @@ class Whiteboard {
         this.startY = y;
         
         if (this.currentTool === 'select') {
-            // Проверяем, не кликнули ли по контрольной точке ломаной
             if (this.selectedElement && this.selectedElement.type === 'polyline') {
                 const cpIdx = this.getPolylineControlPoint(x, y, this.selectedElement);
                 if (cpIdx >= 0) {
                     this.isDragging = true;
                     this._draggingPolylinePoint = cpIdx;
-                    this.redraw();
+                    this.requestRedraw();
                     return;
                 }
             }
@@ -881,7 +933,7 @@ class Whiteboard {
             } else {
                 this.selectedElement = null;
             }
-            this.redraw();
+            this.requestRedraw();
             return;
         }
         
@@ -926,16 +978,14 @@ class Whiteboard {
         if (!this.isDrawing) return;
         
         if (this.isDragging && this.selectedElement) {
-            // Перетаскивание контрольной точки ломаной
             if (this._draggingPolylinePoint >= 0 && this.selectedElement.type === 'polyline') {
                 this.selectedElement.controlPoints[this._draggingPolylinePoint] = { x, y };
                 this.selectedElement.timestamp = Date.now();
                 this._updatePolylineBounds(this.selectedElement);
-                this.redraw();
+                this.requestRedraw();
                 return;
             }
             
-            // Перемещение обычного элемента
             if (this.selectedElement.type === 'polyline') {
                 const dx = x - this.dragOffset.x - this.selectedElement.x;
                 const dy = y - this.dragOffset.y - this.selectedElement.y;
@@ -955,17 +1005,14 @@ class Whiteboard {
                     y: this.selectedElement.y
                 });
             }
-            this.redraw();
+            this.requestRedraw();
             return;
         }
         
         if (this.currentTool === 'draw') {
             this.currentPath.push({ x, y });
-            // Отправляем новые точки собеседнику (с throttle)
             this._broadcastPathBatch();
-            // Полный перерисов + текущий путь (для корректной работы с трансформацией)
-            this.redraw();
-            this.drawCurrentPath();
+            this.requestRedraw();
             return;
         }
         
@@ -977,7 +1024,6 @@ class Whiteboard {
         if (this.currentElement) {
             this.currentElement.width = x - this.startX;
             this.currentElement.height = y - this.startY;
-            // Отправляем форму собеседнику
             this.broadcastDraw({
                 type: 'shape-progress',
                 element: {
@@ -991,13 +1037,7 @@ class Whiteboard {
                     strokeWidth: this.currentElement.strokeWidth
                 }
             });
-            this.redraw();
-            // Рисуем текущий элемент с трансформацией
-            this.ctx.save();
-            this.ctx.translate(this.panX, this.panY);
-            this.ctx.scale(this.zoom, this.zoom);
-            this.drawElement(this.ctx, this.currentElement);
-            this.ctx.restore();
+            this.requestRedraw();
         }
     }
     
@@ -1011,7 +1051,6 @@ class Whiteboard {
         let createdElementId = null;
         
         if (this.currentTool === 'draw' && this.currentPath.length > 0) {
-            // Очищаем pending таймер и отправляем оставшиеся точки
             if (this._pathBatchTimer) { clearTimeout(this._pathBatchTimer); this._pathBatchTimer = null; }
             const fromIdx = this._lastBroadcastPathIndex || 0;
             const remaining = this.currentPath.slice(fromIdx);
@@ -1019,10 +1058,12 @@ class Whiteboard {
                 this.broadcastDrawImmediate({ type: 'path-progress', points: remaining });
             }
             
+            const simplified = this._simplifyPoints(this.currentPath, 0.8);
+            
             const now = Date.now();
             const newElement = {
                 type: 'path',
-                points: [...this.currentPath],
+                points: simplified,
                 strokeColor: this.strokeColor,
                 strokeWidth: this.strokeWidth,
                 id: now + Math.random(),
@@ -1047,54 +1088,57 @@ class Whiteboard {
             this.currentElement = null;
         }
         
-        // Сообщаем собеседнику, что рисование завершено (включаем ID элемента)
-        // Также отправляем финальные оставшиеся точки для path, чтобы не терять хвост
         if (createdElementId !== null) {
             this.broadcastDrawImmediate({ type: 'draw-done', elementId: createdElementId });
         }
         
-        this.redraw();
+        this.requestRedraw();
         this.scheduleSave();
     }
     
-    /** Рисует текущий путь (карандаш) во время рисования — с учётом камеры и сглаживанием */
-    drawCurrentPath() {
-        if (this.currentPath.length < 2) return;
+    // ===== Point simplification (Ramer-Douglas-Peucker) =====
+    
+    _simplifyPoints(points, tolerance) {
+        if (points.length <= 3) return [...points];
         
-        this.ctx.save();
-        this.ctx.translate(this.panX, this.panY);
-        this.ctx.scale(this.zoom, this.zoom);
+        let maxDist = 0;
+        let maxIndex = 0;
+        const first = points[0];
+        const last = points[points.length - 1];
         
-        this.ctx.beginPath();
-        this.ctx.strokeStyle = this.strokeColor;
-        this.ctx.lineWidth = this.strokeWidth;
-        this.ctx.lineCap = 'round';
-        this.ctx.lineJoin = 'round';
-        
-        const pts = this.currentPath;
-        if (pts.length <= 2) {
-            this.ctx.moveTo(pts[0].x, pts[0].y);
-            for (let i = 1; i < pts.length; i++) {
-                this.ctx.lineTo(pts[i].x, pts[i].y);
+        for (let i = 1; i < points.length - 1; i++) {
+            const dist = this._perpDist(points[i], first, last);
+            if (dist > maxDist) {
+                maxDist = dist;
+                maxIndex = i;
             }
-        } else {
-            // Сглаживание: quadratic bezier через средние точки
-            this.ctx.moveTo(pts[0].x, pts[0].y);
-            for (let i = 1; i < pts.length - 1; i++) {
-                const midX = (pts[i].x + pts[i + 1].x) / 2;
-                const midY = (pts[i].y + pts[i + 1].y) / 2;
-                this.ctx.quadraticCurveTo(pts[i].x, pts[i].y, midX, midY);
-            }
-            const last = pts[pts.length - 1];
-            this.ctx.lineTo(last.x, last.y);
         }
         
-        this.ctx.stroke();
-        this.ctx.restore();
+        if (maxDist > tolerance) {
+            const left = this._simplifyPoints(points.slice(0, maxIndex + 1), tolerance);
+            const right = this._simplifyPoints(points.slice(maxIndex), tolerance);
+            return left.slice(0, -1).concat(right);
+        }
+        
+        return [first, last];
+    }
+    
+    _perpDist(point, lineStart, lineEnd) {
+        const dx = lineEnd.x - lineStart.x;
+        const dy = lineEnd.y - lineStart.y;
+        const lenSq = dx * dx + dy * dy;
+        if (lenSq === 0) return Math.hypot(point.x - lineStart.x, point.y - lineStart.y);
+        const t = Math.max(0, Math.min(1,
+            ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / lenSq
+        ));
+        return Math.hypot(
+            point.x - (lineStart.x + t * dx),
+            point.y - (lineStart.y + t * dy)
+        );
     }
     
     eraseAt(x, y) {
-        const eraserSize = this.strokeWidth * 5 / this.zoom; // Учитываем зум
+        const eraserSize = this.strokeWidth * 5 / this.zoom;
         const elementsToRemove = [];
         
         this.elements.forEach((element, index) => {
@@ -1112,18 +1156,17 @@ class Whiteboard {
         if (elementsToRemove.length > 0) {
             this.broadcastDrawImmediate({ type: 'erase', ids: removedIds });
             this.saveToHistory();
-            this.redraw();
+            this.requestRedraw();
             this.scheduleSave();
         }
     }
     
     isPointInElement(x, y, element, tolerance = 0) {
         if (element.type === 'path') {
+            const threshold = (element.strokeWidth || 2) / 2 + tolerance;
             for (const point of element.points) {
-                const dist = Math.sqrt(Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2));
-                if (dist <= (element.strokeWidth / 2 + tolerance)) {
-                    return true;
-                }
+                const dx = x - point.x, dy = y - point.y;
+                if (dx * dx + dy * dy <= threshold * threshold) return true;
             }
             return false;
         }
@@ -1185,19 +1228,18 @@ class Whiteboard {
         this.localElements.add(newElement.id);
         
         this.saveToHistory();
-        this.redraw();
+        this.requestRedraw();
         this.scheduleSave();
     }
     
-    // ===== Ломаная линия (polyline) с контрольными точками =====
+    // ===== Ломаная линия (polyline) =====
     
     handlePolylineClick(x, y) {
         if (!this._polylinePoints) {
             this._polylinePoints = [];
         }
         this._polylinePoints.push({ x, y });
-        this.redraw();
-        this._drawPolylinePreview();
+        this.requestRedraw();
     }
     
     handlePolylineDblClick(x, y) {
@@ -1209,10 +1251,14 @@ class Whiteboard {
         const points = this._polylinePoints;
         const now = Date.now();
         
-        const xs = points.map(p => p.x);
-        const ys = points.map(p => p.y);
-        const minX = Math.min(...xs), minY = Math.min(...ys);
-        const maxX = Math.max(...xs), maxY = Math.max(...ys);
+        let minX = points[0].x, maxX = points[0].x;
+        let minY = points[0].y, maxY = points[0].y;
+        for (let i = 1; i < points.length; i++) {
+            if (points[i].x < minX) minX = points[i].x;
+            if (points[i].x > maxX) maxX = points[i].x;
+            if (points[i].y < minY) minY = points[i].y;
+            if (points[i].y > maxY) maxY = points[i].y;
+        }
         
         const newElement = {
             type: 'polyline',
@@ -1232,13 +1278,12 @@ class Whiteboard {
         this.localElements.add(newElement.id);
         this._polylinePoints = null;
         this.saveToHistory();
-        this.redraw();
+        this.requestRedraw();
         this.scheduleSave();
     }
     
-    _drawPolylinePreview() {
+    _drawPolylinePreview(ctx) {
         if (!this._polylinePoints || this._polylinePoints.length === 0) return;
-        const ctx = this.ctx;
         const pts = this._polylinePoints;
         
         ctx.save();
@@ -1258,7 +1303,6 @@ class Whiteboard {
         }
         ctx.stroke();
         
-        // Рисуем контрольные точки
         const hs = 6 / this.zoom;
         ctx.fillStyle = '#667eea';
         pts.forEach(p => {
@@ -1270,7 +1314,6 @@ class Whiteboard {
         ctx.restore();
     }
     
-    /** Рисует сглаженную кривую через точки (Catmull-Rom) */
     _drawSmoothPolyline(ctx, pts) {
         if (pts.length < 2) return;
         if (pts.length === 2) {
@@ -1287,7 +1330,6 @@ class Whiteboard {
             const p2 = pts[i + 1];
             const p3 = pts[Math.min(i + 2, pts.length - 1)];
             
-            const tension = 0.3;
             const segments = 20;
             
             for (let t = 1; t <= segments; t++) {
@@ -1327,18 +1369,24 @@ class Whiteboard {
     
     _updatePolylineBounds(el) {
         if (!el.controlPoints || el.controlPoints.length === 0) return;
-        const xs = el.controlPoints.map(p => p.x);
-        const ys = el.controlPoints.map(p => p.y);
-        el.x = Math.min(...xs);
-        el.y = Math.min(...ys);
-        el.width = Math.max(...xs) - el.x;
-        el.height = Math.max(...ys) - el.y;
+        let minX = el.controlPoints[0].x, maxX = el.controlPoints[0].x;
+        let minY = el.controlPoints[0].y, maxY = el.controlPoints[0].y;
+        for (let i = 1; i < el.controlPoints.length; i++) {
+            const p = el.controlPoints[i];
+            if (p.x < minX) minX = p.x;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.y > maxY) maxY = p.y;
+        }
+        el.x = minX;
+        el.y = minY;
+        el.width = maxX - minX;
+        el.height = maxY - minY;
     }
     
     // ===== Вставка изображений =====
     
     handlePaste(e) {
-        // Не перехватываем, если фокус в input/textarea
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         
         const items = e.clipboardData && e.clipboardData.items;
@@ -1369,7 +1417,6 @@ class Whiteboard {
         const files = e.dataTransfer && e.dataTransfer.files;
         if (!files || files.length === 0) return;
         
-        // Вычисляем позицию дропа в мировых координатах
         const rect = this.canvas.getBoundingClientRect();
         const sx = e.clientX - rect.left;
         const sy = e.clientY - rect.top;
@@ -1409,7 +1456,6 @@ class Whiteboard {
                     }
                 }
                 
-                // Сбрасываем input чтобы можно было повторно выбрать тот же файл
                 fileInput.value = '';
             });
         }
@@ -1418,57 +1464,98 @@ class Whiteboard {
     addImageElement(dataUrl, dropX, dropY) {
         const img = new Image();
         img.onload = () => {
-            // Вставляем в позицию дропа или последнего положения курсора
             const cx = dropX !== undefined ? dropX : this.lastMouseWorldX;
             const cy = dropY !== undefined ? dropY : this.lastMouseWorldY;
             
-            // Ограничиваем размер изображения (макс 600px по большей стороне)
             let w = img.naturalWidth;
             let h = img.naturalHeight;
-            const maxSize = 600;
-            if (w > maxSize || h > maxSize) {
-                const ratio = Math.min(maxSize / w, maxSize / h);
-                w = Math.round(w * ratio);
-                h = Math.round(h * ratio);
+            const maxDim = 1200;
+            
+            // Compress: re-encode via canvas to limit resolution and file size
+            let finalSrc = dataUrl;
+            if (w > maxDim || h > maxDim || dataUrl.length > 500000) {
+                const compressed = this._compressImage(img, maxDim, 0.82);
+                if (compressed) finalSrc = compressed;
+            }
+            
+            const displayMax = 600;
+            let dw = w, dh = h;
+            if (dw > displayMax || dh > displayMax) {
+                const ratio = Math.min(displayMax / dw, displayMax / dh);
+                dw = Math.round(dw * ratio);
+                dh = Math.round(dh * ratio);
             }
             
             const now = Date.now();
             const newElement = {
                 type: 'image',
-                x: cx - w / 2,
-                y: cy - h / 2,
-                width: w,
-                height: h,
-                src: dataUrl,
+                x: cx - dw / 2,
+                y: cy - dh / 2,
+                width: dw,
+                height: dh,
+                src: finalSrc,
                 id: now + Math.random(),
                 timestamp: now
             };
             
-            // Кэшируем Image объект
             this.imageCache.set(newElement.id, img);
+            this._imageSrcStore.set(newElement.id, finalSrc);
             
             this.elements.push(newElement);
             this.localElements.add(newElement.id);
             this.saveToHistory();
-            this.redraw();
+            this.requestRedraw();
             this.scheduleSave();
+        };
+        img.onerror = () => {
+            console.warn('Whiteboard: не удалось загрузить изображение');
         };
         img.src = dataUrl;
     }
     
-    /** Загружает Image объект из кэша или создаёт новый */
+    _compressImage(img, maxDim, quality) {
+        try {
+            let w = img.naturalWidth;
+            let h = img.naturalHeight;
+            if (w > maxDim || h > maxDim) {
+                const ratio = Math.min(maxDim / w, maxDim / h);
+                w = Math.round(w * ratio);
+                h = Math.round(h * ratio);
+            }
+            const offscreen = document.createElement('canvas');
+            offscreen.width = w;
+            offscreen.height = h;
+            const octx = offscreen.getContext('2d');
+            octx.drawImage(img, 0, 0, w, h);
+            const webp = offscreen.toDataURL('image/webp', quality);
+            if (webp && webp.length > 10 && webp.startsWith('data:image/webp')) return webp;
+            return offscreen.toDataURL('image/jpeg', quality);
+        } catch (e) {
+            return null;
+        }
+    }
+    
     getImageObj(element) {
         if (this.imageCache.has(element.id)) {
-            return this.imageCache.get(element.id);
+            const cached = this.imageCache.get(element.id);
+            if (cached.complete && cached.naturalWidth > 0) return cached;
+            if (!cached.complete) return cached;
+            // Broken image (complete but naturalWidth=0) — retry
+            this.imageCache.delete(element.id);
         }
-        // Создаём и кэшируем
+        if (!element.src) return null;
         const img = new Image();
-        img.src = element.src;
         img.onload = () => {
             this.imageCache.set(element.id, img);
-            this.redraw();
+            this.requestRedraw();
         };
-        this.imageCache.set(element.id, img); // Сохраняем даже до загрузки, чтобы не создавать повторно
+        img.onerror = () => {
+            this.imageCache.delete(element.id);
+            // Retry after delay
+            setTimeout(() => this.requestRedraw(), 2000);
+        };
+        img.src = element.src;
+        this.imageCache.set(element.id, img);
         return img;
     }
     
@@ -1489,7 +1576,7 @@ class Whiteboard {
                 ctx.stroke();
                 break;
                 
-            case 'ellipse':
+            case 'ellipse': {
                 ctx.beginPath();
                 const centerX = element.x + element.width / 2;
                 const centerY = element.y + element.height / 2;
@@ -1499,6 +1586,7 @@ class Whiteboard {
                 ctx.fill();
                 ctx.stroke();
                 break;
+            }
                 
             case 'line':
                 ctx.beginPath();
@@ -1507,7 +1595,7 @@ class Whiteboard {
                 ctx.stroke();
                 break;
                 
-            case 'arrow':
+            case 'arrow': {
                 ctx.beginPath();
                 ctx.moveTo(element.x, element.y);
                 ctx.lineTo(element.x + element.width, element.y + element.height);
@@ -1530,6 +1618,7 @@ class Whiteboard {
                 );
                 ctx.stroke();
                 break;
+            }
                 
             case 'path':
                 ctx.beginPath();
@@ -1545,7 +1634,6 @@ class Whiteboard {
                             ctx.lineTo(element.points[i].x, element.points[i].y);
                         }
                     } else {
-                        // Сглаживание: quadratic bezier через средние точки
                         ctx.moveTo(element.points[0].x, element.points[0].y);
                         for (let i = 1; i < element.points.length - 1; i++) {
                             const midX = (element.points[i].x + element.points[i + 1].x) / 2;
@@ -1571,7 +1659,6 @@ class Whiteboard {
                 }
                 ctx.stroke();
                 
-                // Рисуем контрольные точки если элемент выбран
                 if (this.selectedElement === element) {
                     const cpSize = 5 / this.zoom;
                     element.controlPoints.forEach(p => {
@@ -1587,22 +1674,18 @@ class Whiteboard {
                 break;
                 
             case 'grid': {
-                // Кипельно-белая сетка для графиков
                 const gx = element.x;
                 const gy = element.y;
                 const gw = element.width;
                 const gh = element.height;
                 
-                // Фон — чисто белый
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(gx, gy, gw, gh);
                 
-                // Вычисляем размер ячейки, масштабируемый при растягивании
                 const baseCellCount = 10;
                 const cellW = gw / baseCellCount;
                 const cellH = gh / baseCellCount;
                 
-                // Тонкая сетка
                 ctx.beginPath();
                 ctx.strokeStyle = 'rgba(180, 200, 220, 0.5)';
                 ctx.lineWidth = 0.5 / this.zoom;
@@ -1618,21 +1701,17 @@ class Whiteboard {
                 }
                 ctx.stroke();
                 
-                // Основные оси (жирные линии в центре)
                 ctx.beginPath();
                 ctx.strokeStyle = 'rgba(60, 80, 110, 0.8)';
                 ctx.lineWidth = 1.5 / this.zoom;
-                // Горизонтальная ось (центр по Y)
                 const midY = gy + gh / 2;
                 ctx.moveTo(gx, midY);
                 ctx.lineTo(gx + gw, midY);
-                // Вертикальная ось (центр по X)
                 const midX = gx + gw / 2;
                 ctx.moveTo(midX, gy);
                 ctx.lineTo(midX, gy + gh);
                 ctx.stroke();
                 
-                // Тонкая рамка
                 ctx.strokeStyle = 'rgba(100, 120, 150, 0.4)';
                 ctx.lineWidth = 1 / this.zoom;
                 ctx.strokeRect(gx, gy, gw, gh);
@@ -1645,12 +1724,11 @@ class Whiteboard {
                 ctx.fillText(element.text, element.x, element.y + element.height);
                 break;
                 
-            case 'image':
+            case 'image': {
                 const imgObj = this.getImageObj(element);
                 if (imgObj && imgObj.complete && imgObj.naturalWidth > 0) {
                     ctx.drawImage(imgObj, element.x, element.y, element.width, element.height);
                 } else {
-                    // Плейсхолдер пока грузится
                     ctx.fillStyle = '#f0f0f0';
                     ctx.fillRect(element.x, element.y, element.width, element.height);
                     ctx.strokeStyle = '#ccc';
@@ -1665,28 +1743,24 @@ class Whiteboard {
                     ctx.textBaseline = 'alphabetic';
                 }
                 break;
+            }
         }
         
         ctx.restore();
     }
     
-    /** Рисует бесконечную сетку */
     drawGrid() {
         const ctx = this.ctx;
-        const w = this.canvas.width;
-        const h = this.canvas.height;
+        const w = this._cssWidth;
+        const h = this._cssHeight;
         
-        // Размер ячейки сетки в мировых координатах
         let gridSize = 20;
-        // Адаптивный размер: при сильном отдалении — крупнее
         if (this.zoom < 0.4) gridSize = 100;
         else if (this.zoom < 0.8) gridSize = 50;
         
-        // Конвертируем углы экрана в мировые координаты
         const topLeft = this.screenToWorld(0, 0);
         const bottomRight = this.screenToWorld(w, h);
         
-        // Начало линий (привязка к сетке)
         const startX = Math.floor(topLeft.x / gridSize) * gridSize;
         const startY = Math.floor(topLeft.y / gridSize) * gridSize;
         
@@ -1695,7 +1769,7 @@ class Whiteboard {
         ctx.scale(this.zoom, this.zoom);
         
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.06)';
-        ctx.lineWidth = 1 / this.zoom; // Постоянная толщина на экране
+        ctx.lineWidth = 1 / this.zoom;
         
         ctx.beginPath();
         for (let x = startX; x <= bottomRight.x; x += gridSize) {
@@ -1713,52 +1787,72 @@ class Whiteboard {
     
     redraw() {
         const ctx = this.ctx;
+        const w = this._cssWidth;
+        const h = this._cssHeight;
         
-        // Очищаем весь канвас
-        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        if (w <= 0 || h <= 0) return;
         
-        // Фон
+        // Reset to DPI base transform (clears any leftover transforms)
+        ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
+        
+        ctx.clearRect(0, 0, w, h);
         ctx.fillStyle = '#fafafa';
-        ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.fillRect(0, 0, w, h);
         
-        // Сетка
         this.drawGrid();
         
-        // Применяем трансформацию камеры
         ctx.save();
         ctx.translate(this.panX, this.panY);
         ctx.scale(this.zoom, this.zoom);
         
-        // Рисуем все элементы
-        this.elements.forEach(element => {
-            this.drawElement(ctx, element);
-        });
+        // Draw all committed elements
+        for (let i = 0; i < this.elements.length; i++) {
+            this.drawElement(ctx, this.elements[i]);
+        }
         
-        // Рисуем текущий элемент (фигура в процессе создания)
+        // Draw current element (shape being created)
         if (this.currentElement) {
             this.drawElement(ctx, this.currentElement);
         }
         
-        // Рисуем выделение
+        // Draw current freehand path being drawn
+        if (this.currentPath.length >= 2) {
+            ctx.beginPath();
+            ctx.strokeStyle = this.strokeColor;
+            ctx.lineWidth = this.strokeWidth;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            const pts = this.currentPath;
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length - 1; i++) {
+                const midX = (pts[i].x + pts[i + 1].x) / 2;
+                const midY = (pts[i].y + pts[i + 1].y) / 2;
+                ctx.quadraticCurveTo(pts[i].x, pts[i].y, midX, midY);
+            }
+            ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+            ctx.stroke();
+        }
+        
+        // Draw selection
         if (this.selectedElement) {
             this.drawSelection(this.selectedElement);
         }
         
         ctx.restore();
         
-        // Рисуем превью ломаной линии (polyline в процессе создания)
+        // Polyline preview (outside camera transform since it has its own)
         if (this._polylinePoints && this._polylinePoints.length > 0) {
-            this._drawPolylinePreview();
+            this._drawPolylinePreview(ctx);
         }
         
-        // Рисуем то, что рисует собеседник прямо сейчас
+        // Remote drawing preview
         this.drawRemoteDrawing();
     }
     
     drawSelection(element) {
         const ctx = this.ctx;
         
-        // Для ломаных линий — контрольные точки рисуются в drawElement
         if (element.type === 'polyline') return;
         
         const b = this.getElementBounds(element);
@@ -1769,7 +1863,6 @@ class Whiteboard {
         const bottom = Math.max(b.y, b.y + b.height);
         const pad = 4 / this.zoom;
         
-        // Пунктирная рамка — не рисуем для изображений
         if (element.type !== 'image') {
             ctx.save();
             ctx.strokeStyle = '#667eea';
@@ -1779,7 +1872,6 @@ class Whiteboard {
             ctx.restore();
         }
         
-        // Угловые ручки
         const hs = this.getHandleSize();
         const corners = [
             { x: left, y: top },
@@ -1803,14 +1895,18 @@ class Whiteboard {
         ctx.restore();
     }
     
-    /** Предзагрузка картинок из элементов (после загрузки/синхронизации) */
     preloadImages() {
         this.elements.forEach(el => {
-            if (el.type === 'image' && el.src && !this.imageCache.has(el.id)) {
+            if (el.type === 'image' && el.src) {
+                const cached = this.imageCache.get(el.id);
+                if (cached && cached.complete && cached.naturalWidth > 0) return;
                 const img = new Image();
                 img.onload = () => {
                     this.imageCache.set(el.id, img);
-                    this.redraw();
+                    this.requestRedraw();
+                };
+                img.onerror = () => {
+                    this.imageCache.delete(el.id);
                 };
                 img.src = el.src;
                 this.imageCache.set(el.id, img);
@@ -1822,7 +1918,18 @@ class Whiteboard {
     
     saveToHistory() {
         this.history = this.history.slice(0, this.historyIndex + 1);
-        this.history.push(JSON.stringify(this.elements));
+        const snapshot = this.elements.map(el => {
+            if (el.type === 'image' && el.src) {
+                this._imageSrcStore.set(el.id, el.src);
+                const copy = {};
+                for (const key in el) {
+                    if (key !== 'src') copy[key] = el[key];
+                }
+                return copy;
+            }
+            return el;
+        });
+        this.history.push(JSON.stringify(snapshot));
         this.historyIndex = this.history.length - 1;
         if (this.history.length > 50) {
             this.history.shift();
@@ -1830,12 +1937,31 @@ class Whiteboard {
         }
     }
     
+    _restoreElementsFromHistory(json) {
+        const elements = JSON.parse(json);
+        elements.forEach(el => {
+            if (el.type === 'image' && !el.src) {
+                const storedSrc = this._imageSrcStore.get(el.id);
+                if (storedSrc) el.src = storedSrc;
+            }
+        });
+        return elements;
+    }
+    
+    _storeImageSrcs() {
+        this.elements.forEach(el => {
+            if (el.type === 'image' && el.src) {
+                this._imageSrcStore.set(el.id, el.src);
+            }
+        });
+    }
+    
     undo() {
         if (this.historyIndex > 0) {
             this.historyIndex--;
-            this.elements = JSON.parse(this.history[this.historyIndex]);
+            this.elements = this._restoreElementsFromHistory(this.history[this.historyIndex]);
             this.preloadImages();
-            this.redraw();
+            this.requestRedraw();
             this.scheduleSave();
         }
     }
@@ -1843,9 +1969,9 @@ class Whiteboard {
     redo() {
         if (this.historyIndex < this.history.length - 1) {
             this.historyIndex++;
-            this.elements = JSON.parse(this.history[this.historyIndex]);
+            this.elements = this._restoreElementsFromHistory(this.history[this.historyIndex]);
             this.preloadImages();
-            this.redraw();
+            this.requestRedraw();
             this.scheduleSave();
         }
     }
@@ -1864,14 +1990,9 @@ class Whiteboard {
             }
         }, 3000);
         
-        // Синхронизация реже: каждые 5 секунд и только если были удалённые изменения
-        // или прошло достаточно времени с последнего sync
         this.syncInterval = setInterval(() => {
             const now = Date.now();
             const timeSinceLastSync = now - this.lastSyncTime;
-            // Синхронизируем если:
-            // 1) были STOMP-события (remoteDirty), чтобы подтянуть серверное состояние
-            // 2) или прошло больше 10 секунд — на случай если STOMP-событие потерялось
             if (this.remoteDirty || timeSinceLastSync > 10000) {
                 this.remoteDirty = false;
                 this.syncBoardState();
@@ -1882,7 +2003,6 @@ class Whiteboard {
     // ===== Realtime drawing via STOMP =====
     
     connectRealtimeStomp() {
-        // SockJS / Stomp загружаются из CDN на странице whiteboard-board.html
         if (typeof SockJS === 'undefined' || typeof Stomp === 'undefined') {
             console.warn('Whiteboard: SockJS/Stomp не загружены — realtime отключён');
             return;
@@ -1890,7 +2010,6 @@ class Whiteboard {
         try {
             const socket = new SockJS('/ws');
             this.stompClient = Stomp.over(socket);
-            // Отключаем debug-логи (noop-функция, null вызывает TypeError)
             this.stompClient.debug = function() {};
             
             this.stompClient.connect({}, () => {
@@ -1906,7 +2025,6 @@ class Whiteboard {
                 });
             }, (err) => {
                 console.warn('Whiteboard: STOMP ошибка подключения:', err);
-                // Переподключение
                 setTimeout(() => {
                     try { this.connectRealtimeStomp(); } catch (e) { /* ignore */ }
                 }, 5000);
@@ -1916,7 +2034,6 @@ class Whiteboard {
         }
     }
     
-    /** Отправить событие рисования (с throttle) */
     broadcastDraw(data) {
         const now = Date.now();
         if (now - this.lastBroadcastTime < this.broadcastThrottle) return;
@@ -1926,18 +2043,15 @@ class Whiteboard {
         this.stompClient.send(`/app/whiteboard/draw/${this.lessonId}`, {}, JSON.stringify(data));
     }
     
-    /** Отправить немедленно (для draw-done и т.п.) */
     broadcastDrawImmediate(data) {
         if (!this.stompClient || !this.stompClient.connected) return;
         data.senderId = this.currentUserId;
         this.stompClient.send(`/app/whiteboard/draw/${this.lessonId}`, {}, JSON.stringify(data));
     }
     
-    /** Отправить накопленные точки пути (с throttle) */
     _broadcastPathBatch() {
         const now = Date.now();
         if (now - this.lastBroadcastTime < this.broadcastThrottle) {
-            // Планируем отправку оставшегося через остаток throttle
             if (!this._pathBatchTimer) {
                 this._pathBatchTimer = setTimeout(() => {
                     this._pathBatchTimer = null;
@@ -1956,7 +2070,6 @@ class Whiteboard {
         this.stompClient.send(`/app/whiteboard/draw/${this.lessonId}`, {}, JSON.stringify(data));
     }
     
-    /** Очищает устаревшие записи из recentRemoteIds */
     cleanupRemoteProtection() {
         const now = Date.now();
         for (const [id, ts] of this.recentRemoteIds) {
@@ -1966,7 +2079,6 @@ class Whiteboard {
         }
     }
     
-    /** Обработать входящее событие рисования от собеседника */
     handleRemoteDraw(data) {
         switch (data.type) {
             case 'path-start':
@@ -1976,27 +2088,25 @@ class Whiteboard {
                     strokeColor: data.strokeColor || '#000000',
                     strokeWidth: data.strokeWidth || 2
                 };
-                // Если пришла начальная точка — сразу добавляем и отрисовываем
                 if (data.startPoint) {
                     this.remoteDrawPath.push(data.startPoint);
-                    this.redraw();
+                    this.requestRedraw();
                 }
                 break;
                 
             case 'path-progress':
                 if (data.points && data.points.length) {
                     this.remoteDrawPath.push(...data.points);
-                    this.redraw();
+                    this.requestRedraw();
                 }
                 break;
                 
             case 'shape-progress':
                 this.remoteDrawing = data.element;
-                this.redraw();
+                this.requestRedraw();
                 break;
                 
             case 'draw-done': {
-                // Превращаем превью в настоящий элемент — без паузы
                 const now = Date.now();
                 let addedId = null;
                 
@@ -2021,7 +2131,6 @@ class Whiteboard {
                     }
                 }
                 
-                // Защищаем элемент от удаления при merge — сервер ещё не имеет его
                 if (addedId != null) {
                     this.recentRemoteIds.set(addedId, now);
                     this.cleanupRemoteProtection();
@@ -2029,10 +2138,7 @@ class Whiteboard {
                 
                 this.remoteDrawing = null;
                 this.remoteDrawPath = [];
-                this.redraw();
-                
-                // НЕ вызываем syncBoardState() сразу — элемент ещё не сохранён на сервере,
-                // merge удалит его. Вместо этого помечаем что нужна синхронизация позже.
+                this.requestRedraw();
                 this.remoteDirty = true;
                 break;
             }
@@ -2041,9 +2147,8 @@ class Whiteboard {
                 if (data.ids && data.ids.length) {
                     const idsSet = new Set(data.ids);
                     this.elements = this.elements.filter(el => !idsSet.has(el.id));
-                    // Удаляем из защиты — элемент стёрт намеренно
                     data.ids.forEach(id => this.recentRemoteIds.delete(id));
-                    this.redraw();
+                    this.requestRedraw();
                     this.remoteDirty = true;
                 }
                 break;
@@ -2055,14 +2160,13 @@ class Whiteboard {
                         el.x = data.x;
                         el.y = data.y;
                         el.timestamp = Date.now();
-                        this.redraw();
+                        this.requestRedraw();
                     }
                 }
                 break;
         }
     }
     
-    /** Рисует то, что рисует собеседник прямо сейчас */
     drawRemoteDrawing() {
         if (!this.remoteDrawing) return;
         
@@ -2093,7 +2197,6 @@ class Whiteboard {
                 }
                 ctx.stroke();
             } else {
-                // Сглаживание для удалённого рисования
                 ctx.moveTo(rpts[0].x, rpts[0].y);
                 for (let i = 1; i < rpts.length - 1; i++) {
                     const midX = (rpts[i].x + rpts[i + 1].x) / 2;
@@ -2111,10 +2214,11 @@ class Whiteboard {
         ctx.restore();
     }
     
+    // ===== Sync =====
+    
     async syncBoardState() {
-        // Не синхронизируем если идёт сохранение, рисование или собеседник рисует прямо сейчас
         if (this.isSaving || this.isDrawing || this.currentPath.length > 0) return;
-        if (this.remoteDrawing) return; // собеседник ещё рисует — подождём
+        if (this.remoteDrawing) return;
         
         try {
             const response = await fetch(`/whiteboard/api/state/${this.lessonId}`);
@@ -2128,9 +2232,6 @@ class Whiteboard {
                     const serverVersion = data.version || 0;
                     
                     if (serverVersion > this.lastSyncedVersion) {
-                        // Запоминаем текущее количество элементов для проверки,
-                        // нужен ли перерисовка
-                        const prevCount = this.elements.length;
                         const prevJson = JSON.stringify(this.elements);
                         
                         this.mergeElements(serverElements);
@@ -2142,17 +2243,15 @@ class Whiteboard {
                             appState: boardData.appState || {}
                         });
                         
-                        this.history = [JSON.stringify(this.elements)];
-                        this.historyIndex = 0;
+                        this._storeImageSrcs();
+                        this.saveToHistory();
                         this.preloadImages();
                         
-                        // Перерисовываем только если элементы реально изменились
                         const newJson = JSON.stringify(this.elements);
                         if (newJson !== prevJson) {
-                            this.redraw();
+                            this.requestRedraw();
                         }
                     } else {
-                        // Версия не изменилась — обновляем только время
                         this.lastSyncTime = Date.now();
                     }
                 } catch (parseError) {
@@ -2166,91 +2265,65 @@ class Whiteboard {
     
     mergeElements(serverElements) {
         const now = Date.now();
-        const serverElementsMap = new Map();
-        const currentElementsMap = new Map();
         
+        const serverMap = new Map();
         serverElements.forEach(el => {
-            if (el.id) {
+            if (el.id != null) {
                 if (!el.timestamp) el.timestamp = 0;
-                serverElementsMap.set(el.id, el);
+                serverMap.set(el.id, el);
             }
         });
         
+        const currentMap = new Map();
         this.elements.forEach(el => {
-            if (el.id) {
+            if (el.id != null) {
                 if (!el.timestamp) el.timestamp = now;
-                currentElementsMap.set(el.id, el);
+                currentMap.set(el.id, el);
             }
         });
         
-        // Собираем все защищённые элементы: и локальные, и недавно полученные по STOMP
-        const preservedLocalElements = [];
-        this.localElements.forEach(localId => {
-            const localElement = currentElementsMap.get(localId);
-            if (localElement) preservedLocalElements.push(localElement);
-        });
-        
-        // Также сохраняем элементы, недавно полученные от собеседника через STOMP
         this.cleanupRemoteProtection();
-        const preservedRemoteElements = [];
-        this.recentRemoteIds.forEach((ts, remoteId) => {
-            const el = currentElementsMap.get(remoteId);
-            if (el) preservedRemoteElements.push(el);
-        });
         
-        const mergedElements = [];
-        const usedIds = new Set();
+        const merged = new Map();
         
-        serverElements.forEach(serverEl => {
-            if (serverEl.id) {
-                const isLocal = this.localElements.has(serverEl.id);
-                const localEl = currentElementsMap.get(serverEl.id);
-                
-                if (isLocal && localEl) {
-                    const localTimestamp = localEl.timestamp || now;
-                    const serverTimestamp = serverEl.timestamp || (now - 2000000);
-                    if (localTimestamp >= serverTimestamp) {
-                        usedIds.add(localEl.id);
-                        mergedElements.push(localEl);
-                    } else {
-                        usedIds.add(serverEl.id);
-                        mergedElements.push(serverEl);
-                    }
+        // Server elements form the baseline
+        serverElements.forEach(el => {
+            if (el.id != null) {
+                const localEl = currentMap.get(el.id);
+                if (localEl && (localEl.timestamp || 0) > (el.timestamp || 0)) {
+                    merged.set(el.id, localEl);
                 } else {
-                    if (!serverEl.timestamp) serverEl.timestamp = now - 2000000;
-                    usedIds.add(serverEl.id);
-                    mergedElements.push(serverEl);
+                    merged.set(el.id, el);
                 }
             } else {
-                mergedElements.push(serverEl);
+                merged.set(Symbol('no-id'), el);
             }
         });
         
-        // Сохраняем локальные элементы, которых нет на сервере
-        preservedLocalElements.forEach(localEl => {
-            const localTimestamp = localEl.timestamp || now;
-            const existingIndex = mergedElements.findIndex(el => el.id === localEl.id);
-            if (existingIndex >= 0) {
-                const existing = mergedElements[existingIndex];
-                if (localTimestamp >= (existing.timestamp || 0)) {
-                    mergedElements[existingIndex] = localEl;
-                }
-            } else {
-                mergedElements.push(localEl);
-                usedIds.add(localEl.id);
+        // Preserve local elements not yet on server
+        this.localElements.forEach(localId => {
+            if (!merged.has(localId)) {
+                const localEl = currentMap.get(localId);
+                if (localEl) merged.set(localId, localEl);
             }
         });
         
-        // Сохраняем недавно полученные от собеседника STOMP-элементы,
-        // которых сервер ещё не знает — предотвращаем «мерцание»
-        preservedRemoteElements.forEach(remoteEl => {
-            if (!usedIds.has(remoteEl.id)) {
-                mergedElements.push(remoteEl);
-                usedIds.add(remoteEl.id);
+        // Preserve recently received STOMP elements not yet on server
+        this.recentRemoteIds.forEach((ts, remoteId) => {
+            if (!merged.has(remoteId)) {
+                const el = currentMap.get(remoteId);
+                if (el) merged.set(remoteId, el);
             }
         });
         
-        this.elements = mergedElements;
+        // Extra safety: never drop image elements that still have src data
+        currentMap.forEach((el, id) => {
+            if (el.type === 'image' && el.src && !merged.has(id)) {
+                merged.set(id, el);
+            }
+        });
+        
+        this.elements = Array.from(merged.values());
     }
     
     async saveBoardState() {
@@ -2312,7 +2385,7 @@ class Whiteboard {
             const response = await fetch(`/whiteboard/api/state/${this.lessonId}`);
             if (!response.ok) {
                 this.elements = [];
-                this.redraw();
+                this.requestRedraw();
                 return;
             }
             
@@ -2342,12 +2415,11 @@ class Whiteboard {
                         appState: boardData.appState || {}
                     });
                     
-                    this.history = [JSON.stringify(this.elements)];
-                    this.historyIndex = 0;
+                    this._storeImageSrcs();
+                    this.saveToHistory();
                     this.preloadImages();
-                    this.redraw();
+                    this.requestRedraw();
                     
-                    // Обновляем UI
                     const strokeColorInput = document.getElementById('strokeColor');
                     const fillColorInput = document.getElementById('fillColor');
                     const strokeWidthInput = document.getElementById('strokeWidth');
@@ -2370,16 +2442,16 @@ class Whiteboard {
                 } catch (parseError) {
                     console.error('Ошибка парсинга данных доски:', parseError);
                     this.elements = [];
-                    this.redraw();
+                    this.requestRedraw();
                 }
             } else {
                 this.elements = [];
-                this.redraw();
+                this.requestRedraw();
             }
         } catch (error) {
             console.error('Ошибка загрузки доски:', error);
             this.elements = [];
-            this.redraw();
+            this.requestRedraw();
         }
     }
 }
@@ -2391,7 +2463,7 @@ function clearBoard() {
     if (confirm('Вы уверены, что хотите очистить доску?')) {
         whiteboard.elements = [];
         whiteboard.saveToHistory();
-        whiteboard.redraw();
+        whiteboard.requestRedraw();
         whiteboard.saveBoardState();
         fetch(`/whiteboard/api/clear/${whiteboard.lessonId}`, { method: 'POST' });
     }
@@ -2409,6 +2481,7 @@ function closeBoard() {
     if (confirm('Вы уверены, что хотите закрыть доску?')) {
         if (whiteboard.autoSaveInterval) clearInterval(whiteboard.autoSaveInterval);
         if (whiteboard.syncInterval) clearInterval(whiteboard.syncInterval);
+        if (whiteboard._rafId) cancelAnimationFrame(whiteboard._rafId);
         whiteboard.saveBoardState();
         window.location.href = '/dashboard';
     }
@@ -2419,7 +2492,6 @@ document.addEventListener('DOMContentLoaded', () => {
         whiteboard = new Whiteboard();
     } catch (e) {
         console.error('Whiteboard: ошибка инициализации:', e);
-        // Пробуем показать хотя бы пустую доску
         try {
             const canvas = document.getElementById('whiteboardCanvas');
             if (canvas) {

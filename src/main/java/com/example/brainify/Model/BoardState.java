@@ -17,9 +17,11 @@ public class BoardState {
     @JoinColumn(name = "lesson_id", nullable = false)
     private Lesson lesson;
     
+    @Lob
     @Column(name = "board_data", columnDefinition = "TEXT")
     private String boardData; // JSON с данными доски
     
+    @Lob
     @Column(name = "board_content", columnDefinition = "TEXT")
     private String boardContent; // Альтернативное поле (для совместимости)
     

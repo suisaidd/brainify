@@ -407,6 +407,10 @@ body {
     display: block;
     cursor: crosshair;
     touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    will-change: contents;
+    image-rendering: auto;
 }
 
 #whiteboardCanvas.drag-over {
