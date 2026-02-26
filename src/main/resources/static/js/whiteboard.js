@@ -1089,7 +1089,14 @@ class Whiteboard {
         }
         
         if (createdElementId !== null) {
-            this.broadcastDrawImmediate({ type: 'draw-done', elementId: createdElementId });
+            const finalEl = this.elements.find(e => e.id === createdElementId);
+            const elData = finalEl ? Object.assign({}, finalEl) : null;
+            if (elData && elData.type === 'image') delete elData.src;
+            this.broadcastDrawImmediate({
+                type: 'draw-done',
+                elementId: createdElementId,
+                element: elData
+            });
         }
         
         this.requestRedraw();
@@ -1172,6 +1179,12 @@ class Whiteboard {
         }
         
         if (element.type === 'polyline' && element.controlPoints) {
+            const cpHit = (element.strokeWidth || 2) / 2 + tolerance + 10;
+            for (let i = 0; i < element.controlPoints.length; i++) {
+                const p = element.controlPoints[i];
+                const dx = x - p.x, dy = y - p.y;
+                if (dx * dx + dy * dy <= cpHit * cpHit) return true;
+            }
             for (let i = 0; i < element.controlPoints.length - 1; i++) {
                 const d = this._distToSegment(x, y, element.controlPoints[i], element.controlPoints[i + 1]);
                 if (d <= (element.strokeWidth / 2 + tolerance + 5)) {
@@ -1280,6 +1293,12 @@ class Whiteboard {
         this.saveToHistory();
         this.requestRedraw();
         this.scheduleSave();
+        
+        this.broadcastDrawImmediate({
+            type: 'draw-done',
+            elementId: newElement.id,
+            element: newElement
+        });
     }
     
     _drawPolylinePreview(ctx) {
@@ -1303,12 +1322,15 @@ class Whiteboard {
         }
         ctx.stroke();
         
-        const hs = 6 / this.zoom;
-        ctx.fillStyle = '#667eea';
-        pts.forEach(p => {
+        const hs = 7 / this.zoom;
+        pts.forEach((p, idx) => {
             ctx.beginPath();
-            ctx.arc(p.x, p.y, hs, 0, Math.PI * 2);
+            ctx.fillStyle = (idx === 0 || idx === pts.length - 1) ? '#4c6ef5' : '#667eea';
+            ctx.arc(p.x, p.y, (idx === 0 || idx === pts.length - 1) ? hs * 1.3 : hs, 0, Math.PI * 2);
             ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1.5 / this.zoom;
+            ctx.stroke();
         });
         
         ctx.restore();
@@ -1357,7 +1379,7 @@ class Whiteboard {
     
     getPolylineControlPoint(mx, my, el) {
         if (!el || el.type !== 'polyline' || !el.controlPoints) return -1;
-        const hs = 8 / this.zoom;
+        const hs = 12 / this.zoom;
         for (let i = 0; i < el.controlPoints.length; i++) {
             const p = el.controlPoints[i];
             if (Math.abs(mx - p.x) <= hs && Math.abs(my - p.y) <= hs) {
@@ -1660,14 +1682,16 @@ class Whiteboard {
                 ctx.stroke();
                 
                 if (this.selectedElement === element) {
-                    const cpSize = 5 / this.zoom;
-                    element.controlPoints.forEach(p => {
+                    const cpSize = 7 / this.zoom;
+                    element.controlPoints.forEach((p, idx) => {
+                        const isEndpoint = (idx === 0 || idx === element.controlPoints.length - 1);
+                        const r = isEndpoint ? cpSize * 1.3 : cpSize;
                         ctx.beginPath();
-                        ctx.fillStyle = '#667eea';
-                        ctx.arc(p.x, p.y, cpSize, 0, Math.PI * 2);
+                        ctx.fillStyle = isEndpoint ? '#4c6ef5' : '#667eea';
+                        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
                         ctx.fill();
                         ctx.strokeStyle = '#fff';
-                        ctx.lineWidth = 1.5 / this.zoom;
+                        ctx.lineWidth = (isEndpoint ? 2.5 : 1.5) / this.zoom;
                         ctx.stroke();
                     });
                 }
@@ -1682,25 +1706,29 @@ class Whiteboard {
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(gx, gy, gw, gh);
                 
-                const baseCellCount = 10;
-                const cellW = gw / baseCellCount;
-                const cellH = gh / baseCellCount;
+                const targetCell = 40;
+                const cellCountX = Math.max(2, Math.round(Math.abs(gw) / targetCell));
+                const cellCountY = Math.max(2, Math.round(Math.abs(gh) / targetCell));
+                const cellW = gw / cellCountX;
+                const cellH = gh / cellCountY;
                 
+                // Thin grid lines
                 ctx.beginPath();
                 ctx.strokeStyle = 'rgba(180, 200, 220, 0.5)';
                 ctx.lineWidth = 0.5 / this.zoom;
-                for (let i = 0; i <= baseCellCount; i++) {
+                for (let i = 0; i <= cellCountX; i++) {
                     const lx = gx + i * cellW;
                     ctx.moveTo(lx, gy);
                     ctx.lineTo(lx, gy + gh);
                 }
-                for (let i = 0; i <= baseCellCount; i++) {
+                for (let i = 0; i <= cellCountY; i++) {
                     const ly = gy + i * cellH;
                     ctx.moveTo(gx, ly);
                     ctx.lineTo(gx + gw, ly);
                 }
                 ctx.stroke();
                 
+                // Major axes (thicker lines at center)
                 ctx.beginPath();
                 ctx.strokeStyle = 'rgba(60, 80, 110, 0.8)';
                 ctx.lineWidth = 1.5 / this.zoom;
@@ -2110,7 +2138,17 @@ class Whiteboard {
                 const now = Date.now();
                 let addedId = null;
                 
-                if (this.remoteDrawing) {
+                if (data.element) {
+                    addedId = data.element.id || data.elementId || (now + Math.random());
+                    const already = this.elements.find(e => e.id === addedId);
+                    if (!already) {
+                        this.elements.push({
+                            ...data.element,
+                            id: addedId,
+                            timestamp: now
+                        });
+                    }
+                } else if (this.remoteDrawing) {
                     if (this.remoteDrawing.type === 'path' && this.remoteDrawPath.length > 1) {
                         addedId = data.elementId || (now + Math.random());
                         this.elements.push({
