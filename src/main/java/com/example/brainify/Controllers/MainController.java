@@ -5,11 +5,17 @@ import com.example.brainify.Model.Lesson;
 import com.example.brainify.Model.TeacherSchedule;
 import com.example.brainify.Model.StudentTeacher;
 import com.example.brainify.Model.Subject;
+import com.example.brainify.Model.StudentTest;
+import com.example.brainify.Model.StudentTestAttempt;
+import com.example.brainify.Model.StudentTestStatus;
+import com.example.brainify.Model.TestTemplateCategory;
 import com.example.brainify.Repository.LessonRepository;
 import com.example.brainify.Repository.TeacherScheduleRepository;
 import com.example.brainify.Repository.StudentTeacherRepository;
 import com.example.brainify.Repository.SubjectRepository;
 import com.example.brainify.Repository.UserRepository;
+import com.example.brainify.Repository.StudentTestRepository;
+import com.example.brainify.Repository.StudentTestAttemptRepository;
 import com.example.brainify.Config.SessionManager;
 import com.example.brainify.Service.LessonCancellationService;
 import com.example.brainify.Service.LessonRescheduleService;
@@ -24,6 +30,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
 import jakarta.servlet.http.HttpSession;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -34,11 +41,17 @@ import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.UUID;
 import com.example.brainify.Model.UserRole;
 import com.example.brainify.Utils.TimezoneUtils;
 
 @Controller
 public class MainController {
+    private static final Path AVATAR_DIR = Paths.get("uploads", "avatars");
 
     @Autowired
     private SessionManager sessionManager;
@@ -66,6 +79,12 @@ public class MainController {
     
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private StudentTestRepository studentTestRepository;
+
+    @Autowired
+    private StudentTestAttemptRepository studentTestAttemptRepository;
 
     @GetMapping({"/", "/main"})
     public String mainPage(Model model, HttpSession session) {
@@ -208,6 +227,7 @@ public class MainController {
                 lessonInfo.put("id", lesson.getId());
                 lessonInfo.put("subjectName", lesson.getSubject().getName());
                 lessonInfo.put("teacherName", lesson.getTeacher().getName());
+                lessonInfo.put("teacherId", lesson.getTeacher().getId());
                 lessonInfo.put("lessonDate", TimezoneUtils.toIsoUtcString(lesson.getLessonDate()));
                 lessonInfo.put("status", lesson.getStatus().toString());
                 lessonInfo.put("description", lesson.getDescription());
@@ -644,6 +664,142 @@ public class MainController {
         
         return ResponseEntity.ok(Map.of("success", true, "message", "Часовой пояс обновлён"));
     }
+
+    @GetMapping("/api/profile/{userId}")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getUserProfile(@PathVariable Long userId, HttpSession session) {
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Необходима авторизация"));
+        }
+
+        User targetUser = userRepository.findById(userId).orElse(null);
+        if (targetUser == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Пользователь не найден"));
+        }
+
+        if (!canViewProfile(currentUser, targetUser)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Доступ к профилю запрещён"));
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("profile", mapUserProfile(targetUser));
+        if (targetUser.getRole() == UserRole.STUDENT) {
+            response.put("basicTestResults", getStudentBasicResults(targetUser));
+        } else {
+            response.put("basicTestResults", List.of());
+        }
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/api/profile/{userId}")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> updateUserProfile(
+            @PathVariable Long userId,
+            @RequestBody Map<String, String> body,
+            HttpSession session) {
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Необходима авторизация"));
+        }
+
+        User targetUser = userRepository.findById(userId).orElse(null);
+        if (targetUser == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Пользователь не найден"));
+        }
+
+        boolean canEdit = currentUser.getId().equals(userId)
+                || currentUser.getRole() == UserRole.ADMIN
+                || currentUser.getRole() == UserRole.MANAGER;
+        if (!canEdit) {
+            return ResponseEntity.status(403).body(Map.of("error", "Редактирование профиля запрещено"));
+        }
+
+        targetUser.setAvatarUrl(trimToNull(body.get("avatarUrl")));
+        targetUser.setFirstName(trimToNull(body.get("firstName")));
+        targetUser.setLastName(trimToNull(body.get("lastName")));
+        targetUser.setMiddleName(trimToNull(body.get("middleName")));
+        targetUser.setEducation(trimToNull(body.get("education")));
+        targetUser.setProfessionalCourses(trimToNull(body.get("professionalCourses")));
+        targetUser.setAboutMe(trimToNull(body.get("aboutMe")));
+
+        String timezone = trimToNull(body.get("timezone"));
+        if (timezone != null) {
+            if (!TimezoneUtils.isValidTimezone(timezone)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Некорректный часовой пояс"));
+            }
+            targetUser.setTimezone(timezone);
+        }
+
+        String fullName = buildFullName(targetUser);
+        if (fullName != null) {
+            targetUser.setName(fullName);
+        }
+
+        userRepository.save(targetUser);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Профиль обновлён"));
+    }
+
+    @PostMapping("/api/profile/{userId}/avatar")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> uploadAvatar(
+            @PathVariable Long userId,
+            @RequestParam("file") MultipartFile file,
+            HttpSession session) {
+        User currentUser = sessionManager.getCurrentUser(session);
+        if (currentUser == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Необходима авторизация"));
+        }
+
+        User targetUser = userRepository.findById(userId).orElse(null);
+        if (targetUser == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Пользователь не найден"));
+        }
+
+        boolean canEdit = currentUser.getId().equals(userId)
+                || currentUser.getRole() == UserRole.ADMIN
+                || currentUser.getRole() == UserRole.MANAGER;
+        if (!canEdit) {
+            return ResponseEntity.status(403).body(Map.of("error", "Загрузка фото запрещена"));
+        }
+
+        if (file == null || file.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Файл не выбран"));
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Можно загрузить только изображение"));
+        }
+        if (file.getSize() > 5 * 1024 * 1024) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Максимальный размер фото 5MB"));
+        }
+
+        try {
+            Files.createDirectories(AVATAR_DIR);
+            String extension = ".png";
+            String original = file.getOriginalFilename();
+            if (original != null && original.contains(".")) {
+                extension = original.substring(original.lastIndexOf('.')).toLowerCase();
+            }
+            String filename = "avatar_" + userId + "_" + UUID.randomUUID() + extension;
+            Path target = AVATAR_DIR.resolve(filename);
+            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+
+            deleteLocalAvatarIfNeeded(targetUser.getAvatarUrl());
+            targetUser.setAvatarUrl("/profile-images/" + filename);
+            userRepository.save(targetUser);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "avatarUrl", targetUser.getAvatarUrl(),
+                    "message", "Фото профиля обновлено"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "Ошибка сохранения фото: " + e.getMessage()));
+        }
+    }
     
     // API для сохранения расписания преподавателя
     @PostMapping("/api/teacher/schedule")
@@ -953,6 +1109,107 @@ public class MainController {
             return ResponseEntity.ok(subjects);
         } catch (Exception e) {
             return ResponseEntity.status(500).build();
+        }
+    }
+
+    private boolean canViewProfile(User currentUser, User targetUser) {
+        if (currentUser.getId().equals(targetUser.getId())) {
+            return true;
+        }
+        if (currentUser.getRole() == UserRole.ADMIN || currentUser.getRole() == UserRole.MANAGER) {
+            return true;
+        }
+        if (currentUser.getRole() == UserRole.TEACHER && targetUser.getRole() == UserRole.STUDENT) {
+            return studentTeacherRepository.findActiveByTeacher(currentUser).stream()
+                    .anyMatch(link -> link.getStudent().getId().equals(targetUser.getId()));
+        }
+        if (currentUser.getRole() == UserRole.STUDENT && targetUser.getRole() == UserRole.TEACHER) {
+            return studentTeacherRepository.findActiveByStudent(currentUser).stream()
+                    .anyMatch(link -> link.getTeacher().getId().equals(targetUser.getId()));
+        }
+        return false;
+    }
+
+    private Map<String, Object> mapUserProfile(User user) {
+        Map<String, Object> profile = new HashMap<>();
+        profile.put("id", user.getId());
+        profile.put("role", user.getRole().name());
+        profile.put("displayName", user.getName());
+        profile.put("firstName", user.getFirstName());
+        profile.put("lastName", user.getLastName());
+        profile.put("middleName", user.getMiddleName());
+        profile.put("avatarUrl", user.getAvatarUrl());
+        profile.put("education", user.getEducation());
+        profile.put("professionalCourses", user.getProfessionalCourses());
+        profile.put("aboutMe", user.getAboutMe());
+        profile.put("timezone", user.getTimezone());
+        profile.put("email", user.getEmail());
+        profile.put("phone", user.getPhone());
+        return profile;
+    }
+
+    private List<Map<String, Object>> getStudentBasicResults(User student) {
+        List<StudentTest> completed = studentTestRepository
+                .findByStudentAndStatusOrderByAssignedAtDesc(student, StudentTestStatus.COMPLETED)
+                .stream()
+                .filter(st -> st.getTemplate() != null && st.getTemplate().getCategory() == TestTemplateCategory.BASIC)
+                .collect(Collectors.toList());
+
+        List<Map<String, Object>> results = new ArrayList<>();
+        for (StudentTest assignment : completed) {
+            List<StudentTestAttempt> attempts = studentTestAttemptRepository
+                    .findByStudentTestOrderBySubmittedAtDesc(assignment);
+            for (StudentTestAttempt attempt : attempts) {
+                Map<String, Object> row = new HashMap<>();
+                row.put("templateTitle", assignment.getTemplate().getTitle());
+                row.put("subjectName", assignment.getTemplate().getSubject().getName());
+                row.put("submittedAt", attempt.getSubmittedAt());
+                row.put("correctAnswers", attempt.getCorrectAnswers());
+                row.put("totalQuestions", attempt.getTotalQuestions());
+                row.put("scorePercentage", attempt.getScorePercentage());
+                row.put("isReviewed", attempt.getIsReviewed());
+                results.add(row);
+            }
+        }
+        return results;
+    }
+
+    private String buildFullName(User user) {
+        String first = trimToNull(user.getFirstName());
+        String last = trimToNull(user.getLastName());
+        String middle = trimToNull(user.getMiddleName());
+        List<String> parts = new ArrayList<>();
+        if (last != null) parts.add(last);
+        if (first != null) parts.add(first);
+        if (middle != null) parts.add(middle);
+        if (parts.isEmpty()) {
+            return null;
+        }
+        return String.join(" ", parts);
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private void deleteLocalAvatarIfNeeded(String avatarUrl) {
+        if (avatarUrl == null || !avatarUrl.startsWith("/profile-images/")) {
+            return;
+        }
+        String fileName = avatarUrl.replace("/profile-images/", "").trim();
+        if (fileName.isEmpty()) {
+            return;
+        }
+        try {
+            Path old = AVATAR_DIR.resolve(fileName).normalize();
+            if (Files.exists(old)) {
+                Files.delete(old);
+            }
+        } catch (Exception ignored) {
         }
     }
 } 

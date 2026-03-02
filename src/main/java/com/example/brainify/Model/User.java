@@ -53,6 +53,27 @@ public class User {
     // Часовой пояс пользователя (например, "Europe/Moscow", "Asia/Yekaterinburg")
     @Column(name = "timezone")
     private String timezone = "Europe/Moscow"; // По умолчанию Москва
+
+    @Column(name = "avatar_url")
+    private String avatarUrl;
+
+    @Column(name = "first_name")
+    private String firstName;
+
+    @Column(name = "last_name")
+    private String lastName;
+
+    @Column(name = "middle_name")
+    private String middleName;
+
+    @Column(name = "education", length = 2000)
+    private String education;
+
+    @Column(name = "professional_courses", length = 3000)
+    private String professionalCourses;
+
+    @Column(name = "about_me", length = 4000)
+    private String aboutMe;
     
     // Связь Many-to-Many с предметами (только для преподавателей)
     @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
@@ -175,6 +196,62 @@ public class User {
     
     public void setTimezone(String timezone) {
         this.timezone = timezone;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public String getMiddleName() {
+        return middleName;
+    }
+
+    public void setMiddleName(String middleName) {
+        this.middleName = middleName;
+    }
+
+    public String getEducation() {
+        return education;
+    }
+
+    public void setEducation(String education) {
+        this.education = education;
+    }
+
+    public String getProfessionalCourses() {
+        return professionalCourses;
+    }
+
+    public void setProfessionalCourses(String professionalCourses) {
+        this.professionalCourses = professionalCourses;
+    }
+
+    public String getAboutMe() {
+        return aboutMe;
+    }
+
+    public void setAboutMe(String aboutMe) {
+        this.aboutMe = aboutMe;
     }
     
     @Override

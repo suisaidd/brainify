@@ -1485,7 +1485,7 @@ class Whiteboard {
     
     addImageElement(dataUrl, dropX, dropY) {
         const img = new Image();
-        img.onload = () => {
+        img.onload = async () => {
             const cx = dropX !== undefined ? dropX : this.lastMouseWorldX;
             const cy = dropY !== undefined ? dropY : this.lastMouseWorldY;
             
@@ -1508,6 +1508,13 @@ class Whiteboard {
                 dh = Math.round(dh * ratio);
             }
             
+            // Ключевой шаг: сохраняем файл на сервер и в доске держим URL, а не base64.
+            let persistedSrc = finalSrc;
+            const uploadedUrl = await this.uploadImageToServer(finalSrc);
+            if (uploadedUrl) {
+                persistedSrc = uploadedUrl;
+            }
+            
             const now = Date.now();
             const newElement = {
                 type: 'image',
@@ -1515,24 +1522,50 @@ class Whiteboard {
                 y: cy - dh / 2,
                 width: dw,
                 height: dh,
-                src: finalSrc,
+                src: persistedSrc,
                 id: now + Math.random(),
                 timestamp: now
             };
             
             this.imageCache.set(newElement.id, img);
-            this._imageSrcStore.set(newElement.id, finalSrc);
+            this._imageSrcStore.set(newElement.id, persistedSrc);
             
             this.elements.push(newElement);
             this.localElements.add(newElement.id);
             this.saveToHistory();
             this.requestRedraw();
             this.scheduleSave();
+            
+            // Отправляем изображение собеседнику сразу, чтобы оно появлялось в realtime
+            this.broadcastDrawImmediate({
+                type: 'draw-done',
+                elementId: newElement.id,
+                element: newElement
+            });
         };
         img.onerror = () => {
             console.warn('Whiteboard: не удалось загрузить изображение');
         };
         img.src = dataUrl;
+    }
+    
+    async uploadImageToServer(dataUrl) {
+        try {
+            const response = await fetch(`/whiteboard/api/upload-image/${this.lessonId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dataUrl })
+            });
+            if (!response.ok) return null;
+            const data = await response.json();
+            if (data && data.success && data.url) {
+                return data.url;
+            }
+            return null;
+        } catch (e) {
+            console.warn('Whiteboard: upload image fallback to dataURL', e);
+            return null;
+        }
     }
     
     _compressImage(img, maxDim, quality) {
@@ -1549,8 +1582,7 @@ class Whiteboard {
             offscreen.height = h;
             const octx = offscreen.getContext('2d');
             octx.drawImage(img, 0, 0, w, h);
-            const webp = offscreen.toDataURL('image/webp', quality);
-            if (webp && webp.length > 10 && webp.startsWith('data:image/webp')) return webp;
+            // JPEG стабильнее между разными браузерами/устройствами.
             return offscreen.toDataURL('image/jpeg', quality);
         } catch (e) {
             return null;

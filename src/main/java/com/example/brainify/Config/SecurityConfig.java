@@ -97,6 +97,8 @@ public class SecurityConfig {
                         "/", "/main", "/private-lessons", "/trainers", "/trainers/**", "/test", "/test/**",
                         "/auth/**",
                         "/css/**", "/js/**", "/images/**", "/static/**",
+                        "/whiteboard-images/**",
+                        "/profile-images/**",
                         "/tests/media/**",
                         "/api/auth/status", "/api/trainers/**", "/api/tasks/**", "/api/test/**",
                         "/admin/payroll/test",

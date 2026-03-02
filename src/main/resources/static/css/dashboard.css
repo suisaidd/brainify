@@ -885,6 +885,18 @@
     box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
 }
 
+@media (max-width: 768px) {
+    .profile-grid-3,
+    .profile-modal-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-avatar-line {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
 .tests-tab-content {
     display: none;
     margin-top: 1.5rem;
@@ -2930,13 +2942,14 @@
 }
 
 .teacher-tests-card {
-    background: #fafbfc;
+    background: linear-gradient(160deg, #ffffff 0%, #f8fbff 100%);
     border-radius: 16px;
-    border: 1px solid #e8ecf0;
+    border: 1px solid #dce7ff;
     padding: 1.75rem 1.5rem;
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
+    box-shadow: 0 6px 22px rgba(69, 104, 220, 0.08);
 }
 
 .teacher-tests-card h3 {
@@ -3049,19 +3062,176 @@
 }
 
 .teacher-tests-list .teacher-test-row {
-    border: 1px solid #eee;
+    border: 1px solid #e5ebff;
     border-radius: 14px;
     padding: 1rem 1.25rem;
-    background: #fff;
+    background: linear-gradient(135deg, #ffffff 0%, #f7faff 100%);
     display: flex;
     align-items: center;
     gap: 1rem;
     transition: all .2s;
 }
 .teacher-tests-list .teacher-test-row:hover {
-    box-shadow: 0 4px 16px rgba(0,0,0,.06);
+    box-shadow: 0 10px 24px rgba(73, 92, 221, 0.12);
     transform: translateY(-1px);
-    border-color: rgba(102,126,234,.2);
+    border-color: rgba(102,126,234,.35);
+}
+
+.profile-editor-card {
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 960px;
+}
+
+.profile-avatar-line {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.profile-avatar-preview {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.profile-avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-avatar-fields {
+    flex: 1;
+}
+
+.profile-avatar-fields label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+}
+
+.profile-avatar-fields input,
+.profile-editor-card input,
+.profile-editor-card select,
+.profile-editor-card textarea {
+    width: 100%;
+    border: 1.5px solid #dbe3ef;
+    border-radius: 10px;
+    padding: 0.65rem 0.8rem;
+    font-family: inherit;
+    background: #fff;
+}
+
+.avatar-dropzone {
+    border: 2px dashed #c7d2fe;
+    border-radius: 12px;
+    background: #f8faff;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    justify-content: center;
+    padding: 0.75rem 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 0.5rem;
+}
+
+.avatar-dropzone:hover,
+.avatar-dropzone.dragover {
+    border-color: #6366f1;
+    background: #eef2ff;
+}
+
+.profile-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.profile-actions-row {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.lesson-btn.warning {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #fff;
+}
+
+.profile-save-status {
+    font-weight: 700;
+    color: #10b981;
+}
+
+.profile-modal-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.profile-modal-head {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+}
+
+.profile-modal-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #22c55e, #14b8a6);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.profile-modal-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-modal-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.profile-result-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    margin-top: 0.45rem;
+}
+
+.student-basic-results-card {
+    margin-top: 1rem;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 1rem;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
 }
 
 .teacher-test-row .teacher-test-main {

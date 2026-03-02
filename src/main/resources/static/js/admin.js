@@ -59,6 +59,15 @@ function initEventListeners() {
             }
         });
     }
+
+    const userProfileModal = document.getElementById('userProfileModal');
+    if (userProfileModal) {
+        userProfileModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeUserProfileModal();
+            }
+        });
+    }
 }
 
 // Форматирование ввода телефона
@@ -166,7 +175,7 @@ function createUserRow(user) {
             </div>
         </td>
         <td>
-            <a href="mailto:${user.email}" style="color: #667eea; text-decoration: none;">
+            <a href="#" onclick="openUserProfileModal(${user.id}); return false;" style="color: #667eea; text-decoration: none; font-weight: 600;">
                 ${user.email}
             </a>
         </td>
@@ -183,6 +192,10 @@ function createUserRow(user) {
                 <button class="btn btn-primary" onclick="openRoleModal(${user.id}, '${user.name}', '${user.email}', '${user.phone}', '${user.role}')" style="padding: 0.5rem 1rem; font-size: 0.75rem;">
                     <i class="fas fa-edit"></i>
                     Изменить роль
+                </button>
+                <button class="btn" onclick="openUserProfileModal(${user.id})" style="padding: 0.5rem 1rem; font-size: 0.75rem; background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; border: none;">
+                    <i class="fas fa-id-card"></i>
+                    Профиль
                 </button>
                 ${user.role === 'STUDENT' ? `
                     <button class="btn btn-warning" onclick="openLessonsModal(${user.id}, '${user.name}', '${user.email}', ${user.remainingLessons || 0})" style="padding: 0.5rem 1rem; font-size: 0.75rem;">
@@ -217,6 +230,119 @@ function createUserRow(user) {
     `;
     
     return tr;
+}
+
+let currentProfileUserId = null;
+
+async function openUserProfileModal(userId) {
+    currentProfileUserId = userId;
+    const modal = document.getElementById('userProfileModal');
+    const body = document.getElementById('userProfileModalBody');
+    if (!modal || !body) return;
+
+    body.innerHTML = '<div style="text-align:center;padding:2rem;"><span class="loading"></span> Загрузка профиля...</div>';
+    modal.classList.add('show');
+
+    try {
+        const response = await fetch(`/api/profile/${userId}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Не удалось загрузить профиль');
+        const profile = data.profile || {};
+        const basic = data.basicTestResults || [];
+
+        body.innerHTML = `
+            <div class="profile-edit-grid">
+                <div class="form-group">
+                    <label>Фото (ссылка)</label>
+                    <input id="adminProfileAvatarUrl" type="url" value="${escapeHtml(profile.avatarUrl || '')}">
+                </div>
+                <div class="form-group">
+                    <label>Фамилия</label>
+                    <input id="adminProfileLastName" type="text" value="${escapeHtml(profile.lastName || '')}">
+                </div>
+                <div class="form-group">
+                    <label>Имя</label>
+                    <input id="adminProfileFirstName" type="text" value="${escapeHtml(profile.firstName || '')}">
+                </div>
+                <div class="form-group">
+                    <label>Отчество</label>
+                    <input id="adminProfileMiddleName" type="text" value="${escapeHtml(profile.middleName || '')}">
+                </div>
+                <div class="form-group">
+                    <label>Образование</label>
+                    <textarea id="adminProfileEducation" rows="2">${escapeHtml(profile.education || '')}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Проф. курсы</label>
+                    <textarea id="adminProfileCourses" rows="2">${escapeHtml(profile.professionalCourses || '')}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>О себе</label>
+                    <textarea id="adminProfileAboutMe" rows="3">${escapeHtml(profile.aboutMe || '')}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Часовой пояс</label>
+                    <input id="adminProfileTimezone" type="text" value="${escapeHtml(profile.timezone || 'Europe/Moscow')}">
+                </div>
+            </div>
+            ${profile.role === 'STUDENT' ? `
+                <div style="margin-top:1.25rem;">
+                    <h4 style="margin:0 0 0.75rem;">Результаты базовых тестов</h4>
+                    ${basic.length ? basic.map(row => `
+                        <div class="admin-profile-result-row">
+                            <span>${escapeHtml(row.templateTitle || 'Тест')}</span>
+                            <span>${Number(row.scorePercentage || 0).toFixed(1)}%</span>
+                        </div>
+                    `).join('') : '<p style="color:#64748b;">Нет результатов</p>'}
+                </div>
+            ` : ''}
+        `;
+    } catch (error) {
+        body.innerHTML = `<div style="color:#ef4444;">${escapeHtml(error.message || 'Ошибка')}</div>`;
+    }
+}
+
+function closeUserProfileModal() {
+    document.getElementById('userProfileModal')?.classList.remove('show');
+    currentProfileUserId = null;
+}
+
+async function saveUserProfileFromModal() {
+    if (!currentProfileUserId) return;
+    try {
+        const payload = {
+            avatarUrl: document.getElementById('adminProfileAvatarUrl')?.value || '',
+            lastName: document.getElementById('adminProfileLastName')?.value || '',
+            firstName: document.getElementById('adminProfileFirstName')?.value || '',
+            middleName: document.getElementById('adminProfileMiddleName')?.value || '',
+            education: document.getElementById('adminProfileEducation')?.value || '',
+            professionalCourses: document.getElementById('adminProfileCourses')?.value || '',
+            aboutMe: document.getElementById('adminProfileAboutMe')?.value || '',
+            timezone: document.getElementById('adminProfileTimezone')?.value || ''
+        };
+
+        const response = await fetch(`/api/profile/${currentProfileUserId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Не удалось сохранить профиль');
+        showToast('Профиль сохранён', 'success');
+        closeUserProfileModal();
+        loadUsers(currentPage, currentSearch);
+    } catch (error) {
+        showToast(error.message || 'Ошибка сохранения профиля', 'error');
+    }
+}
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 // Получение бейджа статуса

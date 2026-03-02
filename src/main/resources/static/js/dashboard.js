@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Загружаем данные преподавателя
     loadTeacherData();
     loadTeacherLessons();
+    initTeacherProfileSection();
     
     // Инициализируем навигацию базы знаний
     initKnowledgeBaseNavigation();
@@ -639,8 +640,7 @@ function sendMessage(studentId) {
 
 // Функция для просмотра профиля ученика
 function viewStudentProfile(studentId) {
-    console.log('Просмотр профиля ученика:', studentId);
-    showToast('Функция просмотра профиля будет реализована позже', 'info');
+    openStudentProfileModal(studentId);
 }
 
 // Функция для просмотра тестов ученика
@@ -2943,9 +2943,9 @@ function switchToTab(targetTab) {
     
     if (targetTab === 'schedule-tab') loadTeacherSchedule();
     if (targetTab === 'equipment-tab') initEquipmentCheck();
-    if (targetTab === 'notes-tab') loadTeacherNotes();
     if (targetTab === 'students-tab') loadTeacherStudents();
     if (targetTab === 'tests-tab') loadTeacherTestsSection();
+    if (targetTab === 'teacher-profile-tab') initTeacherProfileSection();
     if (targetTab === 'messages-tab' && window.brainifyChat) window.brainifyChat.init();
     
     if (window.innerWidth <= 768) {
@@ -4620,6 +4620,232 @@ var TEACHER_RUSSIAN_CITIES = {
     "Петропавловск-Камчатский": "Asia/Kamchatka"
 };
 
+function getCurrentTeacherId() {
+    const id = document.body.getAttribute('data-current-user-id');
+    return id ? Number(id) : null;
+}
+
+function updateTeacherAvatarPreview(url) {
+    const preview = document.getElementById('teacherAvatarPreview');
+    if (!preview) return;
+    const safeUrl = (url || '').trim();
+    if (!safeUrl) {
+        preview.innerHTML = '<i class="fas fa-user"></i>';
+        return;
+    }
+    preview.innerHTML = `<img src="${safeUrl}" alt="avatar" onerror="this.parentElement.innerHTML='<i class=&quot;fas fa-user&quot;></i>'">`;
+}
+
+async function uploadTeacherAvatar(file) {
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId || !file) return;
+    if (!file.type.startsWith('image/')) {
+        showToast('Можно загрузить только изображение', 'warning');
+        return;
+    }
+
+    const compressed = await compressAvatarImage(file);
+    const formData = new FormData();
+    formData.append('file', compressed || file);
+
+    try {
+        const response = await fetch(`/api/profile/${teacherId}/avatar`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Ошибка загрузки фото');
+        const avatarUrlInput = document.getElementById('teacherAvatarUrl');
+        if (avatarUrlInput) avatarUrlInput.value = data.avatarUrl || '';
+        updateTeacherAvatarPreview(data.avatarUrl || '');
+        showToast('Фото профиля сохранено', 'success');
+    } catch (error) {
+        showToast(error.message || 'Не удалось загрузить фото', 'error');
+    }
+}
+
+function compressAvatarImage(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                const maxSide = 1200;
+                let width = img.width;
+                let height = img.height;
+                if (Math.max(width, height) > maxSide) {
+                    const ratio = maxSide / Math.max(width, height);
+                    width = Math.round(width * ratio);
+                    height = Math.round(height * ratio);
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    resolve(file);
+                    return;
+                }
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Для аватарок обычно достаточно JPEG с качеством 0.78
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        resolve(file);
+                        return;
+                    }
+                    const compressedFile = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+                    resolve(compressedFile.size < file.size ? compressedFile : file);
+                }, 'image/jpeg', 0.78);
+            };
+            img.onerror = () => resolve(file);
+            img.src = typeof reader.result === 'string' ? reader.result : '';
+        };
+        reader.onerror = () => resolve(file);
+        reader.readAsDataURL(file);
+    });
+}
+
+function fillTeacherProfileForm(profile) {
+    const map = {
+        teacherAvatarUrl: profile.avatarUrl || '',
+        teacherFirstName: profile.firstName || '',
+        teacherLastName: profile.lastName || '',
+        teacherMiddleName: profile.middleName || '',
+        teacherEducation: profile.education || '',
+        teacherCourses: profile.professionalCourses || '',
+        teacherAboutMe: profile.aboutMe || ''
+    };
+    Object.keys(map).forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = map[id];
+    });
+    updateTeacherAvatarPreview(profile.avatarUrl || '');
+}
+
+async function initTeacherProfileSection() {
+    initTeacherProfileTimezone();
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) return;
+    try {
+        const response = await fetch(`/api/profile/${teacherId}`);
+        if (!response.ok) throw new Error('Не удалось загрузить профиль');
+        const data = await response.json();
+        fillTeacherProfileForm(data.profile || {});
+        const tz = (data.profile && data.profile.timezone) || document.body.getAttribute('data-user-timezone');
+        const tzSelect = document.getElementById('teacherProfileTimezoneSelect');
+        if (tzSelect && tz) tzSelect.value = tz;
+        toggleTeacherProfileEdit(false);
+    } catch (error) {
+        console.error('Ошибка загрузки профиля преподавателя:', error);
+    }
+}
+
+function toggleTeacherProfileEdit(enableEdit) {
+    const fields = [
+        'teacherAvatarUrl',
+        'teacherFirstName',
+        'teacherLastName',
+        'teacherMiddleName',
+        'teacherEducation',
+        'teacherCourses',
+        'teacherAboutMe'
+    ];
+    fields.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !enableEdit;
+    });
+}
+
+async function saveTeacherFullProfile() {
+    const teacherId = getCurrentTeacherId();
+    if (!teacherId) return;
+
+    const payload = {
+        avatarUrl: document.getElementById('teacherAvatarUrl')?.value || '',
+        firstName: document.getElementById('teacherFirstName')?.value || '',
+        lastName: document.getElementById('teacherLastName')?.value || '',
+        middleName: document.getElementById('teacherMiddleName')?.value || '',
+        education: document.getElementById('teacherEducation')?.value || '',
+        professionalCourses: document.getElementById('teacherCourses')?.value || '',
+        aboutMe: document.getElementById('teacherAboutMe')?.value || '',
+        timezone: document.getElementById('teacherProfileTimezoneSelect')?.value || document.body.getAttribute('data-user-timezone')
+    };
+
+    try {
+        const response = await fetch(`/api/profile/${teacherId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Ошибка сохранения');
+        showToast('Профиль преподавателя сохранён', 'success');
+        updateTeacherAvatarPreview(payload.avatarUrl);
+        toggleTeacherProfileEdit(false);
+    } catch (error) {
+        showToast(error.message || 'Не удалось сохранить профиль', 'error');
+    }
+}
+
+async function openStudentProfileModal(studentId) {
+    const modal = document.getElementById('teacherStudentProfileModal');
+    const body = document.getElementById('teacherStudentProfileBody');
+    if (!modal || !body) return;
+
+    body.innerHTML = '<div style="text-align:center;padding:1rem;"><span class="loading"></span> Загрузка...</div>';
+    modal.classList.add('show');
+
+    try {
+        const response = await fetch(`/api/profile/${studentId}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Не удалось загрузить профиль ученика');
+        const profile = data.profile || {};
+        const results = data.basicTestResults || [];
+
+        body.innerHTML = `
+            <div class="profile-modal-layout">
+                <div class="profile-modal-head">
+                    <div class="profile-modal-avatar">${profile.avatarUrl ? `<img src="${profile.avatarUrl}" alt="avatar">` : '<i class="fas fa-user-graduate"></i>'}</div>
+                    <div>
+                        <h3>${escapeHtml(profile.displayName || 'Ученик')}</h3>
+                        <p>${escapeHtml(profile.email || '')}</p>
+                    </div>
+                </div>
+                <div class="profile-modal-grid">
+                    <div><strong>ФИО:</strong> ${escapeHtml([profile.lastName, profile.firstName, profile.middleName].filter(Boolean).join(' ') || profile.displayName || '—')}</div>
+                    <div><strong>Часовой пояс:</strong> ${escapeHtml(profile.timezone || '—')}</div>
+                </div>
+                <div class="profile-modal-results">
+                    <h4>Базовые тесты</h4>
+                    ${results.length ? results.map((row) => `
+                        <div class="profile-result-row">
+                            <span>${escapeHtml(row.templateTitle || 'Тест')}</span>
+                            <span>${Number(row.scorePercentage || 0).toFixed(1)}%</span>
+                        </div>
+                    `).join('') : '<p style="color:#64748b;">Результатов пока нет</p>'}
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        body.innerHTML = `<div style="color:#ef4444;">${escapeHtml(error.message || 'Ошибка')}</div>`;
+    }
+}
+
+function closeStudentProfileModal() {
+    document.getElementById('teacherStudentProfileModal')?.classList.remove('show');
+}
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 function initTeacherProfileTimezone() {
     var select = document.getElementById('teacherProfileTimezoneSelect');
     if (!select) return;
@@ -4645,6 +4871,38 @@ function initTeacherProfileTimezone() {
         }
         if (tz === currentTz) opt.selected = true;
         select.appendChild(opt);
+    }
+
+    const fileInput = document.getElementById('teacherAvatarFile');
+    const dropzone = document.getElementById('teacherAvatarDropzone');
+
+    if (fileInput && !fileInput.dataset.boundUpload) {
+        fileInput.addEventListener('change', function() {
+            const file = this.files && this.files[0];
+            if (file) uploadTeacherAvatar(file);
+            this.value = '';
+        });
+        fileInput.dataset.boundUpload = '1';
+    }
+
+    if (dropzone && !dropzone.dataset.boundUpload) {
+        dropzone.addEventListener('click', function() {
+            fileInput?.click();
+        });
+        dropzone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+        dropzone.addEventListener('dragleave', function() {
+            dropzone.classList.remove('dragover');
+        });
+        dropzone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            const file = e.dataTransfer?.files?.[0];
+            if (file) uploadTeacherAvatar(file);
+        });
+        dropzone.dataset.boundUpload = '1';
     }
 }
 
@@ -4687,7 +4945,7 @@ function saveTeacherProfileTimezone() {
 
 // Инициализируем при загрузке
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initTeacherProfileTimezone);
+    document.addEventListener('DOMContentLoaded', initTeacherProfileSection);
 } else {
-    initTeacherProfileTimezone();
+    initTeacherProfileSection();
 }

@@ -545,31 +545,76 @@
             <!-- Вкладка: Настройки профиля -->
             <div id="profile-tab" class="dashboard-tab">
                 <div class="profile-header">
-                    <h2>Настройки профиля</h2>
-                    <p class="profile-subtitle">Управляйте своими данными и настройками</p>
+                    <h2>Профиль ученика</h2>
+                    <p class="profile-subtitle">Заполните профиль и отслеживайте результаты базовых тестов</p>
                 </div>
                 
-                <div class="profile-content" style="max-width: 600px;">
-                    <!-- Часовой пояс -->
-                    <div style="background: white; border-radius: 16px; padding: 1.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.06);">
-                        <h3 style="margin: 0 0 0.5rem; font-size: 1.1rem; color: #1e293b;">
-                            <i class="fas fa-clock" style="color: #f59e0b; margin-right: 0.5rem;"></i>
-                            Часовой пояс
-                        </h3>
-                        <p style="margin: 0 0 1rem; color: #64748b; font-size: 0.9rem;">
-                            Выберите ваш город, чтобы время уроков отображалось корректно
-                        </p>
-                        <select id="profileTimezoneSelect" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 1rem; background: white; margin-bottom: 1rem;">
-                        </select>
-                        <button onclick="saveProfileTimezone()" style="
-                            padding: 0.75rem 1.5rem; border-radius: 10px; font-weight: 700;
-                            background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white;
-                            border: none; cursor: pointer; font-size: 0.95rem;
-                            transition: transform 0.2s ease, box-shadow 0.2s ease;
-                        " onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
-                            <i class="fas fa-save"></i> Сохранить
+                <div class="profile-editor-card">
+                    <div class="profile-avatar-line">
+                        <div class="profile-avatar-preview" id="studentAvatarPreview">
+                            <i class="fas fa-user-graduate"></i>
+                        </div>
+                        <div class="profile-avatar-fields">
+                            <label for="studentAvatarFile">Фото профиля</label>
+                            <div class="avatar-dropzone" id="studentAvatarDropzone">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <span>Перетащите фото сюда или нажмите для выбора</span>
+                            </div>
+                            <input id="studentAvatarFile" type="file" accept="image/*" style="display:none;">
+                            <input id="studentAvatarUrl" type="text" placeholder="/profile-images/..." readonly>
+                        </div>
+                    </div>
+
+                    <div class="profile-grid-3">
+                        <div class="form-group">
+                            <label for="studentLastName">Фамилия</label>
+                            <input id="studentLastName" type="text" placeholder="Иванов">
+                        </div>
+                        <div class="form-group">
+                            <label for="studentFirstName">Имя</label>
+                            <input id="studentFirstName" type="text" placeholder="Иван">
+                        </div>
+                        <div class="form-group">
+                            <label for="studentMiddleName">Отчество</label>
+                            <input id="studentMiddleName" type="text" placeholder="Иванович">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="profileTimezoneSelect">Часовой пояс</label>
+                        <select id="profileTimezoneSelect"></select>
+                    </div>
+
+                    <div class="profile-actions-row">
+                        <button class="lesson-btn secondary" onclick="toggleStudentProfileEdit(true)">
+                            <i class="fas fa-pen"></i>
+                            Редактировать профиль
                         </button>
-                        <span id="tzSaveStatus" style="margin-left: 0.75rem; color: #10b981; font-weight: 600; display: none;"></span>
+                        <button class="lesson-btn primary" onclick="saveStudentFullProfile()">
+                            <i class="fas fa-save"></i>
+                            Сохранить профиль
+                        </button>
+                        <button class="lesson-btn warning" onclick="saveProfileTimezone()">
+                            <i class="fas fa-clock"></i>
+                            Изменить часовой пояс
+                        </button>
+                        <span id="tzSaveStatus" class="profile-save-status"></span>
+                    </div>
+                </div>
+
+                <div class="student-basic-results-card">
+                    <div class="teacher-tests-header" style="margin-bottom:1rem;">
+                        <div>
+                            <h2>Результаты базовых тестов</h2>
+                            <p class="teacher-tests-subtitle">Эти результаты видят администратор и преподаватель для оценки стартового уровня.</p>
+                        </div>
+                    </div>
+                    <div id="studentProfileBasicResults" class="teacher-results-list">
+                        <div class="empty-state">
+                            <i class="fas fa-clipboard-list"></i>
+                            <h3>Результатов пока нет</h3>
+                            <p>После прохождения базовых тестов результаты появятся здесь.</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -613,6 +658,18 @@
                     <span id="studentTestResult" class="student-test-result"></span>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div id="studentTeacherProfileModal" class="modal">
+        <div class="modal-content" style="max-width: 760px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-chalkboard-teacher"></i> Профиль преподавателя</h3>
+                <button class="modal-close" onclick="closeTeacherProfileModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="studentTeacherProfileBody"></div>
         </div>
     </div>
 </body>

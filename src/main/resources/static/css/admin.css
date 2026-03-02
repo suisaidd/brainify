@@ -1067,3 +1067,45 @@ body {
     background: #fef3c7;
     color: #d97706;
 }
+
+.profile-edit-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+}
+
+.profile-edit-grid .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.profile-edit-grid label {
+    font-weight: 600;
+    color: #334155;
+}
+
+.profile-edit-grid input,
+.profile-edit-grid textarea {
+    border: 1.5px solid #dbe3ef;
+    border-radius: 10px;
+    padding: 0.6rem 0.75rem;
+    font-family: inherit;
+}
+
+.admin-profile-result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.55rem 0.75rem;
+    margin-top: 0.45rem;
+    background: #f8fafc;
+}
+
+@media (max-width: 768px) {
+    .profile-edit-grid {
+        grid-template-columns: 1fr;
+    }
+}

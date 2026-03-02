@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadStudentData();
     setupEventListeners();
     initializeStudentTestModal();
+    initStudentProfileSection();
 });
 
 let studentScheduleLessons = [];
@@ -417,6 +418,13 @@ function createLessonElement(lesson) {
             </button>
         `;
     }
+
+    const teacherProfileButtonHtml = lesson.teacherId ? `
+        <button class="lesson-btn secondary" onclick="openTeacherProfileModal(${lesson.teacherId})">
+            <i class="fas fa-user"></i>
+            Профиль преподавателя
+        </button>
+    ` : '';
     
     const statusBadgeHtml = statusClass === 'overdue' ? '' : `
         <div class="lesson-status-badge ${statusClass}">
@@ -457,6 +465,7 @@ function createLessonElement(lesson) {
         
         <div class="lesson-actions">
             ${actionButtonHtml}
+            ${teacherProfileButtonHtml}
         </div>
     `;
     
@@ -1160,6 +1169,257 @@ function getTabTitle(tabId) {
     };
     
     return titles[tabId] || 'Главная';
+}
+
+function toggleStudentProfileEdit(enableEdit) {
+    const fields = ['studentAvatarUrl', 'studentLastName', 'studentFirstName', 'studentMiddleName'];
+    fields.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !enableEdit;
+    });
+}
+
+function updateStudentAvatarPreview(url) {
+    const preview = document.getElementById('studentAvatarPreview');
+    if (!preview) return;
+    const safeUrl = (url || '').trim();
+    if (!safeUrl) {
+        preview.innerHTML = '<i class="fas fa-user-graduate"></i>';
+        return;
+    }
+    preview.innerHTML = `<img src="${safeUrl}" alt="avatar" onerror="this.parentElement.innerHTML='<i class=&quot;fas fa-user-graduate&quot;></i>'">`;
+}
+
+async function uploadStudentAvatar(file) {
+    const studentId = document.body.getAttribute('data-student-id');
+    if (!studentId || !file) return;
+    if (!file.type.startsWith('image/')) {
+        showToast('Можно загрузить только изображение', 'warning');
+        return;
+    }
+
+    const compressed = await compressAvatarImage(file);
+    const formData = new FormData();
+    formData.append('file', compressed || file);
+
+    try {
+        const response = await fetch(`/api/profile/${studentId}/avatar`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Ошибка загрузки фото');
+        const avatarUrlInput = document.getElementById('studentAvatarUrl');
+        if (avatarUrlInput) avatarUrlInput.value = data.avatarUrl || '';
+        updateStudentAvatarPreview(data.avatarUrl || '');
+        showToast('Фото профиля сохранено', 'success');
+    } catch (error) {
+        showToast(error.message || 'Не удалось загрузить фото', 'error');
+    }
+}
+
+function compressAvatarImage(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                const maxSide = 1200;
+                let width = img.width;
+                let height = img.height;
+                if (Math.max(width, height) > maxSide) {
+                    const ratio = maxSide / Math.max(width, height);
+                    width = Math.round(width * ratio);
+                    height = Math.round(height * ratio);
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    resolve(file);
+                    return;
+                }
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        resolve(file);
+                        return;
+                    }
+                    const compressedFile = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+                    resolve(compressedFile.size < file.size ? compressedFile : file);
+                }, 'image/jpeg', 0.78);
+            };
+            img.onerror = () => resolve(file);
+            img.src = typeof reader.result === 'string' ? reader.result : '';
+        };
+        reader.onerror = () => resolve(file);
+        reader.readAsDataURL(file);
+    });
+}
+
+function renderStudentProfileBasicResults(results) {
+    const container = document.getElementById('studentProfileBasicResults');
+    if (!container) return;
+    if (!results || !results.length) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-clipboard-list"></i>
+                <h3>Результатов пока нет</h3>
+                <p>После прохождения базовых тестов результаты появятся здесь.</p>
+            </div>`;
+        return;
+    }
+    container.innerHTML = results.map((row) => `
+        <div class="teacher-test-row">
+            <div class="teacher-test-main">
+                <strong>${escapeHtml(row.templateTitle || 'Базовый тест')}</strong>
+                <span>${escapeHtml(row.subjectName || '')}</span>
+            </div>
+            <div class="teacher-test-meta">
+                <span><i class="fas fa-check-circle"></i> ${row.correctAnswers || 0}/${row.totalQuestions || 0}</span>
+                <span><i class="fas fa-chart-line"></i> ${Number(row.scorePercentage || 0).toFixed(1)}%</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function initStudentProfileSection() {
+    initProfileTimezone();
+    const studentId = document.body.getAttribute('data-student-id');
+    if (!studentId) return;
+
+    try {
+        const response = await fetch(`/api/profile/${studentId}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Не удалось загрузить профиль');
+
+        const profile = data.profile || {};
+        document.getElementById('studentAvatarUrl').value = profile.avatarUrl || '';
+        document.getElementById('studentLastName').value = profile.lastName || '';
+        document.getElementById('studentFirstName').value = profile.firstName || '';
+        document.getElementById('studentMiddleName').value = profile.middleName || '';
+        updateStudentAvatarPreview(profile.avatarUrl || '');
+        const fileInput = document.getElementById('studentAvatarFile');
+        const dropzone = document.getElementById('studentAvatarDropzone');
+        if (fileInput && !fileInput.dataset.boundUpload) {
+            fileInput.addEventListener('change', function() {
+                const file = this.files && this.files[0];
+                if (file) uploadStudentAvatar(file);
+                this.value = '';
+            });
+            fileInput.dataset.boundUpload = '1';
+        }
+        if (dropzone && !dropzone.dataset.boundUpload) {
+            dropzone.addEventListener('click', function() {
+                fileInput?.click();
+            });
+            dropzone.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                dropzone.classList.add('dragover');
+            });
+            dropzone.addEventListener('dragleave', function() {
+                dropzone.classList.remove('dragover');
+            });
+            dropzone.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+                const file = e.dataTransfer?.files?.[0];
+                if (file) uploadStudentAvatar(file);
+            });
+            dropzone.dataset.boundUpload = '1';
+        }
+        renderStudentProfileBasicResults(data.basicTestResults || []);
+
+        if (profile.timezone) {
+            const tz = document.getElementById('profileTimezoneSelect');
+            if (tz) tz.value = profile.timezone;
+        }
+        toggleStudentProfileEdit(false);
+    } catch (error) {
+        console.error('Ошибка инициализации профиля ученика:', error);
+    }
+}
+
+async function saveStudentFullProfile() {
+    const studentId = document.body.getAttribute('data-student-id');
+    if (!studentId) return;
+
+    const payload = {
+        avatarUrl: document.getElementById('studentAvatarUrl')?.value || '',
+        lastName: document.getElementById('studentLastName')?.value || '',
+        firstName: document.getElementById('studentFirstName')?.value || '',
+        middleName: document.getElementById('studentMiddleName')?.value || '',
+        timezone: document.getElementById('profileTimezoneSelect')?.value || document.body.getAttribute('data-user-timezone')
+    };
+
+    try {
+        const response = await fetch(`/api/profile/${studentId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Ошибка сохранения');
+        showToast('Профиль ученика сохранён', 'success');
+        toggleStudentProfileEdit(false);
+        updateStudentAvatarPreview(payload.avatarUrl);
+    } catch (error) {
+        showToast(error.message || 'Не удалось сохранить профиль', 'error');
+    }
+}
+
+async function openTeacherProfileModal(teacherId) {
+    const modal = document.getElementById('studentTeacherProfileModal');
+    const body = document.getElementById('studentTeacherProfileBody');
+    if (!modal || !body) return;
+
+    body.innerHTML = '<div style="text-align:center;padding:1rem;"><span class="loading"></span> Загрузка...</div>';
+    modal.classList.add('show');
+
+    try {
+        const response = await fetch(`/api/profile/${teacherId}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Не удалось загрузить профиль преподавателя');
+        const profile = data.profile || {};
+        body.innerHTML = `
+            <div class="profile-modal-layout">
+                <div class="profile-modal-head">
+                    <div class="profile-modal-avatar">${profile.avatarUrl ? `<img src="${profile.avatarUrl}" alt="avatar">` : '<i class="fas fa-chalkboard-teacher"></i>'}</div>
+                    <div>
+                        <h3>${escapeHtml(profile.displayName || 'Преподаватель')}</h3>
+                        <p>${escapeHtml(profile.email || '')}</p>
+                    </div>
+                </div>
+                <div class="profile-modal-grid">
+                    <div><strong>ФИО:</strong> ${escapeHtml([profile.lastName, profile.firstName, profile.middleName].filter(Boolean).join(' ') || profile.displayName || '—')}</div>
+                    <div><strong>Часовой пояс:</strong> ${escapeHtml(profile.timezone || '—')}</div>
+                </div>
+                <div style="margin-top:1rem;">
+                    <p><strong>Образование:</strong> ${escapeHtml(profile.education || '—')}</p>
+                    <p><strong>Проф. курсы:</strong> ${escapeHtml(profile.professionalCourses || '—')}</p>
+                    <p><strong>О себе:</strong> ${escapeHtml(profile.aboutMe || '—')}</p>
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        body.innerHTML = `<div style="color:#ef4444;">${escapeHtml(error.message || 'Ошибка')}</div>`;
+    }
+}
+
+function closeTeacherProfileModal() {
+    document.getElementById('studentTeacherProfileModal')?.classList.remove('show');
+}
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 // Утилиты
