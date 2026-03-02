@@ -336,6 +336,94 @@ public class MainController {
             return ResponseEntity.badRequest().body(error);
         }
     }
+
+    @PostMapping("/api/student/lessons/{lessonId}/reschedule")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> rescheduleStudentLesson(
+            @PathVariable Long lessonId,
+            @RequestBody Map<String, Object> payload,
+            HttpSession session) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            User currentUser = sessionManager.getCurrentUser(session);
+            if (currentUser == null) {
+                response.put("success", false);
+                response.put("message", "Пользователь не авторизован");
+                return ResponseEntity.status(401).body(response);
+            }
+            if (!currentUser.getRole().equals(UserRole.STUDENT)) {
+                response.put("success", false);
+                response.put("message", "Доступ запрещен");
+                return ResponseEntity.status(403).body(response);
+            }
+
+            Optional<Lesson> lessonOpt = lessonRepository.findById(lessonId);
+            if (lessonOpt.isEmpty()) {
+                response.put("success", false);
+                response.put("message", "Урок не найден");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            Lesson lesson = lessonOpt.get();
+            if (lesson.getStudent() == null || !lesson.getStudent().getId().equals(currentUser.getId())) {
+                response.put("success", false);
+                response.put("message", "Урок не принадлежит этому ученику");
+                return ResponseEntity.status(403).body(response);
+            }
+            if (!Lesson.LessonStatus.SCHEDULED.equals(lesson.getStatus())) {
+                response.put("success", false);
+                response.put("message", "Перенос доступен только для запланированных уроков");
+                return ResponseEntity.badRequest().body(response);
+            }
+            if (lesson.getLessonDate() == null || lesson.getLessonDate().isBefore(TimezoneUtils.nowUtc())) {
+                response.put("success", false);
+                response.put("message", "Нельзя перенести прошедший урок");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            Object newDateObj = payload.get("newDateIso");
+            if (newDateObj == null) {
+                response.put("success", false);
+                response.put("message", "Не указана новая дата урока");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            String newDateIso = String.valueOf(newDateObj).trim();
+            LocalDateTime newDateUtc;
+            try {
+                newDateUtc = java.time.OffsetDateTime.parse(newDateIso)
+                        .withOffsetSameInstant(java.time.ZoneOffset.UTC)
+                        .toLocalDateTime();
+            } catch (Exception e) {
+                response.put("success", false);
+                response.put("message", "Неверный формат даты");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            if (newDateUtc.isBefore(TimezoneUtils.nowUtc())) {
+                response.put("success", false);
+                response.put("message", "Новая дата должна быть в будущем");
+                return ResponseEntity.badRequest().body(response);
+            }
+            if (newDateUtc.equals(lesson.getLessonDate())) {
+                response.put("success", false);
+                response.put("message", "Укажите дату, отличную от текущей");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            lesson.setLessonDate(newDateUtc);
+            lessonRepository.save(lesson);
+
+            response.put("success", true);
+            response.put("message", "Урок успешно перенесён");
+            response.put("newDate", TimezoneUtils.toIsoUtcString(newDateUtc));
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Ошибка переноса урока: " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
+    }
     
     // API для получения данных преподавателя для дашборда
     @GetMapping("/api/teacher/dashboard-data")

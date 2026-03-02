@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadStudentData();
     setupEventListeners();
     initializeStudentTestModal();
+    initializeTeacherProfileModal();
     initStudentProfileSection();
 });
 
@@ -360,71 +361,30 @@ function createLessonElement(lesson) {
         statusIcon = '';
     }
     
-    const fifteenMinutesBefore = new Date(lessonDate.getTime() - 15 * 60 * 1000);
     const oneHourAfter = new Date(lessonDate.getTime() + 60 * 60 * 1000);
-    const minutesUntilStart = Math.floor((lessonDate.getTime() - now.getTime()) / 60000);
+    const isScheduled = lesson.status === 'SCHEDULED';
+    const isFinishedByTime = now > oneHourAfter;
+    const canManageLesson = isScheduled && !isFinishedByTime;
+    const canJoinLesson = isScheduled && !isFinishedByTime;
 
-    let actionButtonHtml = '';
-
-    if (lesson.status === 'SCHEDULED') {
-        if (minutesUntilStart > 60) {
-            actionButtonHtml = `
-                <button class="lesson-btn secondary disabled" disabled>
-                    <i class="fas fa-video"></i>
-                    Подключиться к занятию
-                </button>
-            `;
-        } else if (minutesUntilStart > 15) {
-            actionButtonHtml = `
-                <button class="lesson-btn secondary" disabled>
-                    <i class="fas fa-clock"></i>
-                    Доступно за 15 минут до начала
-                </button>
-            `;
-        } else if (minutesUntilStart >= -60) {
-            actionButtonHtml = `
-                <button class="lesson-btn primary" onclick="joinLesson(${lesson.id})">
-                    <i class="fas fa-video"></i>
-                    Подключиться к занятию
-                </button>
-            `;
-        } else {
-            actionButtonHtml = `
-                <button class="lesson-btn secondary" disabled>
-                    <i class="fas fa-check"></i>
-                    Урок завершен
-                </button>
-            `;
-        }
-    } else if (lesson.status === 'COMPLETED') {
-        actionButtonHtml = `
-            <button class="lesson-btn success" disabled>
-                <i class="fas fa-check"></i>
-                Завершён
-            </button>
-        `;
-    } else if (lesson.status === 'CANCELLED') {
-        actionButtonHtml = `
-            <button class="lesson-btn danger" disabled>
-                <i class="fas fa-times"></i>
-                Отменён
-            </button>
-        `;
-    } else {
-        actionButtonHtml = `
-            <button class="lesson-btn secondary" disabled>
-                <i class="fas fa-clock"></i>
-                Урок завершен
-            </button>
-        `;
-    }
-
-    const teacherProfileButtonHtml = lesson.teacherId ? `
-        <button class="lesson-btn secondary" onclick="openTeacherProfileModal(${lesson.teacherId})">
-            <i class="fas fa-user"></i>
-            Профиль преподавателя
+    const actionButtonHtml = `
+        <button class="lesson-btn danger" ${canManageLesson ? `onclick="cancelStudentLesson(${lesson.id})"` : 'disabled'}>
+            <i class="fas fa-times"></i>
+            Отменить
         </button>
-    ` : '';
+        <button class="lesson-btn warning" ${canManageLesson ? `onclick="rescheduleStudentLesson(${lesson.id})"` : 'disabled'}>
+            <i class="fas fa-calendar-alt"></i>
+            Перенести
+        </button>
+        <button class="lesson-btn primary" ${canJoinLesson ? `onclick="joinLesson(${lesson.id})"` : 'disabled'}>
+            <i class="fas fa-video"></i>
+            Подключиться к занятию
+        </button>
+    `;
+
+    const teacherHtml = lesson.teacherId
+        ? `<button type="button" class="lesson-teacher-link" onclick="openTeacherProfileModal(${lesson.teacherId})">${escapeHtml(lesson.teacherName || 'Преподаватель')}</button>`
+        : `<span>${escapeHtml(lesson.teacherName || 'Преподаватель')}</span>`;
     
     const statusBadgeHtml = statusClass === 'overdue' ? '' : `
         <div class="lesson-status-badge ${statusClass}">
@@ -452,7 +412,7 @@ function createLessonElement(lesson) {
                 </div>
                 <div class="lesson-student">
                     <i class="fas fa-chalkboard-teacher"></i>
-                    ${lesson.teacherName}
+                    ${teacherHtml}
                 </div>
             </div>
             <div class="lesson-time lesson-time-display">
@@ -465,11 +425,75 @@ function createLessonElement(lesson) {
         
         <div class="lesson-actions">
             ${actionButtonHtml}
-            ${teacherProfileButtonHtml}
         </div>
     `;
     
     return lessonDiv;
+}
+
+async function cancelStudentLesson(lessonId) {
+    if (!confirm('Отменить это занятие?')) return;
+    try {
+        const formData = new URLSearchParams();
+        formData.set('lessonId', String(lessonId));
+        const response = await fetch('/schedule/lesson/cancel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData.toString()
+        });
+        const message = await response.text();
+        if (!response.ok) {
+            throw new Error(message || 'Не удалось отменить занятие');
+        }
+        showToast('Занятие отменено', 'success');
+        await loadStudentLessons();
+        await loadStudentSchedule();
+        await loadStudentStats();
+    } catch (error) {
+        showToast(error.message || 'Ошибка отмены занятия', 'error');
+    }
+}
+
+function parseRescheduleInputToIso(value) {
+    const normalized = String(value || '').trim().replace(/\s+/, ' ');
+    const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/);
+    if (!match) return null;
+    const [, y, m, d, hh, mm] = match;
+    const localDate = new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), 0, 0);
+    if (Number.isNaN(localDate.getTime())) return null;
+    return localDate.toISOString();
+}
+
+async function rescheduleStudentLesson(lessonId) {
+    const dateInput = prompt('Введите новую дату и время в формате YYYY-MM-DD HH:MM');
+    if (!dateInput) return;
+    const isoDate = parseRescheduleInputToIso(dateInput);
+    if (!isoDate) {
+        showToast('Неверный формат даты. Пример: 2026-03-10 14:30', 'warning');
+        return;
+    }
+    const reason = prompt('Причина переноса (необязательно)') || '';
+
+    try {
+        const response = await fetch(`/api/student/lessons/${lessonId}/reschedule`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                newDateIso: isoDate,
+                reason: reason
+            })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error((data && (data.message || data.error)) || 'Не удалось перенести занятие');
+        }
+        showToast('Занятие успешно перенесено', 'success');
+        await loadStudentLessons();
+        await loadStudentSchedule();
+        await loadStudentStats();
+    } catch (error) {
+        showToast(error.message || 'Ошибка переноса занятия', 'error');
+    }
 }
 
 // Загрузка тестов ученика
@@ -1378,6 +1402,7 @@ async function openTeacherProfileModal(teacherId) {
 
     body.innerHTML = '<div style="text-align:center;padding:1rem;"><span class="loading"></span> Загрузка...</div>';
     modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
 
     try {
         const response = await fetch(`/api/profile/${teacherId}`);
@@ -1410,7 +1435,31 @@ async function openTeacherProfileModal(teacherId) {
 }
 
 function closeTeacherProfileModal() {
-    document.getElementById('studentTeacherProfileModal')?.classList.remove('show');
+    const modal = document.getElementById('studentTeacherProfileModal');
+    if (!modal) return;
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden', 'true');
+}
+
+function initializeTeacherProfileModal() {
+    const modal = document.getElementById('studentTeacherProfileModal');
+    if (!modal) return;
+
+    // Гарантируем, что модалка не открывается сама при загрузке страницы.
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden', 'true');
+
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            closeTeacherProfileModal();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && modal.classList.contains('show')) {
+            closeTeacherProfileModal();
+        }
+    });
 }
 
 function escapeHtml(value) {
